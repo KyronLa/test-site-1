@@ -1,0 +1,53 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "A research peptide or compound available for purchase.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "The name of the peptide." },
+        "price": { "type": "number", "description": "The price in USD." },
+        "category": { "type": "string", "description": "The category of the compound." },
+        "image": { "type": "string", "description": "URL to the product image." },
+        "description": { "type": "string", "description": "Detailed research description." },
+        "purity": { "type": "string", "description": "Guaranteed purity level (e.g., 99%+)." },
+        "size": { "type": "string", "description": "Vial size (e.g., 5mg)." }
+      },
+      "required": ["name", "price", "category", "image"]
+    },
+    "User": {
+      "title": "User",
+      "description": "A customer account.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "format": "email" },
+        "firstName": { "type": "string" },
+        "lastName": { "type": "string" },
+        "phone": { "type": "string" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "admin"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "lastLogin": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "firstName", "lastName"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "A purchase record.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "items": { "type": "array", "items": { "type": "object" } },
+        "total": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "paid", "shipped"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "items", "total", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/products": { "schema": "Product", "description": "Collection of available research compounds." },
+    "/users": { "schema": "User", "description": "User profile data." },
+    "/orders": { "schema": "Order", "description": "Customer order history." }
+  }
+}
