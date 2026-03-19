@@ -42,7 +42,9 @@ service cloud.firestore {
       return data.email is string &&
              data.firstName is string && data.firstName.size() > 0 &&
              data.lastName is string && data.lastName.size() > 0 &&
-             (!('phone' in data) || data.phone == null || data.phone is string);
+             (!('phone' in data) || data.phone == null || data.phone is string) &&
+             (!('addresses' in data) || data.addresses is list) &&
+             (!('rewardPoints' in data) || data.rewardPoints is number);
     }
 
     // Rules

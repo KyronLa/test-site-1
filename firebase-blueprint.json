@@ -27,7 +27,21 @@
         "displayName": { "type": "string" },
         "role": { "type": "string", "enum": ["user", "admin"] },
         "createdAt": { "type": "string", "format": "date-time" },
-        "lastLogin": { "type": "string", "format": "date-time" }
+        "lastLogin": { "type": "string", "format": "date-time" },
+        "addresses": { 
+          "type": "array", 
+          "items": { 
+            "type": "object",
+            "properties": {
+              "street": { "type": "string" },
+              "city": { "type": "string" },
+              "state": { "type": "string" },
+              "zip": { "type": "string" },
+              "isDefault": { "type": "boolean" }
+            }
+          } 
+        },
+        "rewardPoints": { "type": "number", "description": "Loyalty points balance." }
       },
       "required": ["email", "firstName", "lastName"]
     },
