@@ -1504,7 +1504,109 @@ const products: Product[] = [
   }
 ];
 
-const FeaturedProducts = ({ onAddToCart, onSelectProduct }: { onAddToCart: (product: Product) => void, onSelectProduct: (product: Product) => void }) => {
+const ProductCard: React.FC<{ 
+  product: Product, 
+  onAddToCart: (p: Product) => void, 
+  onSelect: (p: Product) => void,
+  variant?: 'default' | 'featured'
+}> = ({ 
+  product, 
+  onAddToCart, 
+  onSelect, 
+  variant = 'default' 
+}) => {
+  if (variant === 'featured') {
+    return (
+      <div 
+        className="group bg-white rounded-[2.5rem] border border-gray-100 overflow-hidden hover:shadow-xl transition-all cursor-pointer"
+        onClick={() => onSelect(product)}
+      >
+        <div className="aspect-[4/5] relative overflow-hidden bg-gray-50">
+          <img 
+            src={product.image} 
+            alt={product.name} 
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
+            referrerPolicy="no-referrer"
+          />
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              onAddToCart(product);
+            }}
+            className="absolute bottom-6 left-6 right-6 py-4 bg-black text-white font-bold rounded-2xl opacity-0 translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 flex items-center justify-center gap-2"
+          >
+            <Plus className="w-4 h-4" /> Add to Cart
+          </button>
+        </div>
+        <div className="p-8">
+          <h3 className="font-bold text-lg text-gray-900 mb-1">{product.name}</h3>
+          {product.dosage && (
+            <p className="text-emerald-600 text-[10px] font-bold uppercase tracking-wider mb-4">{product.dosage}</p>
+          )}
+          <span className="text-emerald-600 font-bold text-xl">${product.price.toFixed(2)}</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="group flex flex-col cursor-pointer"
+      onClick={() => onSelect(product)}
+    >
+      <div className="aspect-[4/5] overflow-hidden bg-white rounded-2xl border border-gray-100 relative mb-4">
+        <img 
+          src={product.image} 
+          alt={product.name} 
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
+          referrerPolicy="no-referrer"
+        />
+        <div className="absolute top-4 right-4">
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              onAddToCart(product);
+            }}
+            className="w-10 h-10 bg-white shadow-lg rounded-full flex items-center justify-center text-black hover:bg-black hover:text-white transition-all active:scale-90"
+          >
+            <Plus className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+      <div className="flex flex-col flex-1">
+        <h3 className="font-bold text-gray-900 mb-1 group-hover:text-emerald-600 transition-colors">{product.name}</h3>
+        <div className="flex items-center gap-2 mb-4">
+          <p className="text-gray-500 text-[10px] font-bold uppercase tracking-wider">99%+ Purity</p>
+          {product.dosage && (
+            <>
+              <span className="w-1 h-1 bg-gray-300 rounded-full" />
+              <p className="text-emerald-600 text-[10px] font-bold uppercase tracking-wider">{product.dosage}</p>
+            </>
+          )}
+        </div>
+        <div className="mt-auto space-y-4">
+          <p className="text-xl font-bold text-black">${product.price.toFixed(2)}</p>
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              onAddToCart(product);
+            }}
+            className="w-full py-3 bg-black text-white text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-emerald-600 transition-all active:scale-95 flex items-center justify-center gap-2"
+          >
+            <ShoppingCart className="w-4 h-4" /> Add to Cart
+          </button>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
+const FeaturedProducts: React.FC<{ 
+  onAddToCart: (product: Product) => void, 
+  onSelectProduct: (product: Product) => void 
+}> = ({ onAddToCart, onSelectProduct }) => {
   const featured = products.filter(p => ['2', '3', '10'].includes(p.id));
 
   return (
@@ -1517,34 +1619,139 @@ const FeaturedProducts = ({ onAddToCart, onSelectProduct }: { onAddToCart: (prod
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
         {featured.map((product) => (
-          <div 
-            key={product.id} 
-            className="group bg-white rounded-[2.5rem] border border-gray-100 overflow-hidden hover:shadow-xl transition-all cursor-pointer"
-            onClick={() => onSelectProduct(product as Product)}
-          >
-            <div className="aspect-[4/5] relative overflow-hidden bg-gray-50">
-              <img src={product.image} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
-              <button 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onAddToCart(product as Product);
-                }}
-                className="absolute bottom-6 left-6 right-6 py-4 bg-black text-white font-bold rounded-2xl opacity-0 translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 flex items-center justify-center gap-2"
-              >
-                <Plus className="w-4 h-4" /> Add to Cart
-              </button>
-            </div>
-            <div className="p-8">
-              <h3 className="font-bold text-lg text-gray-900 mb-1">{product.name}</h3>
-              {product.dosage && (
-                <p className="text-emerald-600 text-[10px] font-bold uppercase tracking-wider mb-4">{product.dosage}</p>
-              )}
-              <span className="text-emerald-600 font-bold text-xl">${product.price.toFixed(2)}</span>
-            </div>
-          </div>
+          <ProductCard 
+            key={product.id}
+            product={product}
+            onAddToCart={onAddToCart}
+            onSelect={onSelectProduct}
+            variant="featured"
+          />
         ))}
       </div>
     </section>
+  );
+};
+
+const ShopView: React.FC<{ 
+  onAddToCart: (p: Product) => void, 
+  onSelectProduct: (p: Product) => void 
+}> = ({ 
+  onAddToCart, 
+  onSelectProduct 
+}) => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [maxPrice, setMaxPrice] = useState(300);
+
+  const filteredProducts = products.filter(p => {
+    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         p.category.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesPrice = p.price <= maxPrice;
+    return matchesSearch && matchesPrice;
+  });
+
+  return (
+    <motion.div
+      key="shop"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      {/* Shop Header */}
+      <section className="relative bg-black py-32 overflow-hidden">
+        <div className="absolute inset-0 z-0">
+          <img 
+            src="https://images.unsplash.com/photo-1581093588401-fbb62a02f120?auto=format&fit=crop&q=80&w=2000" 
+            className="w-full h-full object-cover opacity-30"
+            alt="Shop Header"
+            referrerPolicy="no-referrer"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/60 to-black" />
+        </div>
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
+            <div>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="h-[1px] w-8 bg-emerald-500" />
+                <span className="text-emerald-500 font-bold tracking-[0.3em] text-[10px] uppercase">Research Catalog</span>
+              </div>
+              <h1 className="text-4xl md:text-6xl font-bold tracking-tight text-white mb-4">Shop All</h1>
+              <p className="text-gray-400 max-w-lg">
+                Browse our complete catalog of high-purity research compounds, synthesized for precision and reliability.
+              </p>
+            </div>
+            <div className="relative w-full max-w-md">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <input 
+                type="text" 
+                placeholder="Search products..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-white/10 border border-white/20 rounded-xl py-3 pl-12 pr-4 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all backdrop-blur-sm"
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div className="bg-amber-50 border-b border-amber-100 py-3 px-4">
+        <div className="max-w-7xl mx-auto flex items-center gap-3 text-amber-800">
+          <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+          <p className="text-[10px] md:text-xs font-bold uppercase tracking-wider">
+            Laboratory Research Use Only • Not for Human Consumption
+          </p>
+        </div>
+      </div>
+      
+      {/* Product Section */}
+      <section className="py-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex flex-col lg:flex-row gap-12">
+          {/* Sidebar Filter */}
+          <aside className="w-full lg:w-64 flex-shrink-0">
+            <div className="sticky top-32 space-y-8">
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400 mb-6">Filter by Price</h3>
+                <div className="space-y-4">
+                  <input 
+                    type="range" 
+                    min="0" 
+                    max="300" 
+                    step="1"
+                    value={maxPrice}
+                    onChange={(e) => setMaxPrice(Number(e.target.value))}
+                    className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
+                  />
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-gray-500">$0</span>
+                    <span className="text-sm font-bold text-black">Up to ${maxPrice.toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </aside>
+
+          {/* Product Grid */}
+          <div className="flex-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-10">
+              {filteredProducts.length > 0 ? (
+                filteredProducts.map((product) => (
+                  <ProductCard 
+                    key={product.id}
+                    product={product}
+                    onAddToCart={onAddToCart}
+                    onSelect={onSelectProduct}
+                  />
+                ))
+              ) : (
+                <div className="col-span-full py-32 text-center text-gray-400">
+                  <Search className="w-12 h-12 mx-auto mb-4 opacity-10" />
+                  <p className="text-sm font-medium">No compounds found matching your criteria.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+    </motion.div>
   );
 };
 
@@ -2075,7 +2282,7 @@ const ProductDetailView = ({ product, onAddToCart, onBack, onSelectProduct }: { 
           animate={{ opacity: 1, x: 0 }}
           className="aspect-[4/5] rounded-[2.5rem] overflow-hidden bg-white border border-gray-100 shadow-sm"
         >
-          <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+          <img src={product.image} alt={product.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
         </motion.div>
 
         {/* Product Info */}
@@ -2203,7 +2410,7 @@ const ProductDetailView = ({ product, onAddToCart, onBack, onSelectProduct }: { 
                 onClick={() => onSelectProduct(rec)}
               >
                 <div className="aspect-square rounded-3xl overflow-hidden bg-gray-50 border border-gray-100 mb-6 relative">
-                  <img src={rec.image} alt={rec.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                  <img src={rec.image} alt={rec.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" referrerPolicy="no-referrer" />
                   {rec.dosage && (
                     <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full border border-gray-100">
                       <span className="text-[10px] font-bold text-gray-900">{rec.dosage}</span>
@@ -2227,17 +2434,8 @@ const AppContent = () => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [maxPrice, setMaxPrice] = useState(300);
   const [editingOrder, setEditingOrder] = useState<any>(null);
   const { user, isAdmin } = useAuth();
-
-  const filteredProducts = products.filter(p => {
-    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         p.category.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesPrice = p.price <= maxPrice;
-    return matchesSearch && matchesPrice;
-  });
 
   const addToCart = (product: Product, quantity: number = 1) => {
     setCart(prev => {
@@ -2379,155 +2577,14 @@ const AppContent = () => {
           )}
 
           {view === 'shop' && (
-            <motion.div
-              key="shop"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-            >
-              {/* Shop Header */}
-              <section className="relative bg-black py-32 overflow-hidden">
-                <div className="absolute inset-0 z-0">
-                  <img 
-                    src="https://images.unsplash.com/photo-1581093588401-fbb62a02f120?auto=format&fit=crop&q=80&w=2000" 
-                    className="w-full h-full object-cover opacity-30"
-                    alt="Shop Header"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-b from-black/60 to-black" />
-                </div>
-                <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
-                    <div>
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className="h-[1px] w-8 bg-emerald-500" />
-                        <span className="text-emerald-500 font-bold tracking-[0.3em] text-[10px] uppercase">Research Catalog</span>
-                      </div>
-                      <h1 className="text-4xl md:text-6xl font-bold tracking-tight text-white mb-4">Shop All</h1>
-                      <p className="text-gray-400 max-w-lg">
-                        Browse our complete catalog of high-purity research compounds, synthesized for precision and reliability.
-                      </p>
-                    </div>
-                    <div className="relative w-full max-w-md">
-                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-                      <input 
-                        type="text" 
-                        placeholder="Search products..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full bg-white/10 border border-white/20 rounded-xl py-3 pl-12 pr-4 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all backdrop-blur-sm"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </section>
-
-              <div className="bg-amber-50 border-b border-amber-100 py-3 px-4">
-                <div className="max-w-7xl mx-auto flex items-center gap-3 text-amber-800">
-                  <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-                  <p className="text-[10px] md:text-xs font-bold uppercase tracking-wider">
-                    Laboratory Research Use Only • Not for Human Consumption
-                  </p>
-                </div>
-              </div>
-              
-              {/* Product Section */}
-              <section className="py-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="flex flex-col lg:flex-row gap-12">
-                  {/* Sidebar Filter */}
-                  <aside className="w-full lg:w-64 flex-shrink-0">
-                    <div className="sticky top-32 space-y-8">
-                      <div>
-                        <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400 mb-6">Filter by Price</h3>
-                        <div className="space-y-4">
-                          <input 
-                            type="range" 
-                            min="0" 
-                            max="300" 
-                            step="1"
-                            value={maxPrice}
-                            onChange={(e) => setMaxPrice(Number(e.target.value))}
-                            className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
-                          />
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm font-medium text-gray-500">$0</span>
-                            <span className="text-sm font-bold text-black">Up to ${maxPrice.toFixed(2)}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </aside>
-
-                  {/* Product Grid */}
-                  <div className="flex-1">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-10">
-                      {filteredProducts.length > 0 ? (
-                        filteredProducts.map((product) => (
-                          <motion.div 
-                            key={product.id}
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="group flex flex-col cursor-pointer"
-                            onClick={() => {
-                              setSelectedProduct(product);
-                              setView('product');
-                              window.scrollTo(0, 0);
-                            }}
-                          >
-                            <div className="aspect-[4/5] overflow-hidden bg-white rounded-2xl border border-gray-100 relative mb-4">
-                              <img 
-                                src={product.image} 
-                                alt={product.name} 
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
-                              />
-                              <div className="absolute top-4 right-4">
-                                <button 
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    addToCart(product);
-                                  }}
-                                  className="w-10 h-10 bg-white shadow-lg rounded-full flex items-center justify-center text-black hover:bg-black hover:text-white transition-all active:scale-90"
-                                >
-                                  <Plus className="w-5 h-5" />
-                                </button>
-                              </div>
-                            </div>
-                            <div className="flex flex-col flex-1">
-                              <h3 className="font-bold text-gray-900 mb-1 group-hover:text-emerald-600 transition-colors">{product.name}</h3>
-                              <div className="flex items-center gap-2 mb-4">
-                                <p className="text-gray-500 text-[10px] font-bold uppercase tracking-wider">99%+ Purity</p>
-                                {product.dosage && (
-                                  <>
-                                    <span className="w-1 h-1 bg-gray-300 rounded-full" />
-                                    <p className="text-emerald-600 text-[10px] font-bold uppercase tracking-wider">{product.dosage}</p>
-                                  </>
-                                )}
-                              </div>
-                              <div className="mt-auto space-y-4">
-                                <p className="text-xl font-bold text-black">${product.price.toFixed(2)}</p>
-                                <button 
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    addToCart(product);
-                                  }}
-                                  className="w-full py-3 bg-black text-white text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-emerald-600 transition-all active:scale-95 flex items-center justify-center gap-2"
-                                >
-                                  <ShoppingCart className="w-4 h-4" /> Add to Cart
-                                </button>
-                              </div>
-                            </div>
-                          </motion.div>
-                        ))
-                      ) : (
-                        <div className="col-span-full py-32 text-center text-gray-400">
-                          <Search className="w-12 h-12 mx-auto mb-4 opacity-10" />
-                          <p className="text-sm font-medium">No compounds found matching your criteria.</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </section>
-            </motion.div>
+            <ShopView 
+              onAddToCart={addToCart} 
+              onSelectProduct={(p) => {
+                setSelectedProduct(p);
+                setView('product');
+                window.scrollTo(0, 0);
+              }} 
+            />
           )}
 
           {view === 'checkout' && (
