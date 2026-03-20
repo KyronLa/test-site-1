@@ -1407,100 +1407,90 @@ const products: Product[] = [
     name: "GLP-3 RT", 
     price: 86.99, 
     category: "Peptides", 
-    image: "/glp3-rt.png", 
+    image: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969217/glp3-rt_gfcapz.png", 
     description: "A 39-amino acid triple agonist peptide targeting GIP, GLP-1, and glucagon receptors, studied for metabolic pathway regulation and receptor binding kinetics in preclinical research models. Premium Research Peptide.",
-    dosage: "10MG",
-    quantityImages: { 2: "/2glp3-rt.png" }
+    dosage: "10MG"
   },
   { 
     id: '2', 
     name: "BPC-157", 
     price: 67.99, 
     category: "Peptides", 
-    image: "/bpc-157.png", 
+    image: "https://picsum.photos/seed/bpc/800/1000", 
     description: "Body Protective Compound-157 is a pentadecapeptide known for its potential regenerative properties in tendon, muscle, and gut research.",
-    dosage: "10MG",
-    quantityImages: { 2: "/2bpc-157.png" }
+    dosage: "10MG"
   },
   { 
     id: '3', 
     name: "GHK-Cu", 
     price: 41.99, 
     category: "Peptides", 
-    image: "/ghk-cu.png", 
+    image: "https://picsum.photos/seed/ghk/800/1000", 
     description: "A copper-binding tripeptide naturally occurring in human plasma with research applications in skin remodeling and anti-inflammatory studies.",
-    dosage: "100MG",
-    quantityImages: { 2: "/2ghk-cu.png" }
+    dosage: "100MG"
   },
   { 
     id: '4', 
     name: "MT-2", 
     price: 43.99, 
     category: "Peptides", 
-    image: "/mt-2.png", 
+    image: "https://picsum.photos/seed/mt2/800/1000", 
     description: "Melanotan II is a synthetic analog of the alpha-melanocyte-stimulating hormone, researched for its effects on skin pigmentation.",
-    dosage: "10MG",
-    quantityImages: { 2: "/2mt-2.png" }
+    dosage: "10MG"
   },
   { 
     id: '5', 
     name: "Wolverine 10mg (BPC157/TB500)", 
     price: 77.99, 
     category: "Peptides", 
-    image: "/wolverine.png", 
+    image: "https://picsum.photos/seed/wolverine/800/1000", 
     description: "A research blend of BPC-157 and TB-500, designed for synergistic studies on tissue repair and recovery.",
-    dosage: "10MG",
-    quantityImages: { 2: "/2wolverine.png" }
+    dosage: "10MG"
   },
   { 
     id: '6', 
     name: "CJC 1295 no dac + Ipamorelin", 
     price: 84.99, 
     category: "Peptides", 
-    image: "/cjc-ipamorelin.png", 
+    image: "https://picsum.photos/seed/cjc/800/1000", 
     description: "A combination of a GHRH analog and a ghrelin mimetic, used in research to study growth hormone secretion patterns.",
-    dosage: "10MG",
-    quantityImages: { 2: "/2cjc-ipamorelin.png" }
+    dosage: "10MG"
   },
   { 
     id: '7', 
     name: "Bacteriostatic Water", 
     price: 14.99, 
     category: "Peptides", 
-    image: "/bac-water.png", 
+    image: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969217/BacWater_vl81li.png", 
     description: "Sterile water containing 0.9% benzyl alcohol, used as a diluent for reconstituting research compounds.",
-    dosage: "10ML",
-    quantityImages: { 2: "/2BacWater.png" }
+    dosage: "10ML"
   },
   { 
     id: '8', 
     name: "Tesamorelin", 
     price: 92.99, 
     category: "Peptides", 
-    image: "/tesamorelin.png", 
+    image: "https://picsum.photos/seed/tesa/800/1000", 
     description: "A synthetic analog of growth hormone-releasing factor (GRF), researched for its effects on visceral adipose tissue.",
-    dosage: "10MG",
-    quantityImages: { 2: "/2tesamorelin.png" }
+    dosage: "10MG"
   },
   { 
     id: '9', 
     name: "GLOW", 
     price: 112.99, 
     category: "Peptides", 
-    image: "/glow.png", 
+    image: "https://picsum.photos/seed/glow/800/1000", 
     description: "A specialized research blend designed for studies related to skin health, collagen production, and cellular vitality.",
-    dosage: "70MG",
-    quantityImages: { 2: "/2glow.png" }
+    dosage: "70MG"
   },
   { 
     id: '10', 
     name: "NAD+", 
     price: 77.99, 
     category: "Peptides", 
-    image: "/nad.png", 
+    image: "https://picsum.photos/seed/nad/800/1000", 
     description: "Nicotinamide Adenine Dinucleotide is a critical coenzyme found in all living cells, researched for its role in energy metabolism and DNA repair.",
-    dosage: "500MG",
-    quantityImages: { 2: "/2nad.png" }
+    dosage: "500MG"
   }
 ];
 
