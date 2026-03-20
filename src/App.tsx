@@ -136,9 +136,10 @@ const Navbar = ({ cartCount, onOpenCart, onOpenAuth, onNavigate, currentView }: 
               initial={{ scale: 0.8, opacity: 0, rotate: -10 }}
               animate={{ scale: 1, opacity: 1, rotate: 0 }}
               transition={{ type: "spring", stiffness: 400, damping: 15 }}
-              src={showSolidNav ? "/blacklogo.png" : "/logo.png"} 
+              src={showSolidNav ? "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969647/blacklogo_dbbepi.png" : "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969635/logo_gc8g0q.png"} 
               alt="Eclipse Research" 
               className="h-14 w-auto" 
+              referrerPolicy="no-referrer"
             />
           </div>
           <span className={`text-xl font-bold tracking-tight ${showSolidNav ? 'text-black' : 'text-white'}`}>ECLIPSE RESEARCH</span>
@@ -481,7 +482,7 @@ const AuthModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }
             ) : (
               <>
                 <div className="mx-auto mb-8 flex justify-center">
-                  <img src="/blacklogo.png" alt="Eclipse Research" className="h-20 w-auto" />
+                  <img src="https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969647/blacklogo_dbbepi.png" alt="Eclipse Research" className="h-20 w-auto" referrerPolicy="no-referrer" />
                 </div>
                 <h2 className="text-3xl font-bold mb-2 tracking-tight text-center">
                   {mode === 'login' ? 'Welcome Back' : 'Create Account'}
@@ -1409,52 +1410,82 @@ const products: Product[] = [
     category: "Peptides", 
     image: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969217/glp3-rt_gfcapz.png", 
     description: "A 39-amino acid triple agonist peptide targeting GIP, GLP-1, and glucagon receptors, studied for metabolic pathway regulation and receptor binding kinetics in preclinical research models. Premium Research Peptide.",
-    dosage: "10MG"
+    dosage: "10MG",
+    quantityImages: { 
+      1: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971440/1glp3-rt_x0z399.png",
+      2: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971951/2glp3-rt_saynur.png",
+      3: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971669/3glp3-rt_jjrejb.png"
+    }
   },
   { 
     id: '2', 
     name: "BPC-157", 
     price: 67.99, 
     category: "Peptides", 
-    image: "https://picsum.photos/seed/bpc/800/1000", 
+    image: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969218/bpc-157_vvwgot.png", 
     description: "Body Protective Compound-157 is a pentadecapeptide known for its potential regenerative properties in tendon, muscle, and gut research.",
-    dosage: "10MG"
+    dosage: "10MG",
+    quantityImages: { 
+      1: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971445/1bpc-157_i2rout.png",
+      2: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969687/2bpc-157_qtjw7b.png",
+      3: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971672/3bpc-157_lxfd5j.png"
+    }
   },
   { 
     id: '3', 
     name: "GHK-Cu", 
     price: 41.99, 
     category: "Peptides", 
-    image: "https://picsum.photos/seed/ghk/800/1000", 
+    image: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969217/ghk-cu_k0gxxe.png", 
     description: "A copper-binding tripeptide naturally occurring in human plasma with research applications in skin remodeling and anti-inflammatory studies.",
-    dosage: "100MG"
+    dosage: "100MG",
+    quantityImages: { 
+      1: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971439/1ghk-cu_dv1gat.png",
+      2: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969684/2ghk-cu_atd91e.png",
+      3: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971670/3ghk-cu_gscj57.png"
+    }
   },
   { 
     id: '4', 
     name: "MT-2", 
     price: 43.99, 
     category: "Peptides", 
-    image: "https://picsum.photos/seed/mt2/800/1000", 
+    image: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969217/mt-2_acqigl.png", 
     description: "Melanotan II is a synthetic analog of the alpha-melanocyte-stimulating hormone, researched for its effects on skin pigmentation.",
-    dosage: "10MG"
+    dosage: "10MG",
+    quantityImages: { 
+      1: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971442/1mt-2_hfg0jk.png",
+      2: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969684/2mt-2_noa9bx.png",
+      3: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971674/3mt-2_qujg6y.png"
+    }
   },
   { 
     id: '5', 
     name: "Wolverine 10mg (BPC157/TB500)", 
     price: 77.99, 
     category: "Peptides", 
-    image: "https://picsum.photos/seed/wolverine/800/1000", 
+    image: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969217/wolverine_tl3buz.png", 
     description: "A research blend of BPC-157 and TB-500, designed for synergistic studies on tissue repair and recovery.",
-    dosage: "10MG"
+    dosage: "10MG",
+    quantityImages: { 
+      1: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971442/1wolverine_mrof4h.png",
+      2: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969687/2wolverine_locrq5.png",
+      3: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971671/3wolverine_nwvaiq.png"
+    }
   },
   { 
     id: '6', 
     name: "CJC 1295 no dac + Ipamorelin", 
     price: 84.99, 
     category: "Peptides", 
-    image: "https://picsum.photos/seed/cjc/800/1000", 
+    image: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969217/cjc-ipamorelin_atfs5x.png", 
     description: "A combination of a GHRH analog and a ghrelin mimetic, used in research to study growth hormone secretion patterns.",
-    dosage: "10MG"
+    dosage: "10MG",
+    quantityImages: { 
+      1: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971442/1cjc-ipamorelin_fz6px6.png",
+      2: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969691/2cjc-ipamorelin_qi18jo.png",
+      3: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971671/3cjc-ipamorelin_nitxpm.png"
+    }
   },
   { 
     id: '7', 
@@ -1463,37 +1494,56 @@ const products: Product[] = [
     category: "Peptides", 
     image: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969217/BacWater_vl81li.png", 
     description: "Sterile water containing 0.9% benzyl alcohol, used as a diluent for reconstituting research compounds.",
-    dosage: "10ML"
+    dosage: "10ML",
+    quantityImages: { 
+      1: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971439/1BacWater_vml33g.png",
+      2: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969683/2BacWater_cu9qeq.png",
+      3: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971668/3BacWater_jdwp5p.png"
+    }
   },
   { 
     id: '8', 
     name: "Tesamorelin", 
     price: 92.99, 
     category: "Peptides", 
-    image: "https://picsum.photos/seed/tesa/800/1000", 
+    image: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969217/tesamorelin_oydzju.png", 
     description: "A synthetic analog of growth hormone-releasing factor (GRF), researched for its effects on visceral adipose tissue.",
-    dosage: "10MG"
+    dosage: "10MG",
+    quantityImages: { 
+      1: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971444/1tesamorelin_ehldd7.png",
+      2: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969687/2tesamorelin_s9a2jn.png",
+      3: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971675/3tesamorelin_wpphtb.png"
+    }
   },
   { 
     id: '9', 
     name: "GLOW", 
     price: 112.99, 
     category: "Peptides", 
-    image: "https://picsum.photos/seed/glow/800/1000", 
+    image: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969218/glow_jfpqo0.png", 
     description: "A specialized research blend designed for studies related to skin health, collagen production, and cellular vitality.",
-    dosage: "70MG"
+    dosage: "70MG",
+    quantityImages: { 
+      1: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971444/1glow_detdjm.png",
+      2: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969688/2glow_b4ssod.png",
+      3: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971674/3glow_i30p3b.png"
+    }
   },
   { 
     id: '10', 
     name: "NAD+", 
     price: 77.99, 
     category: "Peptides", 
-    image: "https://picsum.photos/seed/nad/800/1000", 
+    image: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969217/nad_sxoz3j.png", 
     description: "Nicotinamide Adenine Dinucleotide is a critical coenzyme found in all living cells, researched for its role in energy metabolism and DNA repair.",
-    dosage: "500MG"
+    dosage: "500MG",
+    quantityImages: { 
+      1: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971439/1nad_q367m5.png",
+      2: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969683/2nad_y1kupy.png",
+      3: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971669/3nad_o7dofh.png"
+    }
   }
 ];
-
 const ProductCard: React.FC<{ 
   product: Product, 
   onAddToCart: (p: Product) => void, 
@@ -2080,8 +2130,8 @@ const CheckoutView = ({ cart, onBack, onComplete, initialOrder }: { cart: CartIt
                       className="w-5 h-5 text-emerald-600 flex-shrink-0 cursor-pointer" 
                     />
                     <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-[#6d1ed4] rounded-xl flex items-center justify-center overflow-hidden flex-shrink-0 shadow-sm">
-                        <img src="https://www.zellepay.com/themes/custom/zelle_theme/logo.svg" alt="Zelle" className="w-7 invert brightness-0" referrerPolicy="no-referrer" />
+                      <div className="w-12 h-12 rounded-xl flex items-center justify-center overflow-hidden flex-shrink-0 shadow-sm">
+                        <img src="https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971792/zelle_w6wa7a.png" alt="Zelle" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
                       </div>
                       <span className="font-bold text-gray-900">Zelle</span>
                     </div>
@@ -2099,8 +2149,8 @@ const CheckoutView = ({ cart, onBack, onComplete, initialOrder }: { cart: CartIt
                       className="w-5 h-5 text-emerald-600 flex-shrink-0 cursor-pointer" 
                     />
                     <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-[#3d95ce] rounded-xl flex items-center justify-center overflow-hidden flex-shrink-0 shadow-sm p-2.5">
-                        <img src="https://cdn.worldvectorlogo.com/logos/venmo-2.svg" alt="Venmo" className="w-full h-full object-contain invert brightness-0" referrerPolicy="no-referrer" />
+                      <div className="w-12 h-12 rounded-xl flex items-center justify-center overflow-hidden flex-shrink-0 shadow-sm">
+                        <img src="https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971791/venmo_ou9gtd.png" alt="Venmo" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
                       </div>
                       <span className="font-bold text-gray-900">Venmo</span>
                     </div>
@@ -2254,7 +2304,7 @@ const ProductDetailView = ({ product, onAddToCart, onBack, onSelectProduct }: { 
 
   // Blank images for each quantity selection (to be added later)
   const quantityImages: Record<number, string> = {
-    1: product.quantityImages?.[1] || product.image,
+    1: product.quantityImages?.[1] || "https://picsum.photos/seed/pack1/800/1000",
     2: product.quantityImages?.[2] || "https://picsum.photos/seed/pack2/800/1000",
     3: product.quantityImages?.[3] || "https://picsum.photos/seed/pack3/800/1000",
   };
@@ -2310,7 +2360,7 @@ const ProductDetailView = ({ product, onAddToCart, onBack, onSelectProduct }: { 
                 <button 
                   key={num}
                   onClick={() => setQuantity(num)}
-                  className={`relative aspect-[3/4] rounded-2xl overflow-hidden border-2 transition-all ${quantity === num ? 'border-emerald-500 ring-4 ring-emerald-500/10' : 'border-transparent hover:border-gray-200'}`}
+                  className={`relative aspect-square rounded-2xl overflow-hidden border-2 transition-all ${quantity === num ? 'border-emerald-500 ring-4 ring-emerald-500/10' : 'border-transparent hover:border-gray-200'}`}
                 >
                   <img src={quantityImages[num]} alt={`${num} Bottle`} className="w-full h-full object-cover" />
                   <div className={`absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex flex-col justify-end p-3 text-left transition-opacity ${quantity === num ? 'opacity-100' : 'opacity-80'}`}>
@@ -2661,7 +2711,7 @@ const AppContent = () => {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
             <div className="col-span-1 md:col-span-2">
               <div className="flex items-center gap-2 mb-6">
-                <img src="/blacklogo.png" alt="Eclipse Research" className="h-10 w-auto" />
+                <img src="https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969647/blacklogo_dbbepi.png" alt="Eclipse Research" className="h-10 w-auto" referrerPolicy="no-referrer" />
                 <span className="text-lg font-bold tracking-tight">ECLIPSE RESEARCH</span>
               </div>
               <p className="text-gray-500 text-sm max-w-sm leading-relaxed mb-6">
