@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, createContext, useContext } from 'react';
+import React, { useState, useEffect, useRef, createContext, useContext, Component } from 'react';
 import { 
   Search, 
   ShoppingCart, 
@@ -59,6 +59,110 @@ import {
   Timestamp
 } from 'firebase/firestore';
 import { auth, db } from './firebase';
+
+// --- Firestore Error Handling ---
+
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId: string | undefined;
+    email: string | null | undefined;
+    emailVerified: boolean | undefined;
+    isAnonymous: boolean | undefined;
+    tenantId: string | null | undefined;
+    providerInfo: {
+      providerId: string;
+      displayName: string | null;
+      email: string | null;
+      photoUrl: string | null;
+    }[];
+  }
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo: auth.currentUser?.providerData.map(provider => ({
+        providerId: provider.providerId,
+        displayName: provider.displayName,
+        email: provider.email,
+        photoUrl: provider.photoURL
+      })) || []
+    },
+    operationType,
+    path
+  }
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
+
+class ErrorBoundary extends Component<any, any> {
+  constructor(props: any) {
+    super(props);
+    (this as any).state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error("ErrorBoundary caught an error", error, errorInfo);
+  }
+
+  render() {
+    const state = (this as any).state;
+    const props = (this as any).props;
+    if (state.hasError) {
+      let message = "Something went wrong.";
+      try {
+        const parsed = JSON.parse(state.error?.message || "");
+        if (parsed.error && parsed.operationType) {
+          message = `Database Error: ${parsed.error} during ${parsed.operationType} on ${parsed.path || 'unknown path'}`;
+        }
+      } catch (e) {
+        message = state.error?.message || message;
+      }
+
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+          <div className="bg-white p-8 rounded-3xl shadow-xl max-w-md w-full text-center border border-red-100">
+            <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
+              <AlertTriangle className="w-8 h-8" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Application Error</h2>
+            <p className="text-gray-600 mb-8 text-sm leading-relaxed">{message}</p>
+            <button 
+              onClick={() => window.location.reload()}
+              className="w-full py-4 bg-black text-white font-bold rounded-2xl hover:bg-emerald-600 transition-all"
+            >
+              Reload Application
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return props.children;
+  }
+}
 
 // --- Types & Context ---
 
@@ -154,10 +258,6 @@ const Navbar = ({ cartCount, onOpenCart, onOpenAuth, onNavigate, currentView }: 
         </div>
 
         <div className="flex items-center gap-4">
-          <button className={`${showSolidNav ? 'text-black' : 'text-white'}`}>
-            <Search className="w-5 h-5" />
-          </button>
-          
           <button 
             onClick={onOpenCart}
             className={`${showSolidNav ? 'text-black' : 'text-white'} relative p-2 hover:bg-black/5 rounded-full`}
@@ -407,7 +507,7 @@ const CartDrawer = ({
   );
 };
 
-const AuthModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) => {
+const AuthModal = ({ isOpen, onClose, onNavigate }: { isOpen: boolean, onClose: () => void, onNavigate: (view: any) => void }) => {
   const { login, register, user } = useAuth();
   const [isSuccess, setIsSuccess] = useState(false);
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -420,6 +520,7 @@ const AuthModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
+  const [is21, setIs21] = useState(false);
 
   useEffect(() => {
     if (user && isOpen) {
@@ -441,6 +542,9 @@ const AuthModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }
       if (mode === 'login') {
         await login(email, password);
       } else {
+        if (!is21) {
+          throw new Error('You must be 21 years or older to register.');
+        }
         if (password.length < 6) {
           throw new Error('Password must be at least 6 characters');
         }
@@ -554,6 +658,26 @@ const AuthModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }
                     />
                   </div>
 
+                  {mode === 'register' && (
+                    <div className="flex items-start gap-3 pt-2">
+                      <div className="flex items-center h-5">
+                        <input
+                          id="age-verification"
+                          name="age-verification"
+                          type="checkbox"
+                          checked={is21}
+                          onChange={(e) => setIs21(e.target.checked)}
+                          className="h-4 w-4 rounded border-gray-300 text-black focus:ring-black cursor-pointer"
+                        />
+                      </div>
+                      <div className="text-xs">
+                        <label htmlFor="age-verification" className="font-medium text-gray-700 cursor-pointer">
+                          I am 21 years or older and agree to the <button type="button" onClick={() => { onNavigate('terms'); onClose(); }} className="text-black underline hover:text-emerald-600">terms and conditions</button>
+                        </label>
+                      </div>
+                    </div>
+                  )}
+
                   {error && (
                     <div className="p-3 bg-red-50 text-red-600 text-xs rounded-xl flex items-center gap-2">
                       <AlertTriangle className="w-4 h-4" />
@@ -575,6 +699,7 @@ const AuthModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }
                     onClick={() => {
                       setMode(mode === 'login' ? 'register' : 'login');
                       setError(null);
+                      setIs21(false);
                     }}
                     className="text-xs font-bold text-gray-400 hover:text-black transition-colors"
                   >
@@ -591,6 +716,105 @@ const AuthModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }
         </div>
       )}
     </AnimatePresence>
+  );
+};
+
+const TermsView = ({ onBack }: { onBack: () => void }) => {
+  return (
+    <section className="py-24 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white rounded-[3rem] border border-gray-100 p-12 shadow-sm"
+      >
+        <button 
+          onClick={onBack}
+          className="flex items-center gap-2 text-sm font-bold text-gray-400 hover:text-black mb-12 transition-colors"
+        >
+          <ChevronLeft className="w-4 h-4" /> Back to Research
+        </button>
+
+        <h1 className="text-4xl font-bold tracking-tight text-gray-900 mb-4">Terms and Conditions</h1>
+        <p className="text-gray-400 text-sm mb-12 uppercase tracking-widest font-bold">Last Updated: March 20, 2026</p>
+
+        <div className="space-y-12 text-gray-600 leading-relaxed">
+          <section>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">1. Acceptance of Terms</h2>
+            <p>
+              By accessing and using the Eclipse Research website, you agree to be bound by these Terms and Conditions. 
+              If you do not agree with any part of these terms, you must not use our website or purchase our products.
+            </p>
+          </section>
+
+          <section className="bg-red-50 p-8 rounded-3xl border border-red-100">
+            <h2 className="text-xl font-bold text-red-900 mb-4 flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5" /> 2. Research Use Only
+            </h2>
+            <p className="text-red-800 font-medium mb-4">
+              CRITICAL NOTICE: ALL PRODUCTS SOLD BY ECLIPSE RESEARCH ARE STRICTLY FOR LABORATORY RESEARCH USE ONLY.
+            </p>
+            <ul className="list-disc pl-5 space-y-2 text-red-700 text-sm">
+              <li>Products are NOT for human or animal consumption, ingestion, or injection.</li>
+              <li>Products are NOT for use as drugs, food, cosmetics, or medical devices.</li>
+              <li>The purchaser represents that they are a qualified researcher affiliated with a recognized institution.</li>
+              <li>Misuse of products is strictly prohibited and may result in account termination.</li>
+            </ul>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">3. Age Requirement</h2>
+            <p>
+              You must be at least 21 years of age to purchase products from this website. By placing an order, 
+              you represent and warrant that you meet this age requirement and have the legal capacity to enter into a binding contract.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">4. Compliance with Laws</h2>
+            <p>
+              The purchaser is responsible for complying with all local, state, and federal laws and regulations regarding 
+              the acquisition, possession, and use of research compounds. Eclipse Research makes no representation 
+              that the products are legal in your specific jurisdiction.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">5. Shipping and Delivery</h2>
+            <p>
+              We aim to process and ship orders within 24-48 business hours. Delivery times are estimates and not guaranteed. 
+              Eclipse Research is not responsible for delays caused by shipping carriers or customs. 
+              Risk of loss passes to the purchaser upon delivery to the carrier.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">6. Limitation of Liability</h2>
+            <p>
+              In no event shall Eclipse Research, its directors, employees, or affiliates be liable for any indirect, 
+              incidental, special, consequential, or punitive damages, including without limitation, loss of profits, 
+              data, or use, arising out of or in any way connected with the use of our products or website.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">7. Indemnification</h2>
+            <p>
+              You agree to indemnify and hold harmless Eclipse Research and its affiliates from any claims, damages, 
+              or expenses (including legal fees) arising from your use of our products, your violation of these terms, 
+              or your violation of any third-party rights.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">8. Modifications to Terms</h2>
+            <p>
+              Eclipse Research reserves the right to modify these Terms and Conditions at any time without prior notice. 
+              Your continued use of the website following any changes constitutes acceptance of the new terms.
+            </p>
+          </section>
+        </div>
+      </motion.div>
+    </section>
   );
 };
 
@@ -673,12 +897,12 @@ const AccountView = ({ onNavigate, onEditOrder }: { onNavigate: (view: any) => v
   };
 
   const handleDeleteOrder = async (orderId: string) => {
+    const path = `orders/${orderId}`;
     try {
       await deleteDoc(doc(db, 'orders', orderId));
       setIsDeletingOrder(null);
     } catch (error) {
-      console.error(error);
-      alert('Error deleting order');
+      handleFirestoreError(error, OperationType.DELETE, path);
     }
   };
 
@@ -1044,7 +1268,7 @@ const AccountView = ({ onNavigate, onEditOrder }: { onNavigate: (view: any) => v
                 <div className="w-20 h-20 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
                   <Trash2 className="w-10 h-10" />
                 </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-4">Cancel Order?</h3>
+                <h3 className="text-2xl font-bold text-gray-900 mb-4">Delete Order?</h3>
                 <p className="text-gray-500 mb-8 font-medium">This action cannot be undone. Are you sure you want to delete this order?</p>
                 
                 <div className="flex flex-col gap-3">
@@ -1052,7 +1276,7 @@ const AccountView = ({ onNavigate, onEditOrder }: { onNavigate: (view: any) => v
                     onClick={() => handleDeleteOrder(isDeletingOrder)}
                     className="w-full py-4 bg-red-500 text-white font-bold rounded-2xl hover:bg-red-600 transition-all"
                   >
-                    Yes, Cancel Order
+                    Delete Order
                   </button>
                   <button 
                     onClick={() => setIsDeletingOrder(null)}
@@ -1346,13 +1570,23 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 const Hero = ({ onShopNow, onViewCOAs }: { onShopNow: () => void, onViewCOAs: () => void }) => {
   return (
     <section className="relative h-screen flex items-center overflow-hidden bg-black">
+      {/* Background Video Layer */}
       <div className="absolute inset-0 z-0">
-        <img 
-          src="https://images.unsplash.com/photo-1532187863486-abf9d397191a?auto=format&fit=crop&q=80&w=2000" 
-          className="w-full h-full object-cover opacity-40"
-          alt="Laboratory"
-        />
-        <div className="absolute inset-0 bg-gradient-to-r from-black via-black/50 to-transparent" />
+        <video 
+          autoPlay 
+          muted 
+          loop 
+          playsInline
+          className="w-full h-full object-cover"
+        >
+          <source src="https://res.cloudinary.com/ditxwmhnj/video/upload/v1773973748/Generated_Video_March_19_2026_-_10_28PM_wpetru.mp4" type="video/mp4" />
+        </video>
+        
+        {/* Slight fade overlay for better text contrast */}
+        <div className="absolute inset-0 bg-black/30" />
+        
+        {/* Minimal gradient for text readability only */}
+        <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/20 to-transparent" />
       </div>
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
@@ -1719,16 +1953,6 @@ const ShopView: React.FC<{
                 Browse our complete catalog of high-purity research compounds, synthesized for precision and reliability.
               </p>
             </div>
-            <div className="relative w-full max-w-md">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <input 
-                type="text" 
-                placeholder="Search products..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-white/10 border border-white/20 rounded-xl py-3 pl-12 pr-4 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all backdrop-blur-sm"
-              />
-            </div>
           </div>
         </div>
       </section>
@@ -1771,6 +1995,16 @@ const ShopView: React.FC<{
 
           {/* Product Grid */}
           <div className="flex-1">
+            <div className="relative w-full mb-8">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <input 
+                type="text" 
+                placeholder="Search products..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-white border border-gray-200 rounded-xl py-3 pl-12 pr-4 text-sm text-black focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all shadow-sm"
+              />
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-10">
               {filteredProducts.length > 0 ? (
                 filteredProducts.map((product) => (
@@ -1859,22 +2093,49 @@ const COAView = () => {
   );
 };
 
-const CheckoutView = ({ cart, onBack, onComplete, initialOrder }: { cart: CartItem[], onBack: () => void, onComplete: (info: any) => void, initialOrder?: any }) => {
+const CheckoutView = ({ cart, onBack, onComplete, initialOrder, userProfile }: { cart: CartItem[], onBack: () => void, onComplete: (info: any) => void, initialOrder?: any, userProfile?: any }) => {
   const [step, setStep] = useState(1);
-  const [shippingInfo, setShippingInfo] = useState(initialOrder?.shippingInfo || {
-    email: '',
-    firstName: '',
-    lastName: '',
-    address: '',
-    city: '',
-    state: '',
-    zip: '',
+  const [shippingInfo, setShippingInfo] = useState(() => {
+    if (initialOrder?.shippingInfo) return initialOrder.shippingInfo;
+    
+    // Find default address or first address
+    const defaultAddress = userProfile?.addresses?.find((a: any) => a.isDefault) || userProfile?.addresses?.[0];
+    
+    return {
+      email: userProfile?.email || '',
+      firstName: userProfile?.firstName || '',
+      lastName: userProfile?.lastName || '',
+      address: defaultAddress?.street || '',
+      city: defaultAddress?.city || '',
+      state: defaultAddress?.state || '',
+      zip: defaultAddress?.zip || '',
+    };
   });
-  const [shippingMethod, setShippingMethod] = useState(initialOrder?.shippingMethod || 'standard');
+  const [shippingMethod, setShippingMethod] = useState(initialOrder?.shippingMethod || 'express');
   const [paymentMethod, setPaymentMethod] = useState(initialOrder?.paymentMethod || 'zelle');
+  const [acknowledgements, setAcknowledgements] = useState({
+    age: false,
+    research: false,
+    terms: false
+  });
 
   const [isStateDropdownOpen, setIsStateDropdownOpen] = useState(false);
   const stateRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (userProfile && !initialOrder && !shippingInfo.email && !shippingInfo.firstName) {
+      const defaultAddress = userProfile.addresses?.find((a: any) => a.isDefault) || userProfile.addresses?.[0];
+      setShippingInfo({
+        email: userProfile.email || '',
+        firstName: userProfile.firstName || '',
+        lastName: userProfile.lastName || '',
+        address: defaultAddress?.street || '',
+        city: defaultAddress?.city || '',
+        state: defaultAddress?.state || '',
+        zip: defaultAddress?.zip || '',
+      });
+    }
+  }, [userProfile, initialOrder]);
 
   const US_STATES = [
     "Alabama", "Alaska", "Arizona", "Arkansas", "California", "Colorado", "Connecticut", "Delaware", "Florida", "Georgia",
@@ -1899,7 +2160,7 @@ const CheckoutView = ({ cart, onBack, onComplete, initialOrder }: { cart: CartIt
   }, []);
 
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const shipping = subtotal >= 150 ? 0 : (shippingMethod === 'express' ? 35 : 15);
+  const shipping = 14.50;
   
   // 5% discount for crypto
   const discount = paymentMethod === 'crypto' ? subtotal * 0.05 : 0;
@@ -2065,29 +2326,13 @@ const CheckoutView = ({ cart, onBack, onComplete, initialOrder }: { cart: CartIt
 
             {step === 2 && (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
-                <label className={`flex items-center justify-between p-6 rounded-2xl border-2 transition-all cursor-pointer ${shippingMethod === 'standard' ? 'border-emerald-500 bg-emerald-50/30' : 'border-gray-100 hover:border-gray-200'}`}>
+                <label className={`flex items-center justify-between p-6 rounded-2xl border-2 transition-all cursor-pointer border-emerald-500 bg-emerald-50/30`}>
                   <div className="flex items-center gap-4">
                     <input 
                       type="radio" 
                       name="shipping" 
-                      checked={shippingMethod === 'standard'}
-                      onChange={() => setShippingMethod('standard')}
-                      className="w-4 h-4 text-emerald-600 focus:ring-emerald-500"
-                    />
-                    <div>
-                      <p className="font-bold text-gray-900">Standard Shipping</p>
-                      <p className="text-sm text-gray-500">3-5 business days</p>
-                    </div>
-                  </div>
-                  <span className="font-bold text-gray-900">{subtotal >= 150 ? 'FREE' : '$15.00'}</span>
-                </label>
-                <label className={`flex items-center justify-between p-6 rounded-2xl border-2 transition-all cursor-pointer ${shippingMethod === 'express' ? 'border-emerald-500 bg-emerald-50/30' : 'border-gray-100 hover:border-gray-200'}`}>
-                  <div className="flex items-center gap-4">
-                    <input 
-                      type="radio" 
-                      name="shipping" 
-                      checked={shippingMethod === 'express'}
-                      onChange={() => setShippingMethod('express')}
+                      checked={true}
+                      readOnly
                       className="w-4 h-4 text-emerald-600 focus:ring-emerald-500"
                     />
                     <div>
@@ -2095,7 +2340,7 @@ const CheckoutView = ({ cart, onBack, onComplete, initialOrder }: { cart: CartIt
                       <p className="text-sm text-gray-500">1-2 business days</p>
                     </div>
                   </div>
-                  <span className="font-bold text-gray-900">$35.00</span>
+                  <span className="font-bold text-gray-900">$14.50</span>
                 </label>
                 <button 
                   onClick={() => setStep(3)}
@@ -2106,7 +2351,7 @@ const CheckoutView = ({ cart, onBack, onComplete, initialOrder }: { cart: CartIt
               </motion.div>
             )}
             {step > 2 && (
-              <p className="text-sm text-gray-600 font-medium capitalize">{shippingMethod} Shipping — {shipping === 0 ? 'FREE' : `$${shipping.toFixed(2)}`}</p>
+              <p className="text-sm text-gray-600 font-medium capitalize">Express Shipping — $14.50</p>
             )}
           </section>
 
@@ -2254,7 +2499,7 @@ const CheckoutView = ({ cart, onBack, onComplete, initialOrder }: { cart: CartIt
               <div className="flex justify-between text-gray-500">
                 <span>Shipping</span>
                 <span className="font-bold text-emerald-600">
-                  {shipping === 0 ? 'FREE' : `$${shipping.toFixed(2)}`}
+                  {shipping <= 0 ? 'FREE' : `$${shipping.toFixed(2)}`}
                 </span>
               </div>
               {discount > 0 && (
@@ -2269,17 +2514,61 @@ const CheckoutView = ({ cart, onBack, onComplete, initialOrder }: { cart: CartIt
                   <p className="text-3xl font-bold text-gray-900">${total.toFixed(2)}</p>
                 </div>
               </div>
+
+              <div className="pt-6 space-y-4">
+                <label className="flex items-start gap-3 cursor-pointer group">
+                  <div className="flex items-center h-5">
+                    <input
+                      type="checkbox"
+                      checked={acknowledgements.age}
+                      onChange={(e) => setAcknowledgements({ ...acknowledgements, age: e.target.checked })}
+                      className="h-4 w-4 rounded border-gray-300 text-black focus:ring-black cursor-pointer"
+                    />
+                  </div>
+                  <span className="text-[11px] text-gray-500 font-medium leading-tight group-hover:text-gray-700 transition-colors">
+                    I am 21 years of age or older.
+                  </span>
+                </label>
+
+                <label className="flex items-start gap-3 cursor-pointer group">
+                  <div className="flex items-center h-5">
+                    <input
+                      type="checkbox"
+                      checked={acknowledgements.research}
+                      onChange={(e) => setAcknowledgements({ ...acknowledgements, research: e.target.checked })}
+                      className="h-4 w-4 rounded border-gray-300 text-black focus:ring-black cursor-pointer"
+                    />
+                  </div>
+                  <span className="text-[11px] text-gray-500 font-medium leading-tight group-hover:text-gray-700 transition-colors">
+                    I understand that these products are for laboratory research use only and not for human or animal consumption.
+                  </span>
+                </label>
+
+                <label className="flex items-start gap-3 cursor-pointer group">
+                  <div className="flex items-center h-5">
+                    <input
+                      type="checkbox"
+                      checked={acknowledgements.terms}
+                      onChange={(e) => setAcknowledgements({ ...acknowledgements, terms: e.target.checked })}
+                      className="h-4 w-4 rounded border-gray-300 text-black focus:ring-black cursor-pointer"
+                    />
+                  </div>
+                  <span className="text-[11px] text-gray-500 font-medium leading-tight group-hover:text-gray-700 transition-colors">
+                    I agree to the Terms and Conditions and Privacy Policy.
+                  </span>
+                </label>
+              </div>
               
               <button 
-                disabled={step < 3}
+                disabled={step < 3 || !acknowledgements.age || !acknowledgements.research || !acknowledgements.terms}
                 onClick={handlePlaceOrder}
                 className="w-full py-5 bg-black text-white font-bold rounded-2xl hover:bg-emerald-600 disabled:opacity-30 disabled:hover:bg-black transition-all shadow-xl shadow-black/10 flex items-center justify-center gap-3 mt-8 group"
               >
-                {initialOrder ? 'Update Order' : 'Complete Purchase'} <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                {initialOrder ? 'Complete Order' : 'Complete Purchase'} <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </button>
               
               <p className="text-[10px] text-gray-400 text-center mt-6 leading-relaxed">
-                By completing your purchase, you agree to our Terms of Service and Privacy Policy. 
+                By completing your purchase, you agree to our Terms and Conditions and Privacy Policy. 
                 All compounds are for laboratory research use only.
               </p>
             </div>
@@ -2475,7 +2764,21 @@ const AppContent = () => {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [editingOrder, setEditingOrder] = useState<any>(null);
+  const [userProfile, setUserProfile] = useState<any>(null);
   const { user, isAdmin } = useAuth();
+
+  useEffect(() => {
+    if (!user) {
+      setUserProfile(null);
+      return;
+    }
+    const unsubscribe = onSnapshot(doc(db, 'users', user.uid), (doc) => {
+      if (doc.exists()) {
+        setUserProfile(doc.data());
+      }
+    });
+    return () => unsubscribe();
+  }, [user]);
 
   const addToCart = (product: Product, quantity: number = 1) => {
     setCart(prev => {
@@ -2627,6 +2930,10 @@ const AppContent = () => {
             />
           )}
 
+          {view === 'terms' && (
+            <TermsView onBack={() => setView('home')} />
+          )}
+
           {view === 'checkout' && (
             <motion.div
               key="checkout"
@@ -2637,6 +2944,7 @@ const AppContent = () => {
               <CheckoutView 
                 cart={cart} 
                 initialOrder={editingOrder}
+                userProfile={userProfile}
                 onBack={() => {
                   if (editingOrder) {
                     setEditingOrder(null);
@@ -2706,53 +3014,87 @@ const AppContent = () => {
         </section>
       </main>
 
-      <footer className="bg-white border-t border-gray-100 py-16">
+      <footer className="bg-white border-t border-gray-100 py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
-            <div className="col-span-1 md:col-span-2">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-20">
+            <div className="col-span-1">
               <div className="flex items-center gap-2 mb-6">
                 <img src="https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969647/blacklogo_dbbepi.png" alt="Eclipse Research" className="h-10 w-auto" referrerPolicy="no-referrer" />
                 <span className="text-lg font-bold tracking-tight">ECLIPSE RESEARCH</span>
               </div>
-              <p className="text-gray-500 text-sm max-w-sm leading-relaxed mb-6">
+              <p className="text-gray-500 text-sm leading-relaxed mb-8">
                 Providing high-purity research compounds to the global scientific community. 
                 Our mission is to accelerate discovery through quality and transparency.
               </p>
               <div className="flex gap-4">
-                <div className="w-8 h-8 bg-gray-100 rounded-full"></div>
-                <div className="w-8 h-8 bg-gray-100 rounded-full"></div>
-                <div className="w-8 h-8 bg-gray-100 rounded-full"></div>
+                <div className="w-8 h-8 bg-gray-50 rounded-full border border-gray-100 flex items-center justify-center">
+                  <div className="w-4 h-4 bg-gray-200 rounded-sm"></div>
+                </div>
+                <div className="w-8 h-8 bg-gray-50 rounded-full border border-gray-100 flex items-center justify-center">
+                  <div className="w-4 h-4 bg-gray-200 rounded-sm"></div>
+                </div>
+                <div className="w-8 h-8 bg-gray-50 rounded-full border border-gray-100 flex items-center justify-center">
+                  <div className="w-4 h-4 bg-gray-200 rounded-sm"></div>
+                </div>
               </div>
             </div>
+
             <div>
-              <h4 className="font-bold mb-6 uppercase text-xs tracking-widest text-gray-400">Quick Links</h4>
+              <h4 className="font-bold mb-6 uppercase text-[10px] tracking-[0.2em] text-gray-400">Navigation</h4>
               <ul className="space-y-4 text-sm text-gray-600 font-medium">
-                <li><button onClick={() => setView('shop')} className="hover:text-black">Shop All</button></li>
-                <li><button onClick={() => setView('coas')} className="hover:text-black">COA's</button></li>
-                <li><a href="#" className="hover:text-black">Shipping Policy</a></li>
-                <li><a href="#" className="hover:text-black">Terms of Service</a></li>
+                <li><button onClick={() => setView('shop')} className="hover:text-black transition-colors">Shop All Compounds</button></li>
+                <li><button onClick={() => setView('coas')} className="hover:text-black transition-colors">Lab Results (COAs)</button></li>
+                <li><button onClick={() => setView('account')} className="hover:text-black transition-colors">My Research Account</button></li>
+                <li><button onClick={() => setView('home')} className="hover:text-black transition-colors">Home</button></li>
               </ul>
             </div>
+
             <div>
-              <h4 className="font-bold mb-6 uppercase text-xs tracking-widest text-gray-400">Support</h4>
+              <h4 className="font-bold mb-6 uppercase text-[10px] tracking-[0.2em] text-gray-400">Legal</h4>
               <ul className="space-y-4 text-sm text-gray-600 font-medium">
-                <li><a href="#" className="hover:text-black">FAQ</a></li>
-                <li><a href="#" className="hover:text-black">Contact Us</a></li>
-                <li><a href="#" className="hover:text-black">Lab Results</a></li>
+                <li><button onClick={() => setView('terms')} className="hover:text-black transition-colors">Terms and Conditions</button></li>
+                <li><a href="#" className="hover:text-black transition-colors">Shipping & Returns</a></li>
+                <li><a href="#" className="hover:text-black transition-colors">Privacy Policy</a></li>
+                <li><a href="#" className="hover:text-black transition-colors">Research Disclaimer</a></li>
+              </ul>
+            </div>
+
+            <div>
+              <h4 className="font-bold mb-6 uppercase text-[10px] tracking-[0.2em] text-gray-400">Contact</h4>
+              <ul className="space-y-4 text-sm text-gray-600 font-medium">
+                <li className="flex flex-col gap-1">
+                  <span className="text-[10px] text-gray-400 uppercase font-bold tracking-widest">Email Support</span>
+                  <a href="mailto:info@eclipseresearch.shop" className="text-emerald-600 hover:underline">info@eclipseresearch.shop</a>
+                </li>
+                <li className="flex flex-col gap-1">
+                  <span className="text-[10px] text-gray-400 uppercase font-bold tracking-widest">Support Hours</span>
+                  <span className="text-gray-900">Mon - Fri: 9AM - 5PM EST</span>
+                </li>
+                <li className="pt-2">
+                  <button onClick={() => setView('home')} className="px-4 py-2 bg-gray-50 border border-gray-100 rounded-xl text-xs font-bold hover:bg-gray-100 transition-all">
+                    Contact Support
+                  </button>
+                </li>
               </ul>
             </div>
           </div>
           
-          <div className="pt-8 border-t border-gray-100 flex flex-col md:flex-row justify-between items-center gap-6">
-            <p className="text-xs text-gray-400">© 2026 Eclipse Research. All rights reserved.</p>
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2 text-xs text-gray-400">
-                <ShieldCheck className="w-4 h-4" /> Secure Checkout
+          <div className="pt-10 border-t border-gray-100 flex flex-col md:flex-row justify-between items-center gap-8">
+            <div className="flex flex-col md:flex-row items-center gap-4 md:gap-8">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">© 2026 Eclipse Research. All rights reserved.</p>
+              <div className="flex items-center gap-2 text-[10px] font-bold text-emerald-600 uppercase tracking-widest">
+                <ShieldCheck className="w-3 h-3" /> Secure Research Portal
               </div>
-              <div className="flex gap-2">
-                <div className="w-10 h-6 bg-gray-50 border border-gray-100 rounded"></div>
-                <div className="w-10 h-6 bg-gray-50 border border-gray-100 rounded"></div>
-                <div className="w-10 h-6 bg-gray-50 border border-gray-100 rounded"></div>
+            </div>
+            <div className="flex gap-3">
+              <div className="w-10 h-6 bg-gray-50 border border-gray-100 rounded-md flex items-center justify-center p-1">
+                <div className="w-full h-full bg-gray-200 rounded-sm opacity-50"></div>
+              </div>
+              <div className="w-10 h-6 bg-gray-50 border border-gray-100 rounded-md flex items-center justify-center p-1">
+                <div className="w-full h-full bg-gray-200 rounded-sm opacity-50"></div>
+              </div>
+              <div className="w-10 h-6 bg-gray-50 border border-gray-100 rounded-md flex items-center justify-center p-1">
+                <div className="w-full h-full bg-gray-200 rounded-sm opacity-50"></div>
               </div>
             </div>
           </div>
@@ -2768,7 +3110,7 @@ const AppContent = () => {
         onCheckout={handleCheckout}
         onAddToCart={addToCart}
       />
-      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
+      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} onNavigate={setView} />
       <ChatBot />
     </div>
   );
@@ -2776,8 +3118,10 @@ const AppContent = () => {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
