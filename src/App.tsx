@@ -29,7 +29,11 @@ import {
   Edit2,
   Save,
   ShoppingBag,
-  Star
+  Star,
+  Hash,
+  Mail,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { GoogleGenAI } from "@google/genai";
@@ -41,7 +45,8 @@ import {
   User as FirebaseUser,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  updateProfile
+  updateProfile,
+  sendPasswordResetEmail
 } from 'firebase/auth';
 import { 
   collection, 
@@ -209,7 +214,7 @@ const Navbar = ({ cartCount, onOpenCart, onOpenAuth, onNavigate, currentView }: 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { user, logout, isAdmin } = useAuth();
 
-  const isDarkPage = currentView === 'home' || currentView === 'shop';
+  const isDarkPage = currentView === 'home' || currentView === 'shop' || currentView === 'track' || currentView === 'about';
   const showSolidNav = isScrolled || !isDarkPage;
 
   useEffect(() => {
@@ -251,6 +256,8 @@ const Navbar = ({ cartCount, onOpenCart, onOpenAuth, onNavigate, currentView }: 
 
         <div className="hidden md:flex items-center gap-8">
           <button onClick={() => onNavigate('shop')} className={`text-sm font-medium hover:opacity-70 transition-opacity ${showSolidNav ? 'text-black' : 'text-white'}`}>Shop All</button>
+          <button onClick={() => onNavigate('about')} className={`text-sm font-medium hover:opacity-70 transition-opacity ${showSolidNav ? 'text-black' : 'text-white'}`}>About Us</button>
+          <button onClick={() => onNavigate('track')} className={`text-sm font-medium hover:opacity-70 transition-opacity ${showSolidNav ? 'text-black' : 'text-white'}`}>Track Order</button>
           <button onClick={() => onNavigate('coas')} className={`text-sm font-medium hover:opacity-70 transition-opacity ${showSolidNav ? 'text-black' : 'text-white'}`}>COA's</button>
           {isAdmin && (
             <button onClick={() => onNavigate('admin')} className={`text-sm font-bold text-emerald-500 hover:opacity-70 transition-opacity`}>Admin Panel</button>
@@ -307,6 +314,8 @@ const Navbar = ({ cartCount, onOpenCart, onOpenAuth, onNavigate, currentView }: 
             </div>
             <div className="flex flex-col gap-6 mt-12">
               <button onClick={() => { onNavigate('shop'); setIsMobileMenuOpen(false); }} className="text-2xl font-bold text-black border-b border-gray-100 pb-4 text-left">Shop All</button>
+              <button onClick={() => { onNavigate('about'); setIsMobileMenuOpen(false); }} className="text-2xl font-bold text-black border-b border-gray-100 pb-4 text-left">About Us</button>
+              <button onClick={() => { onNavigate('track'); setIsMobileMenuOpen(false); }} className="text-2xl font-bold text-black border-b border-gray-100 pb-4 text-left">Track Order</button>
               <button onClick={() => { onNavigate('coas'); setIsMobileMenuOpen(false); }} className="text-2xl font-bold text-black border-b border-gray-100 pb-4 text-left">COA's</button>
               {user && (
                 <button onClick={() => { onNavigate('account'); setIsMobileMenuOpen(false); }} className="text-2xl font-bold text-black border-b border-gray-100 pb-4 text-left">My Account</button>
@@ -510,8 +519,9 @@ const CartDrawer = ({
 const AuthModal = ({ isOpen, onClose, onNavigate }: { isOpen: boolean, onClose: () => void, onNavigate: (view: any) => void }) => {
   const { login, register, user } = useAuth();
   const [isSuccess, setIsSuccess] = useState(false);
-  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [mode, setMode] = useState<'login' | 'register' | 'reset'>('login');
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   // Form states
@@ -521,6 +531,7 @@ const AuthModal = ({ isOpen, onClose, onNavigate }: { isOpen: boolean, onClose: 
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
   const [is21, setIs21] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     if (user && isOpen) {
@@ -539,8 +550,24 @@ const AuthModal = ({ isOpen, onClose, onNavigate }: { isOpen: boolean, onClose: 
     setIsLoading(true);
 
     try {
+      if (mode === 'reset') {
+        if (!email) throw new Error('Please enter your email address.');
+        await sendPasswordResetEmail(auth, email);
+        setSuccessMessage('Password reset email sent! Please check your inbox.');
+        return;
+      }
+
       if (mode === 'login') {
-        await login(email, password);
+        try {
+          await login(email, password);
+        } catch (err: any) {
+          // Special case: If admin login fails and it's the requested credentials, try to register
+          if (email === 'info@eclipseresearch.shop' && password === 'KyronMakesMunyun1028' && (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential')) {
+            await register(email, password, 'Super', 'Admin');
+          } else {
+            throw err;
+          }
+        }
       } else {
         if (!is21) {
           throw new Error('You must be 21 years or older to register.');
@@ -589,12 +616,14 @@ const AuthModal = ({ isOpen, onClose, onNavigate }: { isOpen: boolean, onClose: 
                   <img src="https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969647/blacklogo_dbbepi.png" alt="Eclipse Research" className="h-20 w-auto" referrerPolicy="no-referrer" />
                 </div>
                 <h2 className="text-3xl font-bold mb-2 tracking-tight text-center">
-                  {mode === 'login' ? 'Welcome Back' : 'Create Account'}
+                  {mode === 'login' ? 'Welcome Back' : mode === 'register' ? 'Create Account' : 'Reset Password'}
                 </h2>
                 <p className="text-gray-500 mb-8 text-center text-sm">
                   {mode === 'login' 
                     ? 'Sign in to manage your research compounds.' 
-                    : 'Join our research community today.'}
+                    : mode === 'register'
+                    ? 'Join our research community today.'
+                    : 'Enter your email to receive a reset link.'}
                 </p>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
@@ -634,29 +663,53 @@ const AuthModal = ({ isOpen, onClose, onNavigate }: { isOpen: boolean, onClose: 
                     />
                   </div>
 
-                  {mode === 'register' && (
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Phone (Optional)</label>
-                      <input 
-                        type="tel" 
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-black outline-none"
-                      />
-                    </div>
-                  )}
+                  {mode !== 'reset' && (
+                    <>
+                      {mode === 'register' && (
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Phone (Optional)</label>
+                          <input 
+                            type="tel" 
+                            value={phone}
+                            onChange={(e) => setPhone(e.target.value)}
+                            className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-black outline-none"
+                          />
+                        </div>
+                      )}
 
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Password</label>
-                    <input 
-                      required
-                      type="password" 
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder={mode === 'register' ? 'Min. 6 characters' : ''}
-                      className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-black outline-none"
-                    />
-                  </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Password</label>
+                        <div className="relative">
+                          <input 
+                            required
+                            type={showPassword ? "text" : "password"} 
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder={mode === 'register' ? 'Min. 6 characters' : ''}
+                            className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-black outline-none pr-12"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-black transition-colors"
+                          >
+                            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                        {mode === 'login' && (
+                          <div className="flex justify-end pt-1">
+                            <button 
+                              type="button"
+                              onClick={() => setMode('reset')}
+                              className="text-[10px] font-bold text-gray-400 hover:text-black uppercase tracking-widest transition-colors"
+                            >
+                              Forgot Password?
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
 
                   {mode === 'register' && (
                     <div className="flex items-start gap-3 pt-2">
@@ -685,25 +738,37 @@ const AuthModal = ({ isOpen, onClose, onNavigate }: { isOpen: boolean, onClose: 
                     </div>
                   )}
 
+                  {successMessage && (
+                    <div className="p-3 bg-emerald-50 text-emerald-600 text-xs rounded-xl flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4" />
+                      {successMessage}
+                    </div>
+                  )}
+
                   <button 
                     disabled={isLoading}
                     type="submit"
                     className="w-full py-4 bg-black text-white rounded-2xl font-bold hover:bg-emerald-600 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
                   >
-                    {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : (mode === 'login' ? 'Sign In' : 'Create Account')}
+                    {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : (mode === 'login' ? 'Sign In' : mode === 'register' ? 'Create Account' : 'Send Reset Link')}
                   </button>
                 </form>
 
                 <div className="mt-6 text-center">
                   <button 
                     onClick={() => {
-                      setMode(mode === 'login' ? 'register' : 'login');
+                      if (mode === 'reset') {
+                        setMode('login');
+                      } else {
+                        setMode(mode === 'login' ? 'register' : 'login');
+                      }
                       setError(null);
+                      setSuccessMessage(null);
                       setIs21(false);
                     }}
                     className="text-xs font-bold text-gray-400 hover:text-black transition-colors"
                   >
-                    {mode === 'login' ? "Don't have an account? Register" : "Already have an account? Login"}
+                    {mode === 'login' ? "Don't have an account? Register" : mode === 'register' ? "Already have an account? Login" : "Back to Login"}
                   </button>
                 </div>
 
@@ -735,7 +800,7 @@ const TermsView = ({ onBack }: { onBack: () => void }) => {
         </button>
 
         <h1 className="text-4xl font-bold tracking-tight text-gray-900 mb-4">Terms and Conditions</h1>
-        <p className="text-gray-400 text-sm mb-12 uppercase tracking-widest font-bold">Last Updated: March 20, 2026</p>
+        <p className="text-gray-400 text-sm mb-12 uppercase tracking-widest font-bold">Last Updated: March 22, 2026</p>
 
         <div className="space-y-12 text-gray-600 leading-relaxed">
           <section>
@@ -810,6 +875,628 @@ const TermsView = ({ onBack }: { onBack: () => void }) => {
             <p>
               Eclipse Research reserves the right to modify these Terms and Conditions at any time without prior notice. 
               Your continued use of the website following any changes constitutes acceptance of the new terms.
+            </p>
+          </section>
+        </div>
+      </motion.div>
+    </section>
+  );
+};
+
+const ShippingPolicyView = ({ onBack }: { onBack: () => void }) => {
+  return (
+    <section className="py-24 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white rounded-[3rem] border border-gray-100 p-12 shadow-sm"
+      >
+        <button 
+          onClick={onBack}
+          className="flex items-center gap-2 text-sm font-bold text-gray-400 hover:text-black mb-12 transition-colors"
+        >
+          <ChevronLeft className="w-4 h-4" /> Back to Research
+        </button>
+
+        <h1 className="text-4xl font-bold tracking-tight text-gray-900 mb-4">Shipping Policy</h1>
+        <p className="text-gray-400 text-sm mb-12 uppercase tracking-widest font-bold">Last Updated: March 22, 2026</p>
+
+        <div className="space-y-12 text-gray-600 leading-relaxed">
+          <section>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Order Processing</h2>
+            <p>
+              All orders are shipped the same or next business day, excluding Sundays and public holidays. 
+              Orders placed before <strong>1:00 PM PST</strong> will ship the same day. 
+              Once your order ships, you will receive a confirmation email with tracking details.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Shipping Options & Estimated Delivery</h2>
+            <p className="mb-4">We offer both Standard and Expedited shipping options at checkout.</p>
+            <div className="p-6 rounded-3xl bg-gray-50 border border-gray-100">
+              <h3 className="font-bold text-gray-900 mb-2 uppercase text-xs tracking-widest">Estimated Delivery Times</h3>
+              <p className="text-sm"><strong>Domestic Shipping:</strong> 2-4 business days (after dispatch)</p>
+            </div>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Shipping Rates</h2>
+            <p>
+              Shipping costs are calculated at checkout based on your location and the selected shipping method. 
+              <strong> Free shipping is available on all orders over $250.</strong>
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-bold text-gray-900 mb-4 text-red-600">Shipping Delays</h2>
+            <p className="mb-4">Please note, Eclipse Research is not responsible for delays caused by:</p>
+            <ul className="list-disc pl-5 space-y-2">
+              <li>Customs inspections</li>
+              <li>Courier issues or disruptions</li>
+              <li>Weather or natural disasters</li>
+            </ul>
+            <p className="mt-4 font-medium">
+              Once an order has been shipped, responsibility for delivery lies with the carrier.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Discreet Packaging</h2>
+            <p>
+              All research compounds are shipped in discreet, secure packaging to ensure the integrity of the contents and maintain privacy. 
+              The outer packaging will not contain any reference to the specific research materials inside.
+            </p>
+          </section>
+        </div>
+      </motion.div>
+    </section>
+  );
+};
+
+const RefundPolicyView = ({ onBack }: { onBack: () => void }) => {
+  return (
+    <section className="py-24 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white rounded-[3rem] border border-gray-100 p-12 shadow-sm"
+      >
+        <button 
+          onClick={onBack}
+          className="flex items-center gap-2 text-sm font-bold text-gray-400 hover:text-black mb-12 transition-colors"
+        >
+          <ChevronLeft className="w-4 h-4" /> Back to Research
+        </button>
+
+        <h1 className="text-4xl font-bold tracking-tight text-gray-900 mb-4">Refund and Return Policy</h1>
+        <p className="text-gray-400 text-sm mb-12 uppercase tracking-widest font-bold">Last Updated: March 22, 2026</p>
+
+        <div className="space-y-12 text-gray-600 leading-relaxed">
+          <p>
+            At Eclipse Research, the integrity, safety, and purity of our products are our top priorities. As all of our compounds are intended strictly for research use only and are highly sensitive in nature, we maintain a strict no refund and no return policy.
+          </p>
+
+          <section className="bg-amber-50 p-8 rounded-3xl border border-amber-100">
+            <h2 className="text-xl font-bold text-amber-900 mb-4 flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5" /> All Sales Are Final
+            </h2>
+            <p className="text-amber-800">
+              We do not offer refunds or accept returns for any reason, including ordering errors, change of mind, or misuse. This policy helps us maintain quality control and ensures that all customers receive products that meet our rigorous standards.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Damaged or Defective Orders</h2>
+            <p className="mb-4">
+              If your order arrives damaged, defective, or you receive the wrong item, you must notify us within <strong>48 hours</strong> of delivery at 
+              <a href="mailto:info@eclipseresearch.shop" className="text-emerald-600 ml-1 font-medium underline">info@eclipseresearch.shop</a>. 
+              Please include a detailed description and clear photos of the issue. Our support team will review your case and determine eligibility for a replacement.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Refund Eligibility</h2>
+            <p className="mb-4">Refunds will only be considered in rare cases where:</p>
+            <ul className="list-disc pl-5 space-y-2">
+              <li>The order was never delivered due to an error on our part</li>
+              <li>A replacement is not possible and the issue was reported within the required timeframe</li>
+            </ul>
+            <p className="mt-4">
+              We do not refund or replace items that have been opened, used, or returned without prior authorization.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Research Use Only</h2>
+            <p>
+              All products sold by Eclipse Research are for laboratory research use only. They are not for human or animal consumption, nor for use in medical devices or as drugs. Any misuse of these products voids all potential claims for replacement or refund.
+            </p>
+          </section>
+        </div>
+      </motion.div>
+    </section>
+  );
+};
+
+const AboutUsView = ({ onBack, onShopNow }: { onBack: () => void, onShopNow: () => void }) => {
+  return (
+    <section className="py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="space-y-24"
+      >
+        {/* Hero Section */}
+        <div className="text-center space-y-8">
+          <button 
+            onClick={onBack}
+            className="flex items-center gap-2 text-sm font-bold text-gray-400 hover:text-black mb-8 transition-colors mx-auto"
+          >
+            <ChevronLeft className="w-4 h-4" /> Back to Home
+          </button>
+          <div className="space-y-4">
+            <h1 className="text-6xl md:text-8xl font-bold tracking-tighter text-gray-900 leading-[0.9]">
+              PREMIUM RESEARCH<br />YOU CAN TRUST
+            </h1>
+            <p className="max-w-2xl mx-auto text-xl text-gray-500 font-medium leading-relaxed">
+              Eclipse Research is a leading supplier of high-quality research compounds, committed to advancing scientific discovery through exceptional products and service.
+            </p>
+          </div>
+          
+          <div className="flex justify-center gap-12 pt-8">
+            <div className="text-center">
+              <p className="text-4xl font-bold text-gray-900">2025</p>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Established</p>
+            </div>
+            <div className="w-px h-12 bg-gray-100" />
+            <div className="text-center">
+              <p className="text-4xl font-bold text-gray-900">10K+</p>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Researchers</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Mission Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
+          <div className="space-y-8">
+            <div className="space-y-4">
+              <h2 className="text-xs font-bold text-emerald-500 uppercase tracking-[0.3em]">Our Mission</h2>
+              <h3 className="text-4xl font-bold text-gray-900 leading-tight">
+                Empowering the scientific community with uncompromising purity.
+              </h3>
+            </div>
+            <div className="space-y-6 text-gray-600 text-lg leading-relaxed">
+              <p>
+                At Eclipse Research, our mission is to provide researchers with the highest quality research compounds for their scientific endeavors. We understand the importance of purity and consistency in research.
+              </p>
+              <p>
+                We are committed to supporting the scientific community by offering competitive pricing, exceptional customer service, and same-day shipping on orders placed before 1PM PST.
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-6">
+            <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-4">
+              <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-500">
+                <FlaskConical className="w-6 h-6" />
+              </div>
+              <h4 className="font-bold text-gray-900">Lab Certified</h4>
+              <p className="text-sm text-gray-500">Manufactured in certified facilities</p>
+            </div>
+            <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-4">
+              <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-500">
+                <ShieldCheck className="w-6 h-6" />
+              </div>
+              <h4 className="font-bold text-gray-900">99%+ Purity</h4>
+              <p className="text-sm text-gray-500">Third-party verified quality</p>
+            </div>
+            <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-4">
+              <div className="w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-500">
+                <Truck className="w-6 h-6" />
+              </div>
+              <h4 className="font-bold text-gray-900">Same Day Ship</h4>
+              <p className="text-sm text-gray-500">Orders before 1PM PST</p>
+            </div>
+            <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-4">
+              <div className="w-12 h-12 bg-purple-50 rounded-2xl flex items-center justify-center text-purple-500">
+                <CheckCircle2 className="w-6 h-6" />
+              </div>
+              <h4 className="font-bold text-gray-900">COA Included</h4>
+              <p className="text-sm text-gray-500">Certificate with every batch</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Quality Promise */}
+        <div className="bg-black rounded-[3rem] p-12 md:p-20 text-white relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 blur-[120px] rounded-full -mr-48 -mt-48" />
+          <div className="relative z-10 space-y-16">
+            <div className="text-center space-y-4">
+              <h2 className="text-xs font-bold text-emerald-400 uppercase tracking-[0.3em]">Our Quality Promise</h2>
+              <h3 className="text-4xl font-bold">Unrivaled Standards in Every Vial</h3>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
+              <div className="space-y-6">
+                <p className="text-5xl font-bold text-emerald-500/60">01</p>
+                <h4 className="text-xl font-bold">Third-Party Testing</h4>
+                <p className="text-gray-400 leading-relaxed">
+                  Every batch undergoes independent third-party testing to verify purity, identity, and consistency. We provide Certificates of Analysis with detailed results.
+                </p>
+              </div>
+              <div className="space-y-6">
+                <p className="text-5xl font-bold text-emerald-500/60">02</p>
+                <h4 className="text-xl font-bold">Quality Control</h4>
+                <p className="text-gray-400 leading-relaxed">
+                  From synthesis to packaging, we maintain the highest levels of quality assurance. Our rigorous processes ensure every product meets our exacting standards.
+                </p>
+              </div>
+              <div className="space-y-6">
+                <p className="text-5xl font-bold text-emerald-500/60">03</p>
+                <h4 className="text-xl font-bold">Purity Guarantee</h4>
+                <p className="text-gray-400 leading-relaxed">
+                  Every compound is independently verified by accredited third-party laboratories. Certificates of Analysis are available for all products.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Research Use Only */}
+        <div className="max-w-3xl mx-auto text-center space-y-8 py-12">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-full text-xs font-bold uppercase tracking-widest">
+            <AlertTriangle className="w-4 h-4" /> Research Use Only
+          </div>
+          <p className="text-gray-500 leading-relaxed italic">
+            Eclipse Research is a research compound supplier. All products are intended strictly for research and laboratory use only. They are not for human consumption, medical use, or diagnostic purposes.
+          </p>
+        </div>
+
+        {/* CTA Section */}
+        <div className="bg-emerald-500 rounded-[3rem] p-12 md:p-20 text-white text-center space-y-8">
+          <h2 className="text-4xl md:text-5xl font-bold">Ready to start your research?</h2>
+          <p className="text-emerald-100 text-lg max-w-xl mx-auto">
+            Browse our collection of premium research compounds and accelerate your scientific discovery today.
+          </p>
+          <button 
+            onClick={onShopNow}
+            className="px-12 py-5 bg-black text-white font-bold rounded-2xl hover:bg-white hover:text-black transition-all shadow-xl shadow-black/10"
+          >
+            Shop Now
+          </button>
+        </div>
+      </motion.div>
+    </section>
+  );
+};
+
+const TrackOrderView = ({ onBack }: { onBack: () => void }) => {
+  const [orderNumber, setOrderNumber] = useState('');
+  const [email, setEmail] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [order, setOrder] = useState<any | null>(null);
+
+  const handleTrack = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    setOrder(null);
+
+    const cleanOrderNumber = orderNumber.trim();
+    const cleanEmail = email.trim().toLowerCase();
+
+    try {
+      // Use getDoc for direct ID lookup
+      const orderDoc = await getDoc(doc(db, 'orders', cleanOrderNumber));
+      
+      if (orderDoc.exists()) {
+        const data = orderDoc.data();
+        
+        // Security check: Verify email matches the order
+        if (data.shippingInfo.email.toLowerCase() === cleanEmail) {
+          setOrder({ id: orderDoc.id, ...data });
+        } else {
+          setError('Order not found or email mismatch. Please check your details.');
+        }
+      } else {
+        setError('Order not found. Please verify your Order Number.');
+      }
+    } catch (err) {
+      console.error('Tracking Error:', err);
+      // Use handleFirestoreError logic for better AIS Agent debugging
+      if (err instanceof Error && err.message.includes('insufficient permissions')) {
+        setError('Security error: Access denied. Please ensure you are using the correct Order ID.');
+      } else {
+        setError('An error occurred while fetching the order. Please try again later.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-black text-white selection:bg-emerald-500/30">
+      {/* Background Effects */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-emerald-500/5 blur-[120px] rounded-full" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-emerald-500/5 blur-[120px] rounded-full" />
+      </div>
+
+      <div className="relative pt-32 pb-24 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-3xl mx-auto">
+          <motion.button 
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            onClick={onBack}
+            className="flex items-center gap-2 text-[10px] font-bold text-gray-500 hover:text-emerald-500 mb-12 transition-all uppercase tracking-widest group"
+          >
+            <ChevronLeft className="w-3 h-3 group-hover:-translate-x-1 transition-transform" /> 
+            Back to Home
+          </motion.button>
+
+          <div className="text-center space-y-6 mb-20">
+            <motion.p 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-[10px] font-bold text-emerald-500 uppercase tracking-[0.5em]"
+            >
+              Order Status
+            </motion.p>
+            <motion.h1 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="text-6xl md:text-8xl font-bold tracking-tighter leading-none"
+            >
+              TRACK YOUR <br />
+              <span className="text-emerald-500">ORDER</span>
+            </motion.h1>
+            <motion.p 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="max-w-md mx-auto text-gray-300 font-medium leading-relaxed text-base"
+            >
+              Enter your Order Number and billing email to check the status of your research compounds. 
+              Your Order Number was provided in your confirmation email.
+            </motion.p>
+          </div>
+
+          {!order ? (
+            <motion.div 
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="bg-[#0a0a0a] border border-white/5 rounded-[2.5rem] p-8 md:p-16 shadow-2xl relative overflow-hidden"
+            >
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-emerald-500/20 to-transparent" />
+              
+              <form onSubmit={handleTrack} className="space-y-10">
+                <div className="space-y-3">
+                  <label className="text-xs font-bold text-gray-300 uppercase tracking-[0.2em] ml-1">Order Number</label>
+                  <div className="relative">
+                    <Hash className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input 
+                      type="text" 
+                      required
+                      placeholder="e.g. VR-20250220-0001"
+                      value={orderNumber}
+                      onChange={e => setOrderNumber(e.target.value)}
+                      className="w-full bg-black border border-white/20 rounded-2xl px-14 py-5 focus:outline-none focus:border-emerald-500 transition-all text-white placeholder:text-gray-600 font-medium"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <label className="text-xs font-bold text-gray-300 uppercase tracking-[0.2em] ml-1">Billing Email</label>
+                  <div className="relative">
+                    <Mail className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input 
+                      type="email" 
+                      required
+                      placeholder="email@example.com"
+                      value={email}
+                      onChange={e => setEmail(e.target.value)}
+                      className="w-full bg-black border border-white/20 rounded-2xl px-14 py-5 focus:outline-none focus:border-emerald-500 transition-all text-white placeholder:text-gray-600 font-medium"
+                    />
+                  </div>
+                </div>
+
+                {error && (
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="p-5 bg-red-500/5 border border-red-500/10 rounded-2xl text-red-400 text-xs font-bold text-center uppercase tracking-widest"
+                  >
+                    {error}
+                  </motion.div>
+                )}
+
+                <button 
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-white hover:bg-emerald-500 text-black hover:text-white font-bold py-6 rounded-2xl transition-all flex items-center justify-center gap-3 disabled:opacity-50 group shadow-xl shadow-white/5 hover:shadow-emerald-500/20"
+                >
+                  {loading ? (
+                    <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <Search className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                      <span className="tracking-widest">TRACK RESEARCH ORDER</span>
+                    </>
+                  )}
+                </button>
+              </form>
+            </motion.div>
+          ) : (
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="space-y-8"
+            >
+              <div className="bg-[#0a0a0a] border border-white/5 rounded-[2.5rem] p-8 md:p-16 shadow-2xl">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 mb-16 pb-16 border-b border-white/5">
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Order Reference</p>
+                    <p className="text-3xl font-bold tracking-tighter">#{order.id}</p>
+                  </div>
+                  <div className="space-y-2 md:text-right">
+                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Current Status</p>
+                    <div className="flex flex-col items-end gap-1">
+                      <div className="flex items-center gap-3 md:justify-end">
+                        <div className={`w-2 h-2 rounded-full animate-pulse ${
+                          order.status === 'completed' ? 'bg-emerald-500' : 
+                          order.status === 'pending' ? 'bg-amber-500' : 
+                          'bg-blue-500'
+                        }`} />
+                        <span className={`text-xl font-bold uppercase tracking-tighter ${
+                          order.status === 'completed' ? 'text-emerald-500' : 
+                          order.status === 'pending' ? 'text-amber-500' : 
+                          'text-blue-500'
+                        }`}>
+                          {order.status}
+                        </span>
+                      </div>
+                      {order.status === 'pending' && (
+                        <p className="text-[10px] text-amber-500/60 font-medium uppercase tracking-widest">Awaiting Lab Processing</p>
+                      )}
+                      {order.status === 'shipped' && (
+                        <p className="text-[10px] text-blue-500/60 font-medium uppercase tracking-widest">In Transit to Destination</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-16">
+                  <div className="space-y-8">
+                    <h3 className="text-[10px] font-bold text-emerald-500 uppercase tracking-[0.3em]">Research Inventory</h3>
+                    <div className="space-y-6">
+                      {order.items.map((item: any, i: number) => (
+                        <div key={i} className="flex justify-between items-center group">
+                          <div className="flex items-center gap-5">
+                            <div className="w-14 h-14 bg-black border border-white/10 rounded-2xl flex items-center justify-center text-xs font-bold text-emerald-500 group-hover:border-emerald-500/30 transition-colors">
+                              {item.quantity}x
+                            </div>
+                            <div>
+                              <p className="font-bold text-base tracking-tight">{item.name}</p>
+                              <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">{item.category}</p>
+                            </div>
+                          </div>
+                          <p className="font-bold text-base tracking-tight">${(item.price * item.quantity).toFixed(2)}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-8">
+                    <h3 className="text-[10px] font-bold text-emerald-500 uppercase tracking-[0.3em]">Delivery Destination</h3>
+                    <div className="bg-black/40 border border-white/5 rounded-3xl p-8 space-y-2">
+                      <p className="text-white font-bold text-lg tracking-tight">{order.shippingInfo.firstName} {order.shippingInfo.lastName}</p>
+                      <p className="text-gray-400 text-sm leading-relaxed">{order.shippingInfo.address}</p>
+                      <p className="text-gray-400 text-sm leading-relaxed">{order.shippingInfo.city}, {order.shippingInfo.state} {order.shippingInfo.zip}</p>
+                    </div>
+                    
+                    <div className="pt-8 border-t border-white/5 flex justify-between items-end">
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Total Investment</p>
+                        <p className="text-3xl font-bold tracking-tighter">${order.total.toFixed(2)}</p>
+                      </div>
+                      <div className="flex items-center gap-2 text-[10px] font-bold text-emerald-500 uppercase tracking-widest bg-emerald-500/5 px-4 py-2 rounded-full border border-emerald-500/10">
+                        <ShieldCheck className="w-3 h-3" /> Verified
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <button 
+                onClick={() => setOrder(null)}
+                className="w-full py-8 text-gray-500 hover:text-white transition-all text-[10px] font-bold uppercase tracking-[0.4em] hover:tracking-[0.6em]"
+              >
+                Track another research order
+              </button>
+            </motion.div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const PrivacyPolicyView = ({ onBack }: { onBack: () => void }) => {
+  return (
+    <section className="py-24 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white rounded-[3rem] border border-gray-100 p-12 shadow-sm"
+      >
+        <button 
+          onClick={onBack}
+          className="flex items-center gap-2 text-sm font-bold text-gray-400 hover:text-black mb-12 transition-colors"
+        >
+          <ChevronLeft className="w-4 h-4" /> Back to Research
+        </button>
+
+        <h1 className="text-4xl font-bold tracking-tight text-gray-900 mb-4">Privacy Policy</h1>
+        <p className="text-gray-400 text-sm mb-12 uppercase tracking-widest font-bold">Last Updated: March 22, 2026</p>
+
+        <div className="space-y-12 text-gray-600 leading-relaxed">
+          <p>
+            At Eclipse Research, your privacy is our priority. This Privacy Policy explains how we collect, use, and protect your personal information when you interact with our website or purchase research products from us.
+          </p>
+
+          <section>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">1. Information We Collect</h2>
+            <p className="mb-4">When you visit or place an order on our website, we may collect the following information:</p>
+            <ul className="list-disc pl-5 space-y-2">
+              <li><strong>Personal Information:</strong> Name, email address, phone number, billing and shipping addresses.</li>
+              <li><strong>Payment Details:</strong> Processed securely via third-party gateways. We do not store your payment information.</li>
+              <li><strong>Technical Data:</strong> IP address, device type, browser, and activity on our site — collected through cookies and similar technologies.</li>
+            </ul>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">2. How We Use Your Information</h2>
+            <p className="mb-4">We use the data we collect to:</p>
+            <ul className="list-disc pl-5 space-y-2">
+              <li>Process and deliver your orders efficiently</li>
+              <li>Provide order confirmations, updates, and customer support</li>
+              <li>Send promotional emails only if you opt in</li>
+              <li>Improve our website performance and user experience</li>
+              <li>Monitor for fraud and ensure site security</li>
+            </ul>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">3. Information Sharing</h2>
+            <p className="mb-4">We never sell or rent your personal data. However, we may share necessary information with:</p>
+            <ul className="list-disc pl-5 space-y-2">
+              <li>Trusted third-party partners for payment processing, shipping, analytics, and email communication</li>
+              <li>Regulatory or legal authorities if required by law or to protect our rights and safety</li>
+            </ul>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">4. Cookies & Tracking</h2>
+            <p>
+              We use cookies to personalize your experience, analyze traffic, and improve functionality. You may disable cookies through your browser settings, though some features may not work as intended.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">5. Data Security</h2>
+            <p>
+              Eclipse Research implements strong technical and organizational safeguards to protect your information from unauthorized access, loss, or misuse.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">6. Contact Us</h2>
+            <p>
+              If you have any questions about this Privacy Policy, please contact us at 
+              <a href="mailto:info@eclipseresearch.shop" className="text-emerald-600 ml-1 font-medium underline">info@eclipseresearch.shop</a>.
             </p>
           </section>
         </div>
@@ -1295,22 +1982,41 @@ const AccountView = ({ onNavigate, onEditOrder }: { onNavigate: (view: any) => v
 };
 
 const AdminDashboard = () => {
+  const [activeTab, setActiveTab] = useState<'users' | 'orders'>('users');
   const [users, setUsers] = useState<any[]>([]);
+  const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const q = collection(db, 'users');
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const usersList = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setUsers(usersList);
+    const usersQuery = collection(db, 'users');
+    const ordersQuery = collection(db, 'orders');
+
+    const unsubscribeUsers = onSnapshot(usersQuery, (snapshot) => {
+      setUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
+    const unsubscribeOrders = onSnapshot(ordersQuery, (snapshot) => {
+      setOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribeUsers();
+      unsubscribeOrders();
+    };
   }, []);
+
+  const updateOrderStatus = async (orderId: string, newStatus: string) => {
+    try {
+      await updateDoc(doc(db, 'orders', orderId), {
+        status: newStatus,
+        updatedAt: serverTimestamp()
+      });
+    } catch (error) {
+      console.error('Error updating order:', error);
+      alert('Failed to update order status.');
+    }
+  };
 
   if (loading) {
     return (
@@ -1322,50 +2028,121 @@ const AdminDashboard = () => {
 
   return (
     <div className="pt-32 pb-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="mb-12">
-        <h1 className="text-4xl font-bold tracking-tight text-gray-900 mb-2">User Management</h1>
-        <p className="text-gray-500">View and manage all registered research accounts.</p>
-      </div>
-
-      <div className="bg-white rounded-[2rem] border border-gray-100 overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-gray-50 border-b border-gray-100">
-                <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">User</th>
-                <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Email</th>
-                <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Role</th>
-                <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Joined</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {users.map((u) => (
-                <tr key={u.id} className="hover:bg-gray-50/50 transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-black/5 rounded-full flex items-center justify-center text-xs font-bold">
-                        {u.firstName?.[0]}{u.lastName?.[0]}
-                      </div>
-                      <span className="font-bold text-sm">{u.displayName}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">{u.email}</td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                      u.role === 'admin' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'
-                    }`}>
-                      {u.role || 'user'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-400">
-                    {u.createdAt?.toDate ? u.createdAt.toDate().toLocaleDateString() : 'N/A'}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-12">
+        <div>
+          <h1 className="text-4xl font-bold tracking-tight text-gray-900 mb-2">Admin Control Panel</h1>
+          <p className="text-gray-500">Manage research accounts and track laboratory orders.</p>
+        </div>
+        <div className="flex bg-gray-100 p-1 rounded-2xl">
+          <button 
+            onClick={() => setActiveTab('users')}
+            className={`px-6 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'users' ? 'bg-white text-black shadow-sm' : 'text-gray-500 hover:text-black'}`}
+          >
+            Users
+          </button>
+          <button 
+            onClick={() => setActiveTab('orders')}
+            className={`px-6 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'orders' ? 'bg-white text-black shadow-sm' : 'text-gray-500 hover:text-black'}`}
+          >
+            Orders
+          </button>
         </div>
       </div>
+
+      {activeTab === 'users' ? (
+        <div className="bg-white rounded-[2rem] border border-gray-100 overflow-hidden shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-100">
+                  <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">User</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Email</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Role</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Joined</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {users.map((u) => (
+                  <tr key={u.id} className="hover:bg-gray-50/50 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-black/5 rounded-full flex items-center justify-center text-xs font-bold">
+                          {u.firstName?.[0]}{u.lastName?.[0]}
+                        </div>
+                        <span className="font-bold text-sm">{u.displayName || `${u.firstName} ${u.lastName}`}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-500">{u.email}</td>
+                    <td className="px-6 py-4">
+                      <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                        u.role === 'admin' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'
+                      }`}>
+                        {u.role || 'user'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-400">
+                      {u.createdAt?.toDate ? u.createdAt.toDate().toLocaleDateString() : 'N/A'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-white rounded-[2rem] border border-gray-100 overflow-hidden shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-100">
+                  <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Order ID</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Customer</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Total</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Status</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {orders.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)).map((o) => (
+                  <tr key={o.id} className="hover:bg-gray-50/50 transition-colors">
+                    <td className="px-6 py-4">
+                      <span className="font-mono text-xs font-bold text-emerald-600">{o.id}</span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm">
+                        <p className="font-bold">{o.shippingInfo.firstName} {o.shippingInfo.lastName}</p>
+                        <p className="text-gray-400 text-[10px]">{o.shippingInfo.email}</p>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-sm font-bold">${o.total.toFixed(2)}</td>
+                    <td className="px-6 py-4">
+                      <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                        o.status === 'completed' ? 'bg-emerald-100 text-emerald-700' : 
+                        o.status === 'pending' ? 'bg-amber-100 text-amber-700' : 
+                        'bg-blue-100 text-blue-700'
+                      }`}>
+                        {o.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <select 
+                        value={o.status}
+                        onChange={(e) => updateOrderStatus(o.id, e.target.value)}
+                        className="text-[10px] font-bold uppercase tracking-widest bg-gray-50 border border-gray-100 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      >
+                        <option value="pending">Pending</option>
+                        <option value="shipped">Shipped</option>
+                        <option value="completed">Completed</option>
+                        <option value="cancelled">Cancelled</option>
+                      </select>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -1498,7 +2275,7 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const userDoc = await getDoc(doc(db, 'users', u.uid));
         if (userDoc.exists()) {
           setIsAdmin(userDoc.data().role === 'admin');
-        } else if (u.email === 'kyron.laskosky2@gmail.com') {
+        } else if (u.email === 'info@eclipseresearch.shop') {
           setIsAdmin(true);
         }
       } else {
@@ -2160,7 +2937,7 @@ const CheckoutView = ({ cart, onBack, onComplete, initialOrder, userProfile }: {
   }, []);
 
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const shipping = 14.50;
+  const shipping = subtotal >= 250 ? 0 : 14.50;
   
   // 5% discount for crypto
   const discount = paymentMethod === 'crypto' ? subtotal * 0.05 : 0;
@@ -2337,10 +3114,10 @@ const CheckoutView = ({ cart, onBack, onComplete, initialOrder, userProfile }: {
                     />
                     <div>
                       <p className="font-bold text-gray-900">Express Shipping</p>
-                      <p className="text-sm text-gray-500">1-2 business days</p>
+                      <p className="text-sm text-gray-500">2-4 business days</p>
                     </div>
                   </div>
-                  <span className="font-bold text-gray-900">$14.50</span>
+                  <span className="font-bold text-gray-900">{shipping === 0 ? 'FREE' : `$${shipping.toFixed(2)}`}</span>
                 </label>
                 <button 
                   onClick={() => setStep(3)}
@@ -2351,7 +3128,7 @@ const CheckoutView = ({ cart, onBack, onComplete, initialOrder, userProfile }: {
               </motion.div>
             )}
             {step > 2 && (
-              <p className="text-sm text-gray-600 font-medium capitalize">Express Shipping — $14.50</p>
+              <p className="text-sm text-gray-600 font-medium capitalize">Express Shipping — {shipping === 0 ? 'FREE' : `$${shipping.toFixed(2)}`}</p>
             )}
           </section>
 
@@ -2758,7 +3535,7 @@ const ProductDetailView = ({ product, onAddToCart, onBack, onSelectProduct }: { 
 };
 
 const AppContent = () => {
-  const [view, setView] = useState<'home' | 'shop' | 'coas' | 'admin' | 'account' | 'checkout' | 'product'>('home');
+  const [view, setView] = useState<'home' | 'shop' | 'about' | 'track' | 'coas' | 'admin' | 'account' | 'checkout' | 'product' | 'terms' | 'shipping' | 'refund' | 'privacy'>('home');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -2859,6 +3636,14 @@ const AppContent = () => {
             </motion.div>
           )}
 
+          {view === 'about' && (
+            <AboutUsView onBack={() => setView('home')} onShopNow={() => setView('shop')} />
+          )}
+
+          {view === 'track' && (
+            <TrackOrderView onBack={() => setView('home')} />
+          )}
+
           {view === 'coas' && (
             <motion.div
               key="coas"
@@ -2934,6 +3719,18 @@ const AppContent = () => {
             <TermsView onBack={() => setView('home')} />
           )}
 
+          {view === 'shipping' && (
+            <ShippingPolicyView onBack={() => setView('home')} />
+          )}
+
+          {view === 'refund' && (
+            <RefundPolicyView onBack={() => setView('home')} />
+          )}
+
+          {view === 'privacy' && (
+            <PrivacyPolicyView onBack={() => setView('home')} />
+          )}
+
           {view === 'checkout' && (
             <motion.div
               key="checkout"
@@ -2971,8 +3768,14 @@ const AppContent = () => {
                       setCart([]);
                       setView('account');
                     } else {
-                      await addDoc(collection(db, 'orders'), {
-                        userId: user?.uid,
+                      // Generate a readable Order ID: VR-YYYYMMDD-RANDOM
+                      const date = new Date();
+                      const dateStr = date.toISOString().split('T')[0].replace(/-/g, '');
+                      const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase();
+                      const orderId = `VR-${dateStr}-${randomStr}`;
+
+                      await setDoc(doc(db, 'orders', orderId), {
+                        userId: user?.uid || null,
                         items: cart,
                         total,
                         status: 'pending',
@@ -2981,7 +3784,7 @@ const AppContent = () => {
                         paymentMethod,
                         createdAt: serverTimestamp()
                       });
-                      alert('Order placed successfully! (Research Simulation)');
+                      alert(`Order placed successfully! Your Order ID is: ${orderId}`);
                       setCart([]);
                       setView('home');
                     }
@@ -3043,6 +3846,8 @@ const AppContent = () => {
               <h4 className="font-bold mb-6 uppercase text-[10px] tracking-[0.2em] text-gray-400">Navigation</h4>
               <ul className="space-y-4 text-sm text-gray-600 font-medium">
                 <li><button onClick={() => setView('shop')} className="hover:text-black transition-colors">Shop All Compounds</button></li>
+                <li><button onClick={() => setView('about')} className="hover:text-black transition-colors">About Us</button></li>
+                <li><button onClick={() => setView('track')} className="hover:text-black transition-colors">Track Order</button></li>
                 <li><button onClick={() => setView('coas')} className="hover:text-black transition-colors">Lab Results (COAs)</button></li>
                 <li><button onClick={() => setView('account')} className="hover:text-black transition-colors">My Research Account</button></li>
                 <li><button onClick={() => setView('home')} className="hover:text-black transition-colors">Home</button></li>
@@ -3053,9 +3858,9 @@ const AppContent = () => {
               <h4 className="font-bold mb-6 uppercase text-[10px] tracking-[0.2em] text-gray-400">Legal</h4>
               <ul className="space-y-4 text-sm text-gray-600 font-medium">
                 <li><button onClick={() => setView('terms')} className="hover:text-black transition-colors">Terms and Conditions</button></li>
-                <li><a href="#" className="hover:text-black transition-colors">Shipping & Returns</a></li>
-                <li><a href="#" className="hover:text-black transition-colors">Privacy Policy</a></li>
-                <li><a href="#" className="hover:text-black transition-colors">Research Disclaimer</a></li>
+                <li><button onClick={() => setView('shipping')} className="hover:text-black transition-colors">Shipping Policy</button></li>
+                <li><button onClick={() => setView('refund')} className="hover:text-black transition-colors">Refund & Returns</button></li>
+                <li><button onClick={() => setView('privacy')} className="hover:text-black transition-colors">Privacy Policy</button></li>
               </ul>
             </div>
 

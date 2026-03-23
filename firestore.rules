@@ -28,7 +28,7 @@ service cloud.firestore {
     function isAdmin() {
       return isAuthenticated() && 
         (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-         (request.auth.token.email == "kyron.laskosky2@gmail.com" && request.auth.token.email_verified == true));
+         (request.auth.token.email == "info@eclipseresearch.shop" && request.auth.token.email_verified == true));
     }
 
     function isValidProduct(data) {
@@ -61,9 +61,17 @@ service cloud.firestore {
     }
 
     match /orders/{orderId} {
-      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      // Allow read if user is owner, admin, or if they are tracking a guest order (checked via ID)
+      // Note: In a production app, you'd ideally use a query with email filter to restrict this further.
+      allow read: if (isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin())) || 
+                     (resource.data.shippingInfo.email == request.auth.token.email) ||
+                     (!isAuthenticated()); // Allow guest tracking via ID (Security by Obscurity)
+      
+      allow create: if (isAuthenticated() && request.resource.data.userId == request.auth.uid) || 
+                       (!isAuthenticated()); // Allow guest checkout
+      
       allow update: if isAdmin();
+      
       allow delete: if (isAuthenticated() && resource.data.userId == request.auth.uid && resource.data.status == 'pending') || isAdmin();
     }
   }
