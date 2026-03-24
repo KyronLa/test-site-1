@@ -256,9 +256,8 @@ const Navbar = ({ cartCount, onOpenCart, onOpenAuth, onNavigate, currentView }: 
 
         <div className="hidden md:flex items-center gap-8">
           <button onClick={() => onNavigate('shop')} className={`text-sm font-medium hover:opacity-70 transition-opacity ${showSolidNav ? 'text-black' : 'text-white'}`}>Shop All</button>
+          <button onClick={() => onNavigate('calculator')} className={`text-sm font-medium hover:opacity-70 transition-opacity ${showSolidNav ? 'text-black' : 'text-white'}`}>Calculator</button>
           <button onClick={() => onNavigate('about')} className={`text-sm font-medium hover:opacity-70 transition-opacity ${showSolidNav ? 'text-black' : 'text-white'}`}>About Us</button>
-          <button onClick={() => onNavigate('track')} className={`text-sm font-medium hover:opacity-70 transition-opacity ${showSolidNav ? 'text-black' : 'text-white'}`}>Track Order</button>
-          <button onClick={() => onNavigate('coas')} className={`text-sm font-medium hover:opacity-70 transition-opacity ${showSolidNav ? 'text-black' : 'text-white'}`}>COA's</button>
           {isAdmin && (
             <button onClick={() => onNavigate('admin')} className={`text-sm font-bold text-emerald-500 hover:opacity-70 transition-opacity`}>Admin Panel</button>
           )}
@@ -316,7 +315,8 @@ const Navbar = ({ cartCount, onOpenCart, onOpenAuth, onNavigate, currentView }: 
               <button onClick={() => { onNavigate('shop'); setIsMobileMenuOpen(false); }} className="text-2xl font-bold text-black border-b border-gray-100 pb-4 text-left">Shop All</button>
               <button onClick={() => { onNavigate('about'); setIsMobileMenuOpen(false); }} className="text-2xl font-bold text-black border-b border-gray-100 pb-4 text-left">About Us</button>
               <button onClick={() => { onNavigate('track'); setIsMobileMenuOpen(false); }} className="text-2xl font-bold text-black border-b border-gray-100 pb-4 text-left">Track Order</button>
-              <button onClick={() => { onNavigate('coas'); setIsMobileMenuOpen(false); }} className="text-2xl font-bold text-black border-b border-gray-100 pb-4 text-left">COA's</button>
+              <button onClick={() => { onNavigate('calculator'); setIsMobileMenuOpen(false); }} className="text-2xl font-bold text-black border-b border-gray-100 pb-4 text-left">Calculator</button>
+              <button onClick={() => { onNavigate('coas'); setIsMobileMenuOpen(false); }} className="text-2xl font-bold text-black border-b border-gray-100 pb-4 text-left">Request COA's</button>
               {user && (
                 <button onClick={() => { onNavigate('account'); setIsMobileMenuOpen(false); }} className="text-2xl font-bold text-black border-b border-gray-100 pb-4 text-left">My Account</button>
               )}
@@ -1982,14 +1982,16 @@ const AccountView = ({ onNavigate, onEditOrder }: { onNavigate: (view: any) => v
 };
 
 const AdminDashboard = () => {
-  const [activeTab, setActiveTab] = useState<'users' | 'orders'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'orders' | 'coas'>('users');
   const [users, setUsers] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
+  const [coaRequests, setCoaRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const usersQuery = collection(db, 'users');
     const ordersQuery = collection(db, 'orders');
+    const coaQuery = collection(db, 'coa_requests');
 
     const unsubscribeUsers = onSnapshot(usersQuery, (snapshot) => {
       setUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
@@ -1997,12 +1999,17 @@ const AdminDashboard = () => {
 
     const unsubscribeOrders = onSnapshot(ordersQuery, (snapshot) => {
       setOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
+    const unsubscribeCoas = onSnapshot(coaQuery, (snapshot) => {
+      setCoaRequests(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       setLoading(false);
     });
 
     return () => {
       unsubscribeUsers();
       unsubscribeOrders();
+      unsubscribeCoas();
     };
   }, []);
 
@@ -2015,6 +2022,18 @@ const AdminDashboard = () => {
     } catch (error) {
       console.error('Error updating order:', error);
       alert('Failed to update order status.');
+    }
+  };
+
+  const updateCoaStatus = async (requestId: string, newStatus: string) => {
+    try {
+      await updateDoc(doc(db, 'coa_requests', requestId), {
+        status: newStatus,
+        updatedAt: serverTimestamp()
+      });
+    } catch (error) {
+      console.error('Error updating COA request:', error);
+      alert('Failed to update request status.');
     }
   };
 
@@ -2045,6 +2064,12 @@ const AdminDashboard = () => {
             className={`px-6 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'orders' ? 'bg-white text-black shadow-sm' : 'text-gray-500 hover:text-black'}`}
           >
             Orders
+          </button>
+          <button 
+            onClick={() => setActiveTab('coas')}
+            className={`px-6 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'coas' ? 'bg-white text-black shadow-sm' : 'text-gray-500 hover:text-black'}`}
+          >
+            COA Requests
           </button>
         </div>
       </div>
@@ -2089,7 +2114,7 @@ const AdminDashboard = () => {
             </table>
           </div>
         </div>
-      ) : (
+      ) : activeTab === 'orders' ? (
         <div className="bg-white rounded-[2rem] border border-gray-100 overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
@@ -2134,6 +2159,50 @@ const AdminDashboard = () => {
                         <option value="shipped">Shipped</option>
                         <option value="completed">Completed</option>
                         <option value="cancelled">Cancelled</option>
+                      </select>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-white rounded-[2rem] border border-gray-100 overflow-hidden shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-100">
+                  <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Date</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Email</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Product / Batch</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Status</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {coaRequests.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)).map((r) => (
+                  <tr key={r.id} className="hover:bg-gray-50/50 transition-colors">
+                    <td className="px-6 py-4 text-sm text-gray-400">
+                      {r.createdAt?.toDate ? r.createdAt.toDate().toLocaleDateString() : 'N/A'}
+                    </td>
+                    <td className="px-6 py-4 text-sm font-bold text-gray-900">{r.email}</td>
+                    <td className="px-6 py-4 text-sm text-gray-500">{r.product}</td>
+                    <td className="px-6 py-4">
+                      <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                        r.status === 'processed' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                      }`}>
+                        {r.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <select 
+                        value={r.status}
+                        onChange={(e) => updateCoaStatus(r.id, e.target.value)}
+                        className="text-[10px] font-bold uppercase tracking-widest bg-gray-50 border border-gray-100 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      >
+                        <option value="pending">Pending</option>
+                        <option value="processed">Processed</option>
                       </select>
                     </td>
                   </tr>
@@ -2397,7 +2466,7 @@ const Hero = ({ onShopNow, onViewCOAs }: { onShopNow: () => void, onViewCOAs: ()
               onClick={onViewCOAs}
               className="px-10 py-5 border border-white/20 text-white font-bold rounded-2xl hover:bg-white/10 transition-all"
             >
-              View Lab Results
+              Request COA's
             </button>
           </div>
         </motion.div>
@@ -2661,23 +2730,25 @@ const FeaturedProducts: React.FC<{
   const featured = products.filter(p => ['2', '3', '10'].includes(p.id));
 
   return (
-    <section className="py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="flex justify-between items-end mb-12">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight text-gray-900 mb-2">Featured Compounds</h2>
-          <p className="text-gray-500">Our most requested high-purity research materials.</p>
+    <section className="py-24 bg-gray-900">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-end mb-12">
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight text-white mb-2">Featured Compounds</h2>
+            <p className="text-gray-400">Our most requested high-purity research materials.</p>
+          </div>
         </div>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-        {featured.map((product) => (
-          <ProductCard 
-            key={product.id}
-            product={product}
-            onAddToCart={onAddToCart}
-            onSelect={onSelectProduct}
-            variant="featured"
-          />
-        ))}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+          {featured.map((product) => (
+            <ProductCard 
+              key={product.id}
+              product={product}
+              onAddToCart={onAddToCart}
+              onSelect={onSelectProduct}
+              variant="featured"
+            />
+          ))}
+        </div>
       </div>
     </section>
   );
@@ -2828,43 +2899,151 @@ const ResearchDisclaimer = () => (
   </section>
 );
 
-const COAView = () => {
-  const coas = [
-    { name: "BPC-157 (5mg)", date: "Jan 2026", purity: "99.4%", image: "/bpc-157.png" },
-    { name: "GLP-3 RT", date: "Feb 2026", purity: "99.2%", image: "/glp3-rt.png" },
-    { name: "CJC-1295 + Ipamorelin", date: "Dec 2025", purity: "99.1%", image: "/cjc-ipamorelin.png" },
-    { name: "GHK-Cu (50mg)", date: "Jan 2026", purity: "99.8%", image: "/ghk-cu.png" },
-    { name: "NAD+", date: "Mar 2026", purity: "99.5%", image: "/nad.png" },
-    { name: "Melanotan II", date: "Feb 2026", purity: "99.3%", image: "/mt-2.png" },
-    { name: "Wolverine 10mg", date: "Mar 2026", purity: "99.6%", image: "/wolverine.png" },
-    { name: "GLOW", date: "Mar 2026", purity: "99.7%", image: "/glow.png" },
-    { name: "Tesamorelin (2mg)", date: "Feb 2026", purity: "99.2%", image: "/tesamorelin.png" },
-    { name: "Bacteriostatic Water", date: "Jan 2026", purity: "99.4%", image: "/bac-water.png" },
-  ];
+const COARequestView = () => {
+  const [email, setEmail] = useState('');
+  const [product, setProduct] = useState('');
+  const [message, setMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    
+    try {
+      await addDoc(collection(db, 'coa_requests'), {
+        email,
+        product,
+        message,
+        status: 'pending',
+        createdAt: serverTimestamp()
+      });
+      setIsSuccess(true);
+    } catch (error) {
+      console.error("Error submitting COA request:", error);
+      alert("Failed to submit request. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (isSuccess) {
+    return (
+      <section className="py-24 max-w-3xl mx-auto px-4 text-center">
+        <div className="bg-emerald-50 border border-emerald-100 rounded-[3rem] p-12 md:p-24">
+          <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-8">
+            <CheckCircle2 className="w-10 h-10" />
+          </div>
+          <h2 className="text-3xl font-bold text-gray-900 mb-4">Request Received</h2>
+          <p className="text-gray-600 text-lg leading-relaxed">
+            Thank you for your request. Our laboratory team will verify the batch records and send the requested Certificates of Analysis to <strong>{email}</strong> within 24-48 hours.
+          </p>
+          <button 
+            onClick={() => setIsSuccess(false)}
+            className="mt-12 px-8 py-4 bg-black text-white font-bold rounded-2xl hover:bg-emerald-600 transition-all"
+          >
+            Submit Another Request
+          </button>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="mb-16 text-center">
-        <h1 className="text-4xl md:text-6xl font-bold tracking-tight text-gray-900 mb-6">Certificates of Analysis</h1>
-        <p className="text-gray-500 max-w-2xl mx-auto text-lg">
-          We prioritize transparency. Every batch of our research compounds undergoes rigorous third-party HPLC testing to ensure maximum purity and reliability.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-        {coas.map((coa, i) => (
-          <motion.div 
-            key={i}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.1 }}
-            className="group bg-white rounded-3xl border border-gray-100 overflow-hidden hover:shadow-xl transition-all"
-          >
-            <div className="aspect-[3/4] relative overflow-hidden">
-              <img src={coa.image} alt={coa.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 opacity-80" />
+      <div className="grid lg:grid-cols-2 gap-16 items-center">
+        <motion.div
+          initial={{ opacity: 0, x: -30 }}
+          animate={{ opacity: 1, x: 0 }}
+        >
+          <div className="flex items-center gap-3 mb-6">
+            <div className="h-[1px] w-12 bg-emerald-500" />
+            <span className="text-emerald-500 font-bold tracking-[0.3em] text-xs uppercase">Quality Assurance</span>
+          </div>
+          <h1 className="text-5xl md:text-7xl font-bold tracking-tight text-gray-900 mb-8 leading-[0.9]">
+            Request <br />
+            <span className="text-emerald-500">COA's</span>
+          </h1>
+          <p className="text-gray-500 text-lg leading-relaxed mb-12">
+            At Eclipse Research, transparency is paramount. Every batch of our research compounds undergoes rigorous third-party HPLC testing. If you require a specific Certificate of Analysis for your batch, please submit a request below.
+          </p>
+          
+          <div className="space-y-8">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center flex-shrink-0">
+                <FlaskConical className="w-6 h-6 text-gray-400" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900 mb-1">Batch Verification</h3>
+                <p className="text-sm text-gray-500">We verify every request against our internal batch records to ensure accuracy.</p>
+              </div>
             </div>
-          </motion.div>
-        ))}
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center flex-shrink-0">
+                <ShieldCheck className="w-6 h-6 text-gray-400" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900 mb-1">Third-Party Testing</h3>
+                <p className="text-sm text-gray-500">All COAs are provided by independent, third-party analytical laboratories.</p>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-white rounded-[3rem] border border-gray-100 p-8 md:p-12 shadow-sm"
+        >
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Email Address</label>
+              <input 
+                required
+                type="email" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="researcher@institution.edu"
+                className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 text-sm focus:ring-2 focus:ring-black outline-none transition-all"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Product Name</label>
+              <input 
+                required
+                type="text" 
+                value={product}
+                onChange={(e) => setProduct(e.target.value)}
+                placeholder="e.g. BPC-157 5mg"
+                className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 text-sm focus:ring-2 focus:ring-black outline-none transition-all"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Additional Notes (Optional)</label>
+              <textarea 
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder="Any specific requirements for your research documentation..."
+                rows={4}
+                className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 text-sm focus:ring-2 focus:ring-black outline-none transition-all resize-none"
+              />
+            </div>
+
+            <button 
+              disabled={isSubmitting}
+              type="submit"
+              className="w-full py-5 bg-black text-white rounded-2xl font-bold hover:bg-emerald-600 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3"
+            >
+              {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Submit Request'}
+            </button>
+            
+            <p className="text-[10px] text-gray-400 text-center uppercase tracking-widest">
+              Requests are typically processed within 2 business days
+            </p>
+          </form>
+        </motion.div>
       </div>
     </section>
   );
@@ -3534,8 +3713,281 @@ const ProductDetailView = ({ product, onAddToCart, onBack, onSelectProduct }: { 
   );
 };
 
+const CalculatorView = () => {
+  const [vial, setVial] = useState<number | null>(5);
+  const [bac, setBac] = useState<number | null>(1);
+  const [dose, setDose] = useState<number | null>(0.05);
+  const [syringe, setSyringe] = useState(0.3);
+  const [ticks, setTicks] = useState(30);
+  
+  const [vialCustom, setVialCustom] = useState('');
+  const [bacCustom, setBacCustom] = useState('');
+  const [doseCustom, setDoseCustom] = useState('');
+  
+  const [showVialCustom, setShowVialCustom] = useState(false);
+  const [showBacCustom, setShowBacCustom] = useState(false);
+  const [showDoseCustom, setShowDoseCustom] = useState(false);
+
+  const handleVialClick = (val: string) => {
+    if (val === 'other') {
+      setShowVialCustom(true);
+      setVial(parseFloat(vialCustom) || null);
+    } else {
+      setShowVialCustom(false);
+      setVial(parseFloat(val));
+    }
+  };
+
+  const handleBacClick = (val: string) => {
+    if (val === 'other') {
+      setShowBacCustom(true);
+      setBac(parseFloat(bacCustom) || null);
+    } else {
+      setShowBacCustom(false);
+      setBac(parseFloat(val));
+    }
+  };
+
+  const handleDoseClick = (val: string) => {
+    if (val === 'other') {
+      setShowDoseCustom(true);
+      setDose(parseFloat(doseCustom) || null);
+    } else {
+      setShowDoseCustom(false);
+      setDose(parseFloat(val));
+    }
+  };
+
+  const handleSyringeClick = (val: number, t: number) => {
+    setSyringe(val);
+    setTicks(t);
+  };
+
+  const concMgPerMl = (vial && bac) ? (vial / bac) : 0;
+  const mlNeeded = (dose && concMgPerMl) ? dose / concMgPerMl : 0;
+  const unitsNeeded = mlNeeded * (ticks / syringe);
+
+  const buildSyringe = (target: number, totalTicks: number) => {
+    const W = 560, H = 48, barH = 14, startX = 20, endX = W - 10;
+    const trackW = endX - startX;
+    const fillW = (target / totalTicks) * trackW;
+    const fillX = startX + fillW;
+    const tickStep = totalTicks <= 30 ? 5 : 10;
+    let ticksJSX = [];
+    for (let i = 0; i <= totalTicks; i++) {
+      const x = startX + (i / totalTicks) * trackW;
+      const major = i % tickStep === 0;
+      ticksJSX.push(
+        <line 
+          key={`tick-${i}`}
+          x1={x} y1={H/2+barH/2} 
+          x2={x} y2={H/2+barH/2+(major?10:5)} 
+          stroke="#b0aea8" 
+          strokeWidth={major?1:0.5}
+        />
+      );
+      if (major && i > 0) {
+        ticksJSX.push(
+          <text 
+            key={`text-${i}`}
+            x={x} y={H/2+barH/2+22} 
+            textAnchor="middle" 
+            fontSize="11" 
+            fill="#7a7870" 
+            fontFamily="Inter, sans-serif"
+          >
+            {i}
+          </text>
+        );
+      }
+    }
+    return (
+      <svg className="w-full block overflow-visible" viewBox={`0 0 ${W} ${H+30}`} xmlns="http://www.w3.org/2000/svg">
+        <rect x={startX} y={H/2-barH/2} width={trackW} height={barH} rx="4" fill="#f0ede8" stroke="#d0cec9" strokeWidth="0.5"/>
+        <rect x={startX} y={H/2-barH/2} width={Math.max(0,fillW)} height={barH} rx="4" fill="#1a1a18"/>
+        <line x1={fillX} y1={H/2-barH/2-6} x2={fillX} y2={H/2+barH/2+6} stroke="#d85a30" strokeWidth="2"/>
+        {ticksJSX}
+      </svg>
+    );
+  };
+
+  const displayUnits = Math.round(unitsNeeded * 10) / 10;
+  const displayMl = mlNeeded.toFixed(3);
+  const concDisplay = (vial && bac) ? (vial / bac).toFixed(2) : '0.00';
+
+  return (
+    <section className="py-24 max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="bg-white border border-gray-100 rounded-[2.5rem] p-8 md:p-12 shadow-sm">
+        <div className="mb-12 pb-8 border-b border-gray-100">
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900 mb-2">Peptide Reconstitution Calculator</h1>
+          <p className="text-sm text-gray-500">Calculate your injection volume based on your vial, solvent, and dose.</p>
+        </div>
+
+        <div className="space-y-10">
+          {/* Vial Quantity */}
+          <div className="space-y-4">
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Peptide vial quantity</p>
+            <div className="flex flex-wrap gap-2">
+              {[5, 10, 15].map(val => (
+                <button 
+                  key={val}
+                  onClick={() => handleVialClick(val.toString())}
+                  className={`px-6 py-2.5 rounded-full border text-sm font-medium transition-all ${!showVialCustom && vial === val ? 'bg-black text-white border-black' : 'bg-gray-50 text-gray-600 border-gray-100 hover:border-gray-300'}`}
+                >
+                  {val} mg
+                </button>
+              ))}
+              <button 
+                onClick={() => handleVialClick('other')}
+                className={`px-6 py-2.5 rounded-full border text-sm font-medium transition-all ${showVialCustom ? 'bg-black text-white border-black' : 'bg-gray-50 text-gray-600 border-gray-100 hover:border-gray-300'}`}
+              >
+                Other
+              </button>
+            </div>
+            {showVialCustom && (
+              <div className="flex items-center gap-3 mt-4">
+                <input 
+                  type="number" 
+                  value={vialCustom}
+                  onChange={(e) => {
+                    setVialCustom(e.target.value);
+                    setVial(parseFloat(e.target.value) || null);
+                  }}
+                  placeholder="0"
+                  className="w-24 px-4 py-2 rounded-full bg-gray-50 border border-gray-100 text-sm outline-none focus:border-black transition-all"
+                />
+                <span className="text-sm text-gray-400">mg</span>
+              </div>
+            )}
+          </div>
+
+          {/* BAC Water */}
+          <div className="space-y-4">
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Bacteriostatic water added</p>
+            <div className="flex flex-wrap gap-2">
+              {[1, 2, 3, 5].map(val => (
+                <button 
+                  key={val}
+                  onClick={() => handleBacClick(val.toString())}
+                  className={`px-6 py-2.5 rounded-full border text-sm font-medium transition-all ${!showBacCustom && bac === val ? 'bg-black text-white border-black' : 'bg-gray-50 text-gray-600 border-gray-100 hover:border-gray-300'}`}
+                >
+                  {val} ml
+                </button>
+              ))}
+              <button 
+                onClick={() => handleBacClick('other')}
+                className={`px-6 py-2.5 rounded-full border text-sm font-medium transition-all ${showBacCustom ? 'bg-black text-white border-black' : 'bg-gray-50 text-gray-600 border-gray-100 hover:border-gray-300'}`}
+              >
+                Other
+              </button>
+            </div>
+            {showBacCustom && (
+              <div className="flex items-center gap-3 mt-4">
+                <input 
+                  type="number" 
+                  value={bacCustom}
+                  onChange={(e) => {
+                    setBacCustom(e.target.value);
+                    setBac(parseFloat(e.target.value) || null);
+                  }}
+                  placeholder="0"
+                  className="w-24 px-4 py-2 rounded-full bg-gray-50 border border-gray-100 text-sm outline-none focus:border-black transition-all"
+                />
+                <span className="text-sm text-gray-400">ml</span>
+              </div>
+            )}
+          </div>
+
+          {/* Dose */}
+          <div className="space-y-4">
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Desired dose per injection</p>
+            <div className="flex flex-wrap gap-2">
+              {[0.05, 0.1, 0.25, 0.5].map(val => (
+                <button 
+                  key={val}
+                  onClick={() => handleDoseClick(val.toString())}
+                  className={`px-6 py-2.5 rounded-full border text-sm font-medium transition-all ${!showDoseCustom && dose === val ? 'bg-black text-white border-black' : 'bg-gray-50 text-gray-600 border-gray-100 hover:border-gray-300'}`}
+                >
+                  {val} mg
+                </button>
+              ))}
+              <button 
+                onClick={() => handleDoseClick('other')}
+                className={`px-6 py-2.5 rounded-full border text-sm font-medium transition-all ${showDoseCustom ? 'bg-black text-white border-black' : 'bg-gray-50 text-gray-600 border-gray-100 hover:border-gray-300'}`}
+              >
+                Other
+              </button>
+            </div>
+            {showDoseCustom && (
+              <div className="flex items-center gap-3 mt-4">
+                <input 
+                  type="number" 
+                  value={doseCustom}
+                  onChange={(e) => {
+                    setDoseCustom(e.target.value);
+                    setDose(parseFloat(e.target.value) || null);
+                  }}
+                  placeholder="0"
+                  className="w-24 px-4 py-2 rounded-full bg-gray-50 border border-gray-100 text-sm outline-none focus:border-black transition-all"
+                />
+                <span className="text-sm text-gray-400">mg</span>
+              </div>
+            )}
+          </div>
+
+          <div className="h-[1px] bg-gray-100" />
+
+          {/* Syringe Size */}
+          <div className="space-y-4">
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Syringe size</p>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { val: 0.3, ticks: 30, label: '0.3 ml (30u)' },
+                { val: 0.5, ticks: 50, label: '0.5 ml (50u)' },
+                { val: 1.0, ticks: 100, label: '1.0 ml (100u)' }
+              ].map(s => (
+                <button 
+                  key={s.val}
+                  onClick={() => handleSyringeClick(s.val, s.ticks)}
+                  className={`px-6 py-2.5 rounded-full border text-sm font-medium transition-all ${syringe === s.val ? 'bg-black text-white border-black' : 'bg-gray-50 text-gray-600 border-gray-100 hover:border-gray-300'}`}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Results */}
+          {vial && bac && dose ? (
+            mlNeeded > syringe ? (
+              <div className="bg-red-50 border border-red-100 rounded-2xl p-6 text-sm text-red-600">
+                Dose too large for this syringe — you need {mlNeeded.toFixed(3)} ml but your syringe holds {syringe} ml. Try a larger syringe or reduce your dose.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100">
+                  <p className="text-xl font-bold text-gray-900">Pull syringe to <span className="text-3xl text-emerald-600">{displayUnits}</span> units</p>
+                  <p className="text-sm text-gray-500 mt-1">{displayMl} ml &nbsp;·&nbsp; {concDisplay} mg/ml concentration</p>
+                </div>
+                <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100">
+                  <p className="text-sm text-gray-500 mb-6">To get <strong className="text-gray-900">{dose} mg</strong>, draw to <strong className="text-gray-900">{displayUnits} units</strong></p>
+                  {buildSyringe(displayUnits, ticks)}
+                </div>
+              </div>
+            )
+          ) : null}
+
+          <p className="text-[10px] text-gray-400 leading-relaxed pt-8 border-t border-gray-100 uppercase tracking-wider">
+            For research and informational purposes only. This calculator provides mathematical reconstitution guidance and does not constitute medical advice. Always consult a qualified healthcare professional.
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+};
+
 const AppContent = () => {
-  const [view, setView] = useState<'home' | 'shop' | 'about' | 'track' | 'coas' | 'admin' | 'account' | 'checkout' | 'product' | 'terms' | 'shipping' | 'refund' | 'privacy'>('home');
+  const [view, setView] = useState<'home' | 'shop' | 'about' | 'track' | 'coas' | 'admin' | 'account' | 'checkout' | 'product' | 'terms' | 'shipping' | 'refund' | 'privacy' | 'calculator'>('home');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -3644,6 +4096,17 @@ const AppContent = () => {
             <TrackOrderView onBack={() => setView('home')} />
           )}
 
+          {view === 'calculator' && (
+            <motion.div
+              key="calculator"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <CalculatorView />
+            </motion.div>
+          )}
+
           {view === 'coas' && (
             <motion.div
               key="coas"
@@ -3651,7 +4114,7 @@ const AppContent = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              <COAView />
+              <COARequestView />
             </motion.div>
           )}
 
@@ -3799,7 +4262,7 @@ const AppContent = () => {
         </AnimatePresence>
 
         {/* Features Minimal */}
-        <section className="py-24 border-t border-gray-100 bg-white">
+        <section className="py-24 border-t border-gray-800 bg-gray-900">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-16">
               {[
@@ -3809,7 +4272,7 @@ const AppContent = () => {
               ].map((feature, i) => (
                 <div key={i} className="flex flex-col">
                   <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400 mb-4">{feature.title}</h3>
-                  <p className="text-gray-900 font-medium leading-relaxed">{feature.desc}</p>
+                  <p className="text-white font-medium leading-relaxed">{feature.desc}</p>
                 </div>
               ))}
             </div>
@@ -3829,17 +4292,6 @@ const AppContent = () => {
                 Providing high-purity research compounds to the global scientific community. 
                 Our mission is to accelerate discovery through quality and transparency.
               </p>
-              <div className="flex gap-4">
-                <div className="w-8 h-8 bg-gray-50 rounded-full border border-gray-100 flex items-center justify-center">
-                  <div className="w-4 h-4 bg-gray-200 rounded-sm"></div>
-                </div>
-                <div className="w-8 h-8 bg-gray-50 rounded-full border border-gray-100 flex items-center justify-center">
-                  <div className="w-4 h-4 bg-gray-200 rounded-sm"></div>
-                </div>
-                <div className="w-8 h-8 bg-gray-50 rounded-full border border-gray-100 flex items-center justify-center">
-                  <div className="w-4 h-4 bg-gray-200 rounded-sm"></div>
-                </div>
-              </div>
             </div>
 
             <div>
@@ -3848,9 +4300,9 @@ const AppContent = () => {
                 <li><button onClick={() => setView('shop')} className="hover:text-black transition-colors">Shop All Compounds</button></li>
                 <li><button onClick={() => setView('about')} className="hover:text-black transition-colors">About Us</button></li>
                 <li><button onClick={() => setView('track')} className="hover:text-black transition-colors">Track Order</button></li>
-                <li><button onClick={() => setView('coas')} className="hover:text-black transition-colors">Lab Results (COAs)</button></li>
+                <li><button onClick={() => setView('calculator')} className="hover:text-black transition-colors">Reconstitution Calculator</button></li>
+                <li><button onClick={() => setView('coas')} className="hover:text-black transition-colors">Request COA's</button></li>
                 <li><button onClick={() => setView('account')} className="hover:text-black transition-colors">My Research Account</button></li>
-                <li><button onClick={() => setView('home')} className="hover:text-black transition-colors">Home</button></li>
               </ul>
             </div>
 

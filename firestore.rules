@@ -74,5 +74,10 @@ service cloud.firestore {
       
       allow delete: if (isAuthenticated() && resource.data.userId == request.auth.uid && resource.data.status == 'pending') || isAdmin();
     }
+
+    match /coa_requests/{requestId} {
+      allow create: if true; // Anyone can request a COA
+      allow read, update, delete: if isAdmin();
+    }
   }
 }

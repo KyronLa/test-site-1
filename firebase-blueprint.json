@@ -57,11 +57,25 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["userId", "items", "total", "status", "createdAt"]
+    },
+    "COARequest": {
+      "title": "COARequest",
+      "description": "A request for a Certificate of Analysis.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "format": "email" },
+        "product": { "type": "string", "description": "Product name or batch ID." },
+        "message": { "type": "string", "description": "Optional notes." },
+        "status": { "type": "string", "enum": ["pending", "processed"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "product", "status", "createdAt"]
     }
   },
   "firestore": {
     "/products": { "schema": "Product", "description": "Collection of available research compounds." },
     "/users": { "schema": "User", "description": "User profile data." },
-    "/orders": { "schema": "Order", "description": "Customer order history." }
+    "/orders": { "schema": "Order", "description": "Customer order history." },
+    "/coa_requests": { "schema": "COARequest", "description": "Requests for Certificates of Analysis." }
   }
 }
