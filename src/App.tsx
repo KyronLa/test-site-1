@@ -181,6 +181,10 @@ interface Product {
   image: string;
   description?: string;
   dosage?: string;
+  stock?: number;
+  inStock?: boolean;
+  lowStockThreshold?: number;
+  isArchived?: boolean;
   quantityImages?: {
     1?: string;
     2?: string;
@@ -353,7 +357,7 @@ const CartDrawer = ({
   onAddToCart: (product: Product) => void
 }) => {
   const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const freeShippingThreshold = 300;
+  const freeShippingThreshold = 250;
   const progress = Math.min((total / freeShippingThreshold) * 100, 100);
   const remaining = Math.max(freeShippingThreshold - total, 0);
   const [promoCode, setPromoCode] = useState('');
@@ -385,25 +389,25 @@ const CartDrawer = ({
             exit={{ x: '100%' }}
             className="fixed right-0 top-0 h-full w-full max-w-xl bg-white z-[101] shadow-2xl flex flex-col"
           >
-            <div className="p-4 border-b border-gray-100 flex justify-between items-center">
+            <div className="p-4 bg-black text-white flex justify-between items-center">
               <h2 className="text-lg font-bold flex items-center gap-2">
-                <ShoppingCart className="w-4 h-4" /> Your Cart
+                <ShoppingCart className="w-4 h-4 text-emerald-400" /> Your Cart
               </h2>
-              <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-full"><X className="w-5 h-5" /></button>
+              <button onClick={onClose} className="p-1.5 hover:bg-white/10 rounded-full text-white"><X className="w-5 h-5" /></button>
             </div>
 
-            <div className="px-4 py-3 bg-emerald-50 border-b border-emerald-100">
+            <div className="px-4 py-3 bg-black border-b border-white/10">
               <div className="flex justify-between items-center mb-1.5">
-                <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">
+                <span className="text-[10px] font-bold text-white uppercase tracking-wider">
                   {total >= freeShippingThreshold ? '🎉 You unlocked free shipping!' : `Add $${remaining.toFixed(2)} more for free shipping`}
                 </span>
-                <span className="text-[9px] font-bold text-emerald-600">{Math.round(progress)}%</span>
+                <span className="text-[9px] font-bold text-white/60">{Math.round(progress)}%</span>
               </div>
-              <div className="w-full h-1.5 bg-emerald-200 rounded-full overflow-hidden">
+              <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
                 <motion.div 
                   initial={{ width: 0 }}
                   animate={{ width: `${progress}%` }}
-                  className="h-full bg-emerald-500"
+                  className="h-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"
                 />
               </div>
             </div>
@@ -484,7 +488,7 @@ const CartDrawer = ({
                     onChange={(e) => setPromoCode(e.target.value)}
                     className="flex-1 bg-gray-50 border border-gray-100 rounded-lg px-3 py-1.5 text-xs focus:ring-2 focus:ring-black outline-none"
                   />
-                  <button className="px-3 py-1.5 bg-gray-100 text-black font-bold text-[10px] rounded-lg hover:bg-gray-200 transition-colors">
+                  <button className="px-3 py-1.5 bg-black text-white font-bold text-[10px] rounded-lg hover:bg-gray-800 transition-colors">
                     Apply
                   </button>
                 </div>
@@ -1709,7 +1713,7 @@ const AffiliateView = ({ onBack }: { onBack: () => void }) => {
 };
 
 const AccountView = ({ onNavigate, onEditOrder }: { onNavigate: (view: any) => void, onEditOrder: (order: any) => void }) => {
-  const { user, logout } = useAuth();
+  const { user, logout, isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState<'orders' | 'details' | 'addresses' | 'rewards'>('orders');
   const [orders, setOrders] = useState<any[]>([]);
   const [profile, setProfile] = useState<any>(null);
@@ -1835,6 +1839,15 @@ const AccountView = ({ onNavigate, onEditOrder }: { onNavigate: (view: any) => v
                 </button>
               ))}
               <div className="pt-4 mt-4 border-t border-gray-50">
+                {isAdmin && (
+                  <button 
+                    onClick={() => onNavigate('admin')}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-emerald-600 hover:bg-emerald-50 transition-all mb-2"
+                  >
+                    <ShieldCheck className="w-4 h-4" />
+                    Admin Panel
+                  </button>
+                )}
                 <button 
                   onClick={() => { logout(); onNavigate('home'); }}
                   className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-red-500 hover:bg-red-50 transition-all"
@@ -2185,16 +2198,20 @@ const AccountView = ({ onNavigate, onEditOrder }: { onNavigate: (view: any) => v
 };
 
 const AdminDashboard = () => {
-  const [activeTab, setActiveTab] = useState<'users' | 'orders' | 'coas'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'orders' | 'coas' | 'inventory'>('inventory');
   const [users, setUsers] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
   const [coaRequests, setCoaRequests] = useState<any[]>([]);
+  const [productsList, setProductsList] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
   useEffect(() => {
     const usersQuery = collection(db, 'users');
     const ordersQuery = collection(db, 'orders');
     const coaQuery = collection(db, 'coa_requests');
+    const productsQuery = collection(db, 'products');
 
     const unsubscribeUsers = onSnapshot(usersQuery, (snapshot) => {
       setUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
@@ -2206,6 +2223,10 @@ const AdminDashboard = () => {
 
     const unsubscribeCoas = onSnapshot(coaQuery, (snapshot) => {
       setCoaRequests(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
+    const unsubscribeProducts = onSnapshot(productsQuery, (snapshot) => {
+      setProductsList(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
       setLoading(false);
     });
 
@@ -2213,6 +2234,7 @@ const AdminDashboard = () => {
       unsubscribeUsers();
       unsubscribeOrders();
       unsubscribeCoas();
+      unsubscribeProducts();
     };
   }, []);
 
@@ -2237,6 +2259,170 @@ const AdminDashboard = () => {
     } catch (error) {
       console.error('Error updating COA request:', error);
       alert('Failed to update request status.');
+    }
+  };
+
+  const seedProducts = async () => {
+    const initialProducts: Product[] = [
+      { 
+        id: '1', 
+        name: "GLP-3 RT", 
+        price: 86.99, 
+        category: "Peptides", 
+        image: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969217/glp3-rt_gfcapz.png", 
+        description: "A 39-amino acid triple agonist peptide targeting GIP, GLP-1, and glucagon receptors, studied for metabolic pathway regulation and receptor binding kinetics in preclinical research models. Premium Research Peptide.",
+        dosage: "10MG",
+        quantityImages: { 
+          1: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971440/1glp3-rt_x0z399.png",
+          2: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971951/2glp3-rt_saynur.png",
+          3: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971669/3glp3-rt_jjrejb.png"
+        }
+      },
+      { 
+        id: '2', 
+        name: "BPC-157", 
+        price: 67.99, 
+        category: "Peptides", 
+        image: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969218/bpc-157_vvwgot.png", 
+        description: "Body Protective Compound-157 is a pentadecapeptide known for its potential regenerative properties in tendon, muscle, and gut research.",
+        dosage: "10MG",
+        quantityImages: { 
+          1: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971445/1bpc-157_i2rout.png",
+          2: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969687/2bpc-157_qtjw7b.png",
+          3: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971672/3bpc-157_lxfd5j.png"
+        }
+      },
+      { 
+        id: '3', 
+        name: "GHK-Cu", 
+        price: 41.99, 
+        category: "Peptides", 
+        image: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969217/ghk-cu_k0gxxe.png", 
+        description: "A copper-binding tripeptide naturally occurring in human plasma with research applications in skin remodeling and anti-inflammatory studies.",
+        dosage: "100MG",
+        quantityImages: { 
+          1: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971439/1ghk-cu_dv1gat.png",
+          2: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969684/2ghk-cu_atd91e.png",
+          3: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971670/3ghk-cu_gscj57.png"
+        }
+      },
+      { 
+        id: '4', 
+        name: "MT-2", 
+        price: 43.99, 
+        category: "Peptides", 
+        image: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969217/mt-2_acqigl.png", 
+        description: "Melanotan II is a synthetic analog of the alpha-melanocyte-stimulating hormone, researched for its effects on skin pigmentation.",
+        dosage: "10MG",
+        quantityImages: { 
+          1: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971442/1mt-2_hfg0jk.png",
+          2: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969684/2mt-2_noa9bx.png",
+          3: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971674/3mt-2_qujg6y.png"
+        }
+      },
+      { 
+        id: '5', 
+        name: "Wolverine 10mg (BPC157/TB500)", 
+        price: 77.99, 
+        category: "Peptides", 
+        image: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969217/wolverine_tl3buz.png", 
+        description: "A research blend of BPC-157 and TB-500, designed for synergistic studies on tissue repair and recovery.",
+        dosage: "10MG",
+        quantityImages: { 
+          1: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971442/1wolverine_mrof4h.png",
+          2: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969687/2wolverine_locrq5.png",
+          3: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971671/3wolverine_nwvaiq.png"
+        }
+      },
+      { 
+        id: '6', 
+        name: "CJC 1295 no dac + Ipamorelin", 
+        price: 84.99, 
+        category: "Peptides", 
+        image: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969217/cjc-ipamorelin_atfs5x.png", 
+        description: "A combination of a GHRH analog and a ghrelin mimetic, used in research to study growth hormone secretion patterns.",
+        dosage: "10MG",
+        quantityImages: { 
+          1: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971442/1cjc-ipamorelin_fz6px6.png",
+          2: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969691/2cjc-ipamorelin_qi18jo.png",
+          3: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971671/3cjc-ipamorelin_nitxpm.png"
+        }
+      },
+      { 
+        id: '7', 
+        name: "Bacteriostatic Water", 
+        price: 14.99, 
+        category: "Peptides", 
+        image: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969217/BacWater_vl81li.png", 
+        description: "Sterile water containing 0.9% benzyl alcohol, used as a diluent for reconstituting research compounds.",
+        dosage: "10ML",
+        quantityImages: { 
+          1: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971439/1BacWater_vml33g.png",
+          2: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969683/2BacWater_cu9qeq.png",
+          3: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971668/3BacWater_jdwp5p.png"
+        }
+      },
+      { 
+        id: '8', 
+        name: "Tesamorelin", 
+        price: 92.99, 
+        category: "Peptides", 
+        image: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969217/tesamorelin_oydzju.png", 
+        description: "A synthetic analog of growth hormone-releasing factor (GRF), researched for its effects on visceral adipose tissue.",
+        dosage: "10MG",
+        quantityImages: { 
+          1: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971444/1tesamorelin_ehldd7.png",
+          2: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969687/2tesamorelin_s9a2jn.png",
+          3: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971675/3tesamorelin_wpphtb.png"
+        }
+      },
+      { 
+        id: '9', 
+        name: "GLOW", 
+        price: 112.99, 
+        category: "Peptides", 
+        image: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969218/glow_jfpqo0.png", 
+        description: "A specialized research blend designed for studies related to skin health, collagen production, and cellular vitality.",
+        dosage: "70MG",
+        quantityImages: { 
+          1: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971444/1glow_detdjm.png",
+          2: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969688/2glow_b4ssod.png",
+          3: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971674/3glow_i30p3b.png"
+        }
+      },
+      { 
+        id: '10', 
+        name: "NAD+", 
+        price: 77.99, 
+        category: "Peptides", 
+        image: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969217/nad_sxoz3j.png", 
+        description: "Nicotinamide Adenine Dinucleotide is a critical coenzyme found in all living cells, researched for its role in energy metabolism and DNA repair.",
+        dosage: "500MG",
+        quantityImages: { 
+          1: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971439/1nad_q367m5.png",
+          2: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969683/2nad_y1kupy.png",
+          3: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971669/3nad_o7dofh.png"
+        }
+      }
+    ];
+
+    if (!window.confirm('This will seed the database with initial products. Continue?')) return;
+    try {
+      for (const p of initialProducts) {
+        const { id, ...data } = p;
+        await setDoc(doc(db, 'products', id), {
+          ...data,
+          stock: 50,
+          inStock: true,
+          lowStockThreshold: 10,
+          isArchived: false,
+          createdAt: serverTimestamp()
+        });
+      }
+      alert('Products seeded successfully!');
+    } catch (error) {
+      console.error('Error seeding products:', error);
+      alert('Failed to seed products.');
     }
   };
 
@@ -2274,8 +2460,36 @@ const AdminDashboard = () => {
           >
             COA Requests
           </button>
+          <button 
+            onClick={() => setActiveTab('inventory')}
+            className={`px-6 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'inventory' ? 'bg-white text-black shadow-sm' : 'text-gray-500 hover:text-black'}`}
+          >
+            Inventory
+          </button>
         </div>
       </div>
+
+      {activeTab === 'inventory' && (
+        <div className="mb-8 flex justify-end gap-4">
+          {productsList.length === 0 && (
+            <button 
+              onClick={seedProducts}
+              className="px-6 py-3 bg-emerald-500 text-white font-bold rounded-xl hover:bg-emerald-600 transition-all flex items-center gap-2"
+            >
+              <Package className="w-4 h-4" /> Seed Initial Products
+            </button>
+          )}
+          <button 
+            onClick={() => {
+              setEditingProduct(null);
+              setIsProductModalOpen(true);
+            }}
+            className="px-6 py-3 bg-black text-white font-bold rounded-xl hover:bg-emerald-600 transition-all flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" /> Add New Product
+          </button>
+        </div>
+      )}
 
       {activeTab === 'users' ? (
         <div className="bg-white rounded-[2rem] border border-gray-100 overflow-hidden shadow-sm">
@@ -2313,6 +2527,107 @@ const AdminDashboard = () => {
                     </td>
                   </tr>
                 ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : activeTab === 'inventory' ? (
+        <div className="bg-white rounded-[2rem] border border-gray-100 overflow-hidden shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-100">
+                  <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Product</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Stock</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Threshold</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Status</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {productsList.map((p) => {
+                  const isLowStock = (p.stock || 0) <= (p.lowStockThreshold || 5) && (p.stock || 0) > 0;
+                  const isOutOfStock = (p.stock || 0) <= 0;
+                  
+                  return (
+                    <tr key={p.id} className={`hover:bg-gray-50/50 transition-colors ${p.isArchived ? 'opacity-50' : ''}`}>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <img src={p.image} alt="" className="w-10 h-10 rounded-lg object-cover border border-gray-100" />
+                          <div>
+                            <p className="font-bold text-gray-900 text-sm">{p.name}</p>
+                            <p className="text-[10px] text-gray-400 uppercase tracking-wider">{p.category} · {p.dosage}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <input 
+                            type="number"
+                            value={p.stock || 0}
+                            onChange={async (e) => {
+                              const newStock = parseInt(e.target.value) || 0;
+                              await updateDoc(doc(db, 'products', p.id), {
+                                stock: newStock,
+                                inStock: newStock > 0
+                              });
+                            }}
+                            className={`w-20 px-3 py-1.5 rounded-lg border text-sm font-bold outline-none focus:ring-2 focus:ring-black transition-all ${isLowStock ? 'bg-amber-50 border-amber-200 text-amber-700' : isOutOfStock ? 'bg-red-50 border-red-200 text-red-700' : 'bg-gray-50 border-gray-100'}`}
+                          />
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <input 
+                          type="number"
+                          value={p.lowStockThreshold || 5}
+                          onChange={async (e) => {
+                            const newThreshold = parseInt(e.target.value) || 0;
+                            await updateDoc(doc(db, 'products', p.id), {
+                              lowStockThreshold: newThreshold
+                            });
+                          }}
+                          className="w-16 px-3 py-1.5 rounded-lg border border-gray-100 bg-gray-50 text-sm font-bold outline-none focus:ring-2 focus:ring-black transition-all"
+                        />
+                      </td>
+                      <td className="px-6 py-4">
+                        {p.isArchived ? (
+                          <span className="px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-gray-100 text-gray-500">Archived</span>
+                        ) : isOutOfStock ? (
+                          <span className="px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-red-100 text-red-700">Out of Stock</span>
+                        ) : isLowStock ? (
+                          <span className="px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-700">Low Stock</span>
+                        ) : (
+                          <span className="px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-700">Healthy</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex justify-end gap-2">
+                          <button 
+                            onClick={() => {
+                              setEditingProduct(p);
+                              setIsProductModalOpen(true);
+                            }}
+                            className="p-2 text-gray-400 hover:text-black hover:bg-gray-100 rounded-lg transition-all"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={async () => {
+                              if (window.confirm(`Are you sure you want to ${p.isArchived ? 'unarchive' : 'archive'} this product?`)) {
+                                await updateDoc(doc(db, 'products', p.id), {
+                                  isArchived: !p.isArchived
+                                });
+                              }
+                            }}
+                            className={`p-2 rounded-lg transition-all ${p.isArchived ? 'text-emerald-500 hover:bg-emerald-50' : 'text-gray-400 hover:text-red-500 hover:bg-red-50'}`}
+                          >
+                            <Settings className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -2415,6 +2730,144 @@ const AdminDashboard = () => {
           </div>
         </div>
       )}
+
+      <AnimatePresence>
+        {isProductModalOpen && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsProductModalOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative bg-white w-full max-w-2xl rounded-[2.5rem] overflow-hidden shadow-2xl p-10 max-h-[90vh] overflow-y-auto"
+            >
+              <h2 className="text-3xl font-bold mb-8 tracking-tight">
+                {editingProduct ? 'Edit Product' : 'Add New Product'}
+              </h2>
+              
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                const quantityImages: Record<string, string> = {};
+                const q1 = formData.get('qImg1') as string;
+                const q5 = formData.get('qImg5') as string;
+                const q10 = formData.get('qImg10') as string;
+                const q20 = formData.get('qImg20') as string;
+                if (q1) quantityImages['1'] = q1;
+                if (q5) quantityImages['5'] = q5;
+                if (q10) quantityImages['10'] = q10;
+                if (q20) quantityImages['20'] = q20;
+
+                const productData = {
+                  name: formData.get('name') as string,
+                  price: parseFloat(formData.get('price') as string),
+                  category: formData.get('category') as string,
+                  dosage: formData.get('dosage') as string,
+                  image: formData.get('image') as string,
+                  description: formData.get('description') as string,
+                  stock: parseInt(formData.get('stock') as string) || 0,
+                  lowStockThreshold: parseInt(formData.get('lowStockThreshold') as string) || 5,
+                  inStock: (parseInt(formData.get('stock') as string) || 0) > 0,
+                  isArchived: editingProduct?.isArchived || false,
+                  quantityImages,
+                  updatedAt: serverTimestamp()
+                };
+
+                try {
+                  if (editingProduct) {
+                    await updateDoc(doc(db, 'products', editingProduct.id), productData);
+                  } else {
+                    await addDoc(collection(db, 'products'), {
+                      ...productData,
+                      createdAt: serverTimestamp()
+                    });
+                  }
+                  setIsProductModalOpen(false);
+                } catch (error) {
+                  console.error('Error saving product:', error);
+                  alert('Failed to save product.');
+                }
+              }} className="space-y-6">
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Product Name</label>
+                    <input required name="name" defaultValue={editingProduct?.name} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-black outline-none" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Price (USD)</label>
+                    <input required name="price" type="number" step="0.01" defaultValue={editingProduct?.price} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-black outline-none" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Category</label>
+                    <input required name="category" defaultValue={editingProduct?.category || 'Peptides'} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-black outline-none" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Dosage (e.g. 10MG)</label>
+                    <input required name="dosage" defaultValue={editingProduct?.dosage} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-black outline-none" />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Image URL</label>
+                  <input required name="image" defaultValue={editingProduct?.image} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-black outline-none" />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Description</label>
+                  <textarea name="description" defaultValue={editingProduct?.description} rows={3} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-black outline-none resize-none" />
+                </div>
+
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Initial Stock</label>
+                    <input required name="stock" type="number" defaultValue={editingProduct?.stock || 0} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-black outline-none" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Low Stock Threshold</label>
+                    <input required name="lowStockThreshold" type="number" defaultValue={editingProduct?.lowStockThreshold || 5} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-black outline-none" />
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Quantity Images (Optional)</label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">1 Unit Image</label>
+                      <input name="qImg1" placeholder="URL for 1 unit" defaultValue={editingProduct?.quantityImages?.['1']} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-2 text-xs focus:ring-2 focus:ring-black outline-none" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">5 Units Image</label>
+                      <input name="qImg5" placeholder="URL for 5 units" defaultValue={editingProduct?.quantityImages?.['5']} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-2 text-xs focus:ring-2 focus:ring-black outline-none" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">10 Units Image</label>
+                      <input name="qImg10" placeholder="URL for 10 units" defaultValue={editingProduct?.quantityImages?.['10']} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-2 text-xs focus:ring-2 focus:ring-black outline-none" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">20 Units Image</label>
+                      <input name="qImg20" placeholder="URL for 20 units" defaultValue={editingProduct?.quantityImages?.['20']} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-2 text-xs focus:ring-2 focus:ring-black outline-none" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-4 pt-4">
+                  <button type="button" onClick={() => setIsProductModalOpen(false)} className="flex-1 py-4 bg-gray-100 text-black rounded-2xl font-bold hover:bg-gray-200 transition-all">Cancel</button>
+                  <button type="submit" className="flex-1 py-4 bg-black text-white rounded-2xl font-bold hover:bg-emerald-600 transition-all">Save Product</button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
@@ -2546,7 +2999,7 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (u) {
         const userDoc = await getDoc(doc(db, 'users', u.uid));
         if (userDoc.exists()) {
-          setIsAdmin(userDoc.data().role === 'admin');
+          setIsAdmin(u.email === 'info@eclipseresearch.shop');
         } else if (u.email === 'info@eclipseresearch.shop') {
           setIsAdmin(true);
         }
@@ -2569,7 +3022,7 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       displayName: `${firstName} ${lastName}`
     });
 
-    const role = u.email === 'kyron.laskosky2@gmail.com' ? 'admin' : 'user';
+    const role = u.email === 'info@eclipseresearch.shop' ? 'admin' : 'user';
 
     await setDoc(doc(db, 'users', u.uid), {
       email: u.email,
@@ -2685,148 +3138,6 @@ const Hero = ({ onShopNow, onViewCOAs }: { onShopNow: () => void, onViewCOAs: ()
 
 // --- Constants ---
 
-const products: Product[] = [
-  { 
-    id: '1', 
-    name: "GLP-3 RT", 
-    price: 86.99, 
-    category: "Peptides", 
-    image: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969217/glp3-rt_gfcapz.png", 
-    description: "A 39-amino acid triple agonist peptide targeting GIP, GLP-1, and glucagon receptors, studied for metabolic pathway regulation and receptor binding kinetics in preclinical research models. Premium Research Peptide.",
-    dosage: "10MG",
-    quantityImages: { 
-      1: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971440/1glp3-rt_x0z399.png",
-      2: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971951/2glp3-rt_saynur.png",
-      3: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971669/3glp3-rt_jjrejb.png"
-    }
-  },
-  { 
-    id: '2', 
-    name: "BPC-157", 
-    price: 67.99, 
-    category: "Peptides", 
-    image: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969218/bpc-157_vvwgot.png", 
-    description: "Body Protective Compound-157 is a pentadecapeptide known for its potential regenerative properties in tendon, muscle, and gut research.",
-    dosage: "10MG",
-    quantityImages: { 
-      1: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971445/1bpc-157_i2rout.png",
-      2: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969687/2bpc-157_qtjw7b.png",
-      3: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971672/3bpc-157_lxfd5j.png"
-    }
-  },
-  { 
-    id: '3', 
-    name: "GHK-Cu", 
-    price: 41.99, 
-    category: "Peptides", 
-    image: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969217/ghk-cu_k0gxxe.png", 
-    description: "A copper-binding tripeptide naturally occurring in human plasma with research applications in skin remodeling and anti-inflammatory studies.",
-    dosage: "100MG",
-    quantityImages: { 
-      1: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971439/1ghk-cu_dv1gat.png",
-      2: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969684/2ghk-cu_atd91e.png",
-      3: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971670/3ghk-cu_gscj57.png"
-    }
-  },
-  { 
-    id: '4', 
-    name: "MT-2", 
-    price: 43.99, 
-    category: "Peptides", 
-    image: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969217/mt-2_acqigl.png", 
-    description: "Melanotan II is a synthetic analog of the alpha-melanocyte-stimulating hormone, researched for its effects on skin pigmentation.",
-    dosage: "10MG",
-    quantityImages: { 
-      1: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971442/1mt-2_hfg0jk.png",
-      2: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969684/2mt-2_noa9bx.png",
-      3: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971674/3mt-2_qujg6y.png"
-    }
-  },
-  { 
-    id: '5', 
-    name: "Wolverine 10mg (BPC157/TB500)", 
-    price: 77.99, 
-    category: "Peptides", 
-    image: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969217/wolverine_tl3buz.png", 
-    description: "A research blend of BPC-157 and TB-500, designed for synergistic studies on tissue repair and recovery.",
-    dosage: "10MG",
-    quantityImages: { 
-      1: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971442/1wolverine_mrof4h.png",
-      2: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969687/2wolverine_locrq5.png",
-      3: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971671/3wolverine_nwvaiq.png"
-    }
-  },
-  { 
-    id: '6', 
-    name: "CJC 1295 no dac + Ipamorelin", 
-    price: 84.99, 
-    category: "Peptides", 
-    image: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969217/cjc-ipamorelin_atfs5x.png", 
-    description: "A combination of a GHRH analog and a ghrelin mimetic, used in research to study growth hormone secretion patterns.",
-    dosage: "10MG",
-    quantityImages: { 
-      1: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971442/1cjc-ipamorelin_fz6px6.png",
-      2: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969691/2cjc-ipamorelin_qi18jo.png",
-      3: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971671/3cjc-ipamorelin_nitxpm.png"
-    }
-  },
-  { 
-    id: '7', 
-    name: "Bacteriostatic Water", 
-    price: 14.99, 
-    category: "Peptides", 
-    image: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969217/BacWater_vl81li.png", 
-    description: "Sterile water containing 0.9% benzyl alcohol, used as a diluent for reconstituting research compounds.",
-    dosage: "10ML",
-    quantityImages: { 
-      1: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971439/1BacWater_vml33g.png",
-      2: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969683/2BacWater_cu9qeq.png",
-      3: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971668/3BacWater_jdwp5p.png"
-    }
-  },
-  { 
-    id: '8', 
-    name: "Tesamorelin", 
-    price: 92.99, 
-    category: "Peptides", 
-    image: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969217/tesamorelin_oydzju.png", 
-    description: "A synthetic analog of growth hormone-releasing factor (GRF), researched for its effects on visceral adipose tissue.",
-    dosage: "10MG",
-    quantityImages: { 
-      1: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971444/1tesamorelin_ehldd7.png",
-      2: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969687/2tesamorelin_s9a2jn.png",
-      3: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971675/3tesamorelin_wpphtb.png"
-    }
-  },
-  { 
-    id: '9', 
-    name: "GLOW", 
-    price: 112.99, 
-    category: "Peptides", 
-    image: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969218/glow_jfpqo0.png", 
-    description: "A specialized research blend designed for studies related to skin health, collagen production, and cellular vitality.",
-    dosage: "70MG",
-    quantityImages: { 
-      1: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971444/1glow_detdjm.png",
-      2: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969688/2glow_b4ssod.png",
-      3: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971674/3glow_i30p3b.png"
-    }
-  },
-  { 
-    id: '10', 
-    name: "NAD+", 
-    price: 77.99, 
-    category: "Peptides", 
-    image: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969217/nad_sxoz3j.png", 
-    description: "Nicotinamide Adenine Dinucleotide is a critical coenzyme found in all living cells, researched for its role in energy metabolism and DNA repair.",
-    dosage: "500MG",
-    quantityImages: { 
-      1: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971439/1nad_q367m5.png",
-      2: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969683/2nad_y1kupy.png",
-      3: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971669/3nad_o7dofh.png"
-    }
-  }
-];
 const ProductCard: React.FC<{ 
   product: Product, 
   onAddToCart: (p: Product) => void, 
@@ -2851,14 +3162,20 @@ const ProductCard: React.FC<{
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
             referrerPolicy="no-referrer"
           />
+          {product.inStock === false && (
+            <div className="absolute top-6 left-6 px-4 py-2 bg-red-500 text-white text-[10px] font-bold uppercase tracking-widest rounded-full shadow-lg">
+              Out of Stock
+            </div>
+          )}
           <button 
+            disabled={product.inStock === false}
             onClick={(e) => {
               e.stopPropagation();
               onAddToCart(product);
             }}
-            className="absolute bottom-6 left-6 right-6 py-4 bg-black text-white font-bold rounded-2xl opacity-0 translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 flex items-center justify-center gap-2"
+            className="absolute bottom-6 left-6 right-6 py-4 bg-black text-white font-bold rounded-2xl opacity-0 translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
-            <Plus className="w-4 h-4" /> Add to Cart
+            {product.inStock === false ? 'Out of Stock' : <><Plus className="w-4 h-4" /> Add to Cart</>}
           </button>
         </div>
         <div className="p-8">
@@ -2886,13 +3203,19 @@ const ProductCard: React.FC<{
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
           referrerPolicy="no-referrer"
         />
+        {product.inStock === false && (
+          <div className="absolute top-4 left-4 px-3 py-1.5 bg-red-500 text-white text-[9px] font-bold uppercase tracking-widest rounded-full shadow-lg">
+            Out of Stock
+          </div>
+        )}
         <div className="absolute top-4 right-4">
           <button 
+            disabled={product.inStock === false}
             onClick={(e) => {
               e.stopPropagation();
               onAddToCart(product);
             }}
-            className="w-10 h-10 bg-white shadow-lg rounded-full flex items-center justify-center text-black hover:bg-black hover:text-white transition-all active:scale-90"
+            className="w-10 h-10 bg-white shadow-lg rounded-full flex items-center justify-center text-black hover:bg-black hover:text-white transition-all active:scale-90 disabled:opacity-50 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
           >
             <Plus className="w-5 h-5" />
           </button>
@@ -2912,13 +3235,14 @@ const ProductCard: React.FC<{
         <div className="mt-auto space-y-4">
           <p className="text-xl font-bold text-black">${product.price.toFixed(2)}</p>
           <button 
+            disabled={product.inStock === false}
             onClick={(e) => {
               e.stopPropagation();
               onAddToCart(product);
             }}
-            className="w-full py-3 bg-black text-white text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-emerald-600 transition-all active:scale-95 flex items-center justify-center gap-2"
+            className="w-full py-3 bg-black text-white text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-emerald-600 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
-            <ShoppingCart className="w-4 h-4" /> Add to Cart
+            {product.inStock === false ? 'Out of Stock' : <><ShoppingCart className="w-4 h-4" /> Add to Cart</>}
           </button>
         </div>
       </div>
@@ -2927,10 +3251,11 @@ const ProductCard: React.FC<{
 };
 
 const FeaturedProducts: React.FC<{ 
+  products: Product[],
   onAddToCart: (product: Product) => void, 
   onSelectProduct: (product: Product) => void 
-}> = ({ onAddToCart, onSelectProduct }) => {
-  const featured = products.filter(p => ['2', '3', '10'].includes(p.id));
+}> = ({ products, onAddToCart, onSelectProduct }) => {
+  const featured = products.filter(p => !p.isArchived && (['2', '3', '10'].includes(p.id) || p.name === 'BPC-157' || p.name === 'GHK-Cu' || p.name === 'NAD+'));
 
   return (
     <section className="py-24 bg-gray-900">
@@ -2958,9 +3283,11 @@ const FeaturedProducts: React.FC<{
 };
 
 const ShopView: React.FC<{ 
+  products: Product[],
   onAddToCart: (p: Product) => void, 
   onSelectProduct: (p: Product) => void 
 }> = ({ 
+  products,
   onAddToCart, 
   onSelectProduct 
 }) => {
@@ -2968,6 +3295,7 @@ const ShopView: React.FC<{
   const [maxPrice, setMaxPrice] = useState(300);
 
   const filteredProducts = products.filter(p => {
+    if (p.isArchived) return false;
     const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          p.category.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesPrice = p.price <= maxPrice;
@@ -3319,7 +3647,7 @@ const CheckoutView = ({ cart, onBack, onComplete, initialOrder, userProfile }: {
   }, []);
 
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const shipping = subtotal >= 250 ? 0 : 14.50;
+  const shipping = subtotal >= 250 ? 0 : 15.00;
   
   // 5% discount for crypto
   const discount = paymentMethod === 'crypto' ? subtotal * 0.05 : 0;
@@ -3738,7 +4066,7 @@ const CheckoutView = ({ cart, onBack, onComplete, initialOrder, userProfile }: {
   );
 };
 
-const ProductDetailView = ({ product, onAddToCart, onBack, onSelectProduct }: { product: Product, onAddToCart: (product: Product, quantity: number) => void, onBack: () => void, onSelectProduct: (product: Product) => void }) => {
+const ProductDetailView = ({ product, products, onAddToCart, onBack, onSelectProduct }: { product: Product, products: Product[], onAddToCart: (product: Product, quantity: number) => void, onBack: () => void, onSelectProduct: (product: Product) => void }) => {
   const [quantity, setQuantity] = useState(1);
   
   const getDiscountedPrice = (qty: number) => {
@@ -3768,9 +4096,14 @@ const ProductDetailView = ({ product, onAddToCart, onBack, onSelectProduct }: { 
         <motion.div 
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
-          className="aspect-[4/5] rounded-[2.5rem] overflow-hidden bg-white border border-gray-100 shadow-sm"
+          className="aspect-[4/5] rounded-[2.5rem] overflow-hidden bg-white border border-gray-100 shadow-sm relative"
         >
           <img src={product.image} alt={product.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+          {product.inStock === false && (
+            <div className="absolute top-8 left-8 px-6 py-3 bg-red-500 text-white text-xs font-bold uppercase tracking-[0.2em] rounded-full shadow-2xl">
+              Out of Stock
+            </div>
+          )}
         </motion.div>
 
         {/* Product Info */}
@@ -3855,10 +4188,11 @@ const ProductDetailView = ({ product, onAddToCart, onBack, onSelectProduct }: { 
                   <p className="text-3xl font-bold text-black">${total.toFixed(2)}</p>
                 </div>
                 <button 
+                  disabled={product.inStock === false}
                   onClick={() => onAddToCart(product, quantity)}
-                  className="px-12 py-5 bg-black text-white font-bold rounded-2xl hover:bg-emerald-600 transition-all active:scale-95 flex items-center gap-3 shadow-xl shadow-black/10"
+                  className="px-12 py-5 bg-black text-white font-bold rounded-2xl hover:bg-emerald-600 transition-all active:scale-95 flex items-center gap-3 shadow-xl shadow-black/10 disabled:opacity-50 disabled:bg-gray-400 disabled:cursor-not-allowed"
                 >
-                  <ShoppingCart className="w-5 h-5" /> Add to Cart
+                  {product.inStock === false ? 'Out of Stock' : <><ShoppingCart className="w-5 h-5" /> Add to Cart</>}
                 </button>
               </div>
             </div>
@@ -3889,7 +4223,7 @@ const ProductDetailView = ({ product, onAddToCart, onBack, onSelectProduct }: { 
             className="flex gap-8 overflow-x-auto pb-8 snap-x no-scrollbar scroll-smooth"
           >
             {products
-              .filter(p => p.id !== product.id)
+              .filter(p => p.id !== product.id && !p.isArchived)
               .map((rec) => (
               <motion.div 
                 key={rec.id}
@@ -4197,7 +4531,20 @@ const AppContent = () => {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [editingOrder, setEditingOrder] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
+  const [productsList, setProductsList] = useState<Product[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(true);
   const { user, isAdmin } = useAuth();
+
+  useEffect(() => {
+    const productsQuery = collection(db, 'products');
+    const unsubscribe = onSnapshot(productsQuery, (snapshot) => {
+      setProductsList(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
+      setLoadingProducts(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'products');
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     if (!user) {
@@ -4211,6 +4558,10 @@ const AppContent = () => {
     });
     return () => unsubscribe();
   }, [user]);
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [view]);
 
   const addToCart = (product: Product, quantity: number = 1) => {
     setCart(prev => {
@@ -4235,7 +4586,7 @@ const AppContent = () => {
       if (item.id === id) {
         const newQty = Math.max(1, item.quantity + delta);
         // Recalculate price based on new quantity
-        const baseProduct = products.find(p => p.id === id);
+        const baseProduct = productsList.find(p => p.id === id);
         let unitPrice = baseProduct ? baseProduct.price : item.price;
         if (newQty >= 3) unitPrice = (baseProduct?.price || item.price) * 0.85;
         else if (newQty >= 2) unitPrice = (baseProduct?.price || item.price) * 0.90;
@@ -4280,6 +4631,7 @@ const AppContent = () => {
             >
               <Hero onShopNow={() => setView('shop')} onViewCOAs={() => setView('coas')} />
               <FeaturedProducts 
+                products={productsList}
                 onAddToCart={addToCart} 
                 onSelectProduct={(p) => {
                   setSelectedProduct(p);
@@ -4360,6 +4712,7 @@ const AppContent = () => {
             >
               <ProductDetailView 
                 product={selectedProduct} 
+                products={productsList}
                 onAddToCart={addToCart} 
                 onBack={() => setView('shop')} 
                 onSelectProduct={(p) => {
@@ -4372,6 +4725,7 @@ const AppContent = () => {
 
           {view === 'shop' && (
             <ShopView 
+              products={productsList}
               onAddToCart={addToCart} 
               onSelectProduct={(p) => {
                 setSelectedProduct(p);
@@ -4443,6 +4797,20 @@ const AppContent = () => {
                       const dateStr = date.toISOString().split('T')[0].replace(/-/g, '');
                       const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase();
                       const orderId = `VR-${dateStr}-${randomStr}`;
+
+                      // Decrement inventory
+                      for (const item of cart) {
+                        const productRef = doc(db, 'products', item.id);
+                        const productSnap = await getDoc(productRef);
+                        if (productSnap.exists()) {
+                          const currentStock = productSnap.data().stock || 0;
+                          const newStock = Math.max(0, currentStock - item.quantity);
+                          await updateDoc(productRef, {
+                            stock: newStock,
+                            inStock: newStock > 0
+                          });
+                        }
+                      }
 
                       await setDoc(doc(db, 'orders', orderId), {
                         userId: user?.uid || null,

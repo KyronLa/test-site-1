@@ -11,7 +11,19 @@
         "image": { "type": "string", "description": "URL to the product image." },
         "description": { "type": "string", "description": "Detailed research description." },
         "purity": { "type": "string", "description": "Guaranteed purity level (e.g., 99%+)." },
-        "size": { "type": "string", "description": "Vial size (e.g., 5mg)." }
+        "size": { "type": "string", "description": "Vial size (e.g., 5mg)." },
+        "quantityImages": {
+          "type": "object",
+          "properties": {
+            "1": { "type": "string" },
+            "2": { "type": "string" },
+            "3": { "type": "string" }
+          }
+        },
+        "stock": { "type": "integer", "description": "Current inventory count.", "default": 0 },
+        "inStock": { "type": "boolean", "description": "Whether the product is currently available for purchase.", "default": false },
+        "lowStockThreshold": { "type": "integer", "description": "The quantity at which a low stock warning is triggered.", "default": 5 },
+        "isArchived": { "type": "boolean", "description": "Whether the product is archived and hidden from the storefront.", "default": false }
       },
       "required": ["name", "price", "category", "image"]
     },
