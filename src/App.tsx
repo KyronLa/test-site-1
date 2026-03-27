@@ -6,6 +6,8 @@ import {
   X, 
   ChevronRight, 
   ChevronLeft,
+  ChevronDown,
+  ChevronUp,
   ShieldCheck, 
   FlaskConical, 
   Truck, 
@@ -258,6 +260,7 @@ const Navbar = ({ cartCount, onOpenCart, onOpenAuth, onNavigate, currentView }: 
           <button onClick={() => onNavigate('shop')} className={`text-sm font-medium hover:opacity-70 transition-opacity ${showSolidNav ? 'text-black' : 'text-white'}`}>Shop All</button>
           <button onClick={() => onNavigate('calculator')} className={`text-sm font-medium hover:opacity-70 transition-opacity ${showSolidNav ? 'text-black' : 'text-white'}`}>Calculator</button>
           <button onClick={() => onNavigate('about')} className={`text-sm font-medium hover:opacity-70 transition-opacity ${showSolidNav ? 'text-black' : 'text-white'}`}>About Us</button>
+          <button onClick={() => onNavigate('affiliate')} className={`text-sm font-medium hover:opacity-70 transition-opacity ${showSolidNav ? 'text-black' : 'text-white'}`}>Affiliate</button>
           {isAdmin && (
             <button onClick={() => onNavigate('admin')} className={`text-sm font-bold text-emerald-500 hover:opacity-70 transition-opacity`}>Admin Panel</button>
           )}
@@ -314,6 +317,7 @@ const Navbar = ({ cartCount, onOpenCart, onOpenAuth, onNavigate, currentView }: 
             <div className="flex flex-col gap-6 mt-12">
               <button onClick={() => { onNavigate('shop'); setIsMobileMenuOpen(false); }} className="text-2xl font-bold text-black border-b border-gray-100 pb-4 text-left">Shop All</button>
               <button onClick={() => { onNavigate('about'); setIsMobileMenuOpen(false); }} className="text-2xl font-bold text-black border-b border-gray-100 pb-4 text-left">About Us</button>
+              <button onClick={() => { onNavigate('affiliate'); setIsMobileMenuOpen(false); }} className="text-2xl font-bold text-black border-b border-gray-100 pb-4 text-left">Become an Affiliate</button>
               <button onClick={() => { onNavigate('track'); setIsMobileMenuOpen(false); }} className="text-2xl font-bold text-black border-b border-gray-100 pb-4 text-left">Track Order</button>
               <button onClick={() => { onNavigate('calculator'); setIsMobileMenuOpen(false); }} className="text-2xl font-bold text-black border-b border-gray-100 pb-4 text-left">Calculator</button>
               <button onClick={() => { onNavigate('coas'); setIsMobileMenuOpen(false); }} className="text-2xl font-bold text-black border-b border-gray-100 pb-4 text-left">Request COA's</button>
@@ -1499,6 +1503,205 @@ const PrivacyPolicyView = ({ onBack }: { onBack: () => void }) => {
               <a href="mailto:info@eclipseresearch.shop" className="text-emerald-600 ml-1 font-medium underline">info@eclipseresearch.shop</a>.
             </p>
           </section>
+        </div>
+      </motion.div>
+    </section>
+  );
+};
+
+const AffiliateView = ({ onBack }: { onBack: () => void }) => {
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+
+  return (
+    <section className="py-24 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white rounded-[3rem] border border-gray-100 p-12 shadow-sm"
+      >
+        <button 
+          onClick={onBack}
+          className="flex items-center gap-2 text-sm font-bold text-gray-400 hover:text-black mb-12 transition-colors"
+        >
+          <ChevronLeft className="w-4 h-4" /> Back to Research
+        </button>
+
+        <div className="text-center mb-16">
+          <div className="flex justify-center mb-6">
+            <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center">
+              <Gift className="w-8 h-8" />
+            </div>
+          </div>
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-gray-900 mb-6">Become an Affiliate</h1>
+          <p className="text-gray-500 text-lg max-w-2xl mx-auto leading-relaxed mb-8">
+            Join the Eclipse Research affiliate program and earn competitive commissions while helping the scientific community access high-purity research compounds.
+          </p>
+          <button className="px-8 py-4 bg-emerald-500 text-white font-bold rounded-2xl hover:bg-emerald-600 transition-all active:scale-95 shadow-lg shadow-emerald-500/20">
+            Apply for Affiliate Program
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-20">
+          {[
+            { 
+              title: "High Commissions", 
+              desc: "Earn up to 15% commission on every successful referral purchase.",
+              icon: <CreditCard className="w-6 h-6" />
+            },
+            { 
+              title: "Real-time Tracking", 
+              desc: "Monitor your performance and earnings through our dedicated dashboard.",
+              icon: <Eye className="w-6 h-6" />
+            },
+            { 
+              title: "Exclusive Support", 
+              desc: "Get direct access to our team for marketing materials and research insights.",
+              icon: <MessageSquare className="w-6 h-6" />
+            }
+          ].map((benefit, i) => (
+            <div key={i} className="p-8 bg-gray-50 rounded-[2rem] border border-gray-100">
+              <div className="text-emerald-600 mb-6">{benefit.icon}</div>
+              <h3 className="text-lg font-bold text-gray-900 mb-3">{benefit.title}</h3>
+              <p className="text-gray-500 text-sm leading-relaxed">{benefit.desc}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* How It Works */}
+        <div className="mb-24">
+          <h2 className="text-2xl font-bold text-gray-900 mb-12 text-center">How It Works</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
+            {[
+              { 
+                step: "01", 
+                title: "Sign Up", 
+                desc: "Create your affiliate account and get approved within 48 hours." 
+              },
+              { 
+                step: "02", 
+                title: "Share Your Link", 
+                desc: "Use your unique referral link to promote Eclipse Research to your audience." 
+              },
+              { 
+                step: "03", 
+                title: "Earn Commission", 
+                desc: "Get paid for every successful purchase made through your link." 
+              }
+            ].map((item, i) => (
+              <div key={i} className="flex flex-col items-center text-center">
+                <div className="w-12 h-12 bg-emerald-500 text-white rounded-full flex items-center justify-center font-bold text-lg mb-6 shadow-lg shadow-emerald-500/20">
+                  {item.step}
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 mb-3">{item.title}</h3>
+                <p className="text-gray-500 text-sm leading-relaxed">{item.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Commission Tiers */}
+        <div className="mb-24">
+          <h2 className="text-2xl font-bold text-gray-900 mb-12 text-center">Commission Tiers</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[
+              { tier: "Starter", referrals: "0–10 referrals", commission: "10% commission" },
+              { tier: "Growth", referrals: "11–25 referrals", commission: "12% commission" },
+              { tier: "Elite", referrals: "25+ referrals", commission: "15% commission" }
+            ].map((tier, i) => (
+              <div key={i} className="p-8 bg-gray-900 rounded-[2rem] border border-gray-800 text-center group hover:border-emerald-500/50 transition-colors">
+                <h3 className="text-emerald-500 font-bold uppercase tracking-widest text-xs mb-4">{tier.tier}</h3>
+                <div className="text-white text-3xl font-bold mb-2">{tier.commission}</div>
+                <p className="text-gray-400 text-sm">{tier.referrals}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Perks & Rewards */}
+        <div className="mb-24">
+          <h2 className="text-2xl font-bold text-gray-900 mb-12 text-center">Perks & Rewards</h2>
+          <div className="max-w-3xl mx-auto">
+            <div className="relative p-12 bg-gray-900 rounded-[3rem] border-2 border-emerald-500/30 shadow-[0_0_50px_-12px_rgba(16,185,129,0.2)] text-center overflow-hidden group">
+              {/* Subtle background glow */}
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-64 bg-emerald-500/10 blur-[100px] -z-10 group-hover:bg-emerald-500/20 transition-colors duration-500" />
+              
+              <div className="flex justify-center mb-8">
+                <div className="w-20 h-20 bg-emerald-500/10 text-emerald-500 rounded-3xl flex items-center justify-center border border-emerald-500/20 shadow-lg shadow-emerald-500/10">
+                  <Gift className="w-10 h-10" />
+                </div>
+              </div>
+              
+              <h3 className="text-2xl font-bold text-white mb-4">Milestone Reward</h3>
+              <p className="text-gray-400 text-lg leading-relaxed max-w-xl mx-auto">
+                Hit <span className="text-emerald-500 font-bold">10 referral sales</span> and we'll send you a free supply of your choice compound. Keep earning, keep receiving.
+              </p>
+              
+              <div className="mt-8 flex justify-center gap-2">
+                {[1, 2, 3, 4, 5].map((_, i) => (
+                  <div key={i} className="w-2 h-2 rounded-full bg-emerald-500/20" />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* FAQ */}
+        <div className="mb-24 max-w-3xl mx-auto">
+          <h2 className="text-2xl font-bold text-gray-900 mb-12 text-center">Frequently Asked Questions</h2>
+          <div className="space-y-4">
+            {[
+              { 
+                q: "When do I get paid?", 
+                a: "Commissions are paid out monthly, typically within the first 10 business days of the following month, once you meet the minimum payout threshold." 
+              },
+              { 
+                q: "How long does the referral cookie last?", 
+                a: "Our referral cookies last for 30 days. If a customer clicks your link and makes a purchase within 30 days, you get the commission." 
+              },
+              { 
+                q: "Who is eligible to apply?", 
+                a: "We welcome researchers, content creators, and industry professionals who share our commitment to quality and transparency in scientific research." 
+              },
+              { 
+                q: "What marketing materials do you provide?", 
+                a: "Affiliates get access to a library of high-quality product images, banners, and technical data sheets to help promote our compounds effectively." 
+              }
+            ].map((faq, i) => (
+              <div key={i} className="border border-gray-100 rounded-2xl overflow-hidden">
+                <button 
+                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                  className="w-full flex items-center justify-between p-6 text-left hover:bg-gray-50 transition-colors"
+                >
+                  <span className="font-bold text-gray-900">{faq.q}</span>
+                  {openFaq === i ? <ChevronUp className="w-5 h-5 text-emerald-500" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+                </button>
+                <AnimatePresence>
+                  {openFaq === i && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <div className="p-6 pt-0 text-gray-500 text-sm leading-relaxed">
+                        {faq.a}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-black rounded-[2.5rem] p-12 text-white text-center">
+          <h2 className="text-3xl font-bold mb-6">Ready to start earning?</h2>
+          <p className="text-gray-400 mb-10 max-w-xl mx-auto">
+            Apply today to join our network of researchers and content creators. We review all applications within 48 business hours.
+          </p>
+          <button className="px-10 py-5 bg-emerald-500 text-white font-bold rounded-2xl hover:bg-emerald-600 transition-all active:scale-95">
+            Apply for Affiliate Program
+          </button>
         </div>
       </motion.div>
     </section>
@@ -3987,7 +4190,7 @@ const CalculatorView = () => {
 };
 
 const AppContent = () => {
-  const [view, setView] = useState<'home' | 'shop' | 'about' | 'track' | 'coas' | 'admin' | 'account' | 'checkout' | 'product' | 'terms' | 'shipping' | 'refund' | 'privacy' | 'calculator'>('home');
+  const [view, setView] = useState<'home' | 'shop' | 'about' | 'track' | 'coas' | 'admin' | 'account' | 'checkout' | 'product' | 'terms' | 'shipping' | 'refund' | 'privacy' | 'calculator' | 'affiliate'>('home');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -4194,6 +4397,10 @@ const AppContent = () => {
             <PrivacyPolicyView onBack={() => setView('home')} />
           )}
 
+          {view === 'affiliate' && (
+            <AffiliateView onBack={() => setView('home')} />
+          )}
+
           {view === 'checkout' && (
             <motion.div
               key="checkout"
@@ -4299,6 +4506,7 @@ const AppContent = () => {
               <ul className="space-y-4 text-sm text-gray-600 font-medium">
                 <li><button onClick={() => setView('shop')} className="hover:text-black transition-colors">Shop All Compounds</button></li>
                 <li><button onClick={() => setView('about')} className="hover:text-black transition-colors">About Us</button></li>
+                <li><button onClick={() => setView('affiliate')} className="hover:text-black transition-colors">Become an Affiliate</button></li>
                 <li><button onClick={() => setView('track')} className="hover:text-black transition-colors">Track Order</button></li>
                 <li><button onClick={() => setView('calculator')} className="hover:text-black transition-colors">Reconstitution Calculator</button></li>
                 <li><button onClick={() => setView('coas')} className="hover:text-black transition-colors">Request COA's</button></li>
