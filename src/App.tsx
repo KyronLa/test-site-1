@@ -359,11 +359,11 @@ const CartDrawer = ({
   const [promoCode, setPromoCode] = useState('');
 
   const recommendedProduct: Product = {
-    id: 'bw-1',
-    name: "Bacteriostatic Water (30ml)",
+    id: '7',
+    name: "Bacteriostatic Water (10ml)",
     price: 14.99,
-    category: "Supplies",
-    image: "/bac-water.png"
+    category: "Peptides",
+    image: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969217/BacWater_vl81li.png"
   };
 
   const isRecommendedInCart = items.some(item => item.id === recommendedProduct.id);
