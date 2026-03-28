@@ -66,6 +66,7 @@ import {
   Timestamp
 } from 'firebase/firestore';
 import { auth, db } from './firebase';
+import { INITIAL_PRODUCTS } from './constants';
 
 // --- Firestore Error Handling ---
 
@@ -173,7 +174,7 @@ class ErrorBoundary extends Component<any, any> {
 
 // --- Types & Context ---
 
-interface Product {
+export interface Product {
   id: string;
   name: string;
   price: number;
@@ -1612,7 +1613,7 @@ const AffiliateView = ({ onBack }: { onBack: () => void }) => {
               { tier: "Growth", referrals: "11–25 referrals", commission: "12% commission" },
               { tier: "Elite", referrals: "25+ referrals", commission: "15% commission" }
             ].map((tier, i) => (
-              <div key={i} className="p-8 bg-gray-900 rounded-[2rem] border border-gray-800 text-center group hover:border-emerald-500/50 transition-colors">
+              <div key={i} className="p-8 bg-black rounded-[2rem] border border-gray-800 text-center group hover:border-emerald-500/50 transition-colors">
                 <h3 className="text-emerald-500 font-bold uppercase tracking-widest text-xs mb-4">{tier.tier}</h3>
                 <div className="text-white text-3xl font-bold mb-2">{tier.commission}</div>
                 <p className="text-gray-400 text-sm">{tier.referrals}</p>
@@ -1625,7 +1626,7 @@ const AffiliateView = ({ onBack }: { onBack: () => void }) => {
         <div className="mb-24">
           <h2 className="text-2xl font-bold text-gray-900 mb-12 text-center">Perks & Rewards</h2>
           <div className="max-w-3xl mx-auto">
-            <div className="relative p-12 bg-gray-900 rounded-[3rem] border-2 border-emerald-500/30 shadow-[0_0_50px_-12px_rgba(16,185,129,0.2)] text-center overflow-hidden group">
+            <div className="relative p-12 bg-black rounded-[3rem] border-2 border-emerald-500/30 shadow-[0_0_50px_-12px_rgba(16,185,129,0.2)] text-center overflow-hidden group">
               {/* Subtle background glow */}
               <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-64 bg-emerald-500/10 blur-[100px] -z-10 group-hover:bg-emerald-500/20 transition-colors duration-500" />
               
@@ -2226,7 +2227,11 @@ const AdminDashboard = () => {
     });
 
     const unsubscribeProducts = onSnapshot(productsQuery, (snapshot) => {
-      setProductsList(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
+      if (!snapshot.empty) {
+        setProductsList(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
+      } else {
+        setProductsList([]);
+      }
       setLoading(false);
     });
 
@@ -2263,152 +2268,9 @@ const AdminDashboard = () => {
   };
 
   const seedProducts = async () => {
-    const initialProducts: Product[] = [
-      { 
-        id: '1', 
-        name: "GLP-3 RT", 
-        price: 86.99, 
-        category: "Peptides", 
-        image: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969217/glp3-rt_gfcapz.png", 
-        description: "A 39-amino acid triple agonist peptide targeting GIP, GLP-1, and glucagon receptors, studied for metabolic pathway regulation and receptor binding kinetics in preclinical research models. Premium Research Peptide.",
-        dosage: "10MG",
-        quantityImages: { 
-          1: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971440/1glp3-rt_x0z399.png",
-          2: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971951/2glp3-rt_saynur.png",
-          3: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971669/3glp3-rt_jjrejb.png"
-        }
-      },
-      { 
-        id: '2', 
-        name: "BPC-157", 
-        price: 67.99, 
-        category: "Peptides", 
-        image: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969218/bpc-157_vvwgot.png", 
-        description: "Body Protective Compound-157 is a pentadecapeptide known for its potential regenerative properties in tendon, muscle, and gut research.",
-        dosage: "10MG",
-        quantityImages: { 
-          1: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971445/1bpc-157_i2rout.png",
-          2: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969687/2bpc-157_qtjw7b.png",
-          3: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971672/3bpc-157_lxfd5j.png"
-        }
-      },
-      { 
-        id: '3', 
-        name: "GHK-Cu", 
-        price: 41.99, 
-        category: "Peptides", 
-        image: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969217/ghk-cu_k0gxxe.png", 
-        description: "A copper-binding tripeptide naturally occurring in human plasma with research applications in skin remodeling and anti-inflammatory studies.",
-        dosage: "100MG",
-        quantityImages: { 
-          1: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971439/1ghk-cu_dv1gat.png",
-          2: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969684/2ghk-cu_atd91e.png",
-          3: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971670/3ghk-cu_gscj57.png"
-        }
-      },
-      { 
-        id: '4', 
-        name: "MT-2", 
-        price: 43.99, 
-        category: "Peptides", 
-        image: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969217/mt-2_acqigl.png", 
-        description: "Melanotan II is a synthetic analog of the alpha-melanocyte-stimulating hormone, researched for its effects on skin pigmentation.",
-        dosage: "10MG",
-        quantityImages: { 
-          1: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971442/1mt-2_hfg0jk.png",
-          2: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969684/2mt-2_noa9bx.png",
-          3: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971674/3mt-2_qujg6y.png"
-        }
-      },
-      { 
-        id: '5', 
-        name: "Wolverine 10mg (BPC157/TB500)", 
-        price: 77.99, 
-        category: "Peptides", 
-        image: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969217/wolverine_tl3buz.png", 
-        description: "A research blend of BPC-157 and TB-500, designed for synergistic studies on tissue repair and recovery.",
-        dosage: "10MG",
-        quantityImages: { 
-          1: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971442/1wolverine_mrof4h.png",
-          2: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969687/2wolverine_locrq5.png",
-          3: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971671/3wolverine_nwvaiq.png"
-        }
-      },
-      { 
-        id: '6', 
-        name: "CJC 1295 no dac + Ipamorelin", 
-        price: 84.99, 
-        category: "Peptides", 
-        image: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969217/cjc-ipamorelin_atfs5x.png", 
-        description: "A combination of a GHRH analog and a ghrelin mimetic, used in research to study growth hormone secretion patterns.",
-        dosage: "10MG",
-        quantityImages: { 
-          1: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971442/1cjc-ipamorelin_fz6px6.png",
-          2: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969691/2cjc-ipamorelin_qi18jo.png",
-          3: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971671/3cjc-ipamorelin_nitxpm.png"
-        }
-      },
-      { 
-        id: '7', 
-        name: "Bacteriostatic Water", 
-        price: 14.99, 
-        category: "Peptides", 
-        image: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969217/BacWater_vl81li.png", 
-        description: "Sterile water containing 0.9% benzyl alcohol, used as a diluent for reconstituting research compounds.",
-        dosage: "10ML",
-        quantityImages: { 
-          1: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971439/1BacWater_vml33g.png",
-          2: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969683/2BacWater_cu9qeq.png",
-          3: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971668/3BacWater_jdwp5p.png"
-        }
-      },
-      { 
-        id: '8', 
-        name: "Tesamorelin", 
-        price: 92.99, 
-        category: "Peptides", 
-        image: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969217/tesamorelin_oydzju.png", 
-        description: "A synthetic analog of growth hormone-releasing factor (GRF), researched for its effects on visceral adipose tissue.",
-        dosage: "10MG",
-        quantityImages: { 
-          1: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971444/1tesamorelin_ehldd7.png",
-          2: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969687/2tesamorelin_s9a2jn.png",
-          3: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971675/3tesamorelin_wpphtb.png"
-        }
-      },
-      { 
-        id: '9', 
-        name: "GLOW", 
-        price: 112.99, 
-        category: "Peptides", 
-        image: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969218/glow_jfpqo0.png", 
-        description: "A specialized research blend designed for studies related to skin health, collagen production, and cellular vitality.",
-        dosage: "70MG",
-        quantityImages: { 
-          1: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971444/1glow_detdjm.png",
-          2: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969688/2glow_b4ssod.png",
-          3: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971674/3glow_i30p3b.png"
-        }
-      },
-      { 
-        id: '10', 
-        name: "NAD+", 
-        price: 77.99, 
-        category: "Peptides", 
-        image: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969217/nad_sxoz3j.png", 
-        description: "Nicotinamide Adenine Dinucleotide is a critical coenzyme found in all living cells, researched for its role in energy metabolism and DNA repair.",
-        dosage: "500MG",
-        quantityImages: { 
-          1: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971439/1nad_q367m5.png",
-          2: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969683/2nad_y1kupy.png",
-          3: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971669/3nad_o7dofh.png"
-        }
-      }
-    ];
-
-    if (!window.confirm('This will seed the database with initial products. Continue?')) return;
+    if (!window.confirm('This will restore all default products to your inventory. Existing products with the same IDs will be updated. Continue?')) return;
     try {
-      for (const p of initialProducts) {
+      for (const p of INITIAL_PRODUCTS) {
         const { id, ...data } = p;
         await setDoc(doc(db, 'products', id), {
           ...data,
@@ -2416,13 +2278,14 @@ const AdminDashboard = () => {
           inStock: true,
           lowStockThreshold: 10,
           isArchived: false,
+          updatedAt: serverTimestamp(),
           createdAt: serverTimestamp()
-        });
+        }, { merge: true });
       }
-      alert('Products seeded successfully!');
+      alert('Inventory restored successfully!');
     } catch (error) {
       console.error('Error seeding products:', error);
-      alert('Failed to seed products.');
+      alert('Failed to restore inventory.');
     }
   };
 
@@ -2471,14 +2334,16 @@ const AdminDashboard = () => {
 
       {activeTab === 'inventory' && (
         <div className="mb-8 flex justify-end gap-4">
-          {productsList.length === 0 && (
-            <button 
-              onClick={seedProducts}
-              className="px-6 py-3 bg-emerald-500 text-white font-bold rounded-xl hover:bg-emerald-600 transition-all flex items-center gap-2"
-            >
-              <Package className="w-4 h-4" /> Seed Initial Products
-            </button>
-          )}
+          <button 
+            onClick={seedProducts}
+            className={`px-6 py-3 font-bold rounded-xl transition-all flex items-center gap-2 ${
+              productsList.length === 0 
+                ? 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-lg shadow-emerald-100 scale-105' 
+                : 'bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-100'
+            }`}
+          >
+            <Package className="w-4 h-4" /> {productsList.length === 0 ? 'Add All Shop Products to Inventory' : 'Restore Default Inventory'}
+          </button>
           <button 
             onClick={() => {
               setEditingProduct(null);
@@ -2545,7 +2410,17 @@ const AdminDashboard = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {productsList.map((p) => {
+                {productsList.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-24 text-center">
+                      <div className="max-w-xs mx-auto">
+                        <Package className="w-12 h-12 text-gray-200 mx-auto mb-4" />
+                        <h3 className="font-bold text-gray-900 mb-2">Inventory is Empty</h3>
+                        <p className="text-sm text-gray-500 mb-6">Your database is currently empty. Click the green button above to import all products from the shop page.</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : productsList.map((p) => {
                   const isLowStock = (p.stock || 0) <= (p.lowStockThreshold || 5) && (p.stock || 0) > 0;
                   const isOutOfStock = (p.stock || 0) <= 0;
                   
@@ -2622,6 +2497,21 @@ const AdminDashboard = () => {
                             className={`p-2 rounded-lg transition-all ${p.isArchived ? 'text-emerald-500 hover:bg-emerald-50' : 'text-gray-400 hover:text-red-500 hover:bg-red-50'}`}
                           >
                             <Settings className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={async () => {
+                              if (window.confirm(`Are you sure you want to PERMANENTLY DELETE ${p.name}? This cannot be undone.`)) {
+                                try {
+                                  await deleteDoc(doc(db, 'products', p.id));
+                                } catch (error) {
+                                  console.error('Error deleting product:', error);
+                                  alert('Failed to delete product.');
+                                }
+                              }
+                            }}
+                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                          >
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
                       </td>
@@ -2998,9 +2888,10 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUser(u);
       if (u) {
         const userDoc = await getDoc(doc(db, 'users', u.uid));
+        const adminEmails = ['info@eclipseresearch.shop', 'kyron.laskosky2@gmail.com'];
         if (userDoc.exists()) {
-          setIsAdmin(u.email === 'info@eclipseresearch.shop');
-        } else if (u.email === 'info@eclipseresearch.shop') {
+          setIsAdmin(adminEmails.includes(u.email || ''));
+        } else if (adminEmails.includes(u.email || '')) {
           setIsAdmin(true);
         }
       } else {
@@ -3258,7 +3149,7 @@ const FeaturedProducts: React.FC<{
   const featured = products.filter(p => !p.isArchived && (['2', '3', '10'].includes(p.id) || p.name === 'BPC-157' || p.name === 'GHK-Cu' || p.name === 'NAD+'));
 
   return (
-    <section className="py-24 bg-gray-900">
+    <section className="py-24 bg-black">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-end mb-12">
           <div>
@@ -3313,12 +3204,12 @@ const ShopView: React.FC<{
       <section className="relative bg-black py-32 overflow-hidden">
         <div className="absolute inset-0 z-0">
           <img 
-            src="https://images.unsplash.com/photo-1581093588401-fbb62a02f120?auto=format&fit=crop&q=80&w=2000" 
-            className="w-full h-full object-cover opacity-30"
+            src="https://res.cloudinary.com/ditxwmhnj/image/upload/v1774582891/Screenshot_2026-03-26_at_11.41.24_PM_izjweq.png" 
+            className="w-full h-full object-cover opacity-90"
             alt="Shop Header"
             referrerPolicy="no-referrer"
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/60 to-black" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/20 to-black/40" />
         </div>
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
@@ -4532,19 +4423,55 @@ const AppContent = () => {
   const [editingOrder, setEditingOrder] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [productsList, setProductsList] = useState<Product[]>([]);
+  const [isDbEmpty, setIsDbEmpty] = useState(false);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const { user, isAdmin } = useAuth();
 
   useEffect(() => {
     const productsQuery = collection(db, 'products');
     const unsubscribe = onSnapshot(productsQuery, (snapshot) => {
-      setProductsList(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
+      if (!snapshot.empty) {
+        setProductsList(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
+        setIsDbEmpty(false);
+      } else {
+        setProductsList(INITIAL_PRODUCTS);
+        setIsDbEmpty(true);
+      }
       setLoadingProducts(false);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'products');
     });
     return () => unsubscribe();
   }, []);
+
+  // Auto-seed if empty and user is admin
+  useEffect(() => {
+    const autoSeed = async () => {
+      console.log('Checking auto-seed condition:', { isAdmin, isDbEmpty, loadingProducts });
+      if (isAdmin && isDbEmpty && !loadingProducts) {
+        console.log('Auto-seeding products...');
+        try {
+          for (const p of INITIAL_PRODUCTS) {
+            const { id, ...data } = p;
+            await setDoc(doc(db, 'products', id), {
+              ...data,
+              stock: 50,
+              inStock: true,
+              lowStockThreshold: 10,
+              isArchived: false,
+              updatedAt: serverTimestamp(),
+              createdAt: serverTimestamp()
+            }, { merge: true });
+          }
+          console.log('Products auto-seeded successfully');
+          setIsDbEmpty(false);
+        } catch (error) {
+          console.error('Error auto-seeding products:', error);
+        }
+      }
+    };
+    autoSeed();
+  }, [isAdmin, isDbEmpty, loadingProducts]);
 
   useEffect(() => {
     if (!user) {
@@ -4837,7 +4764,7 @@ const AppContent = () => {
         </AnimatePresence>
 
         {/* Features Minimal */}
-        <section className="py-24 border-t border-gray-800 bg-gray-900">
+        <section className="py-24 border-t border-gray-800 bg-black">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-16">
               {[
