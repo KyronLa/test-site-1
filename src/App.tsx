@@ -35,7 +35,9 @@ import {
   Hash,
   Mail,
   Eye,
-  EyeOff
+  EyeOff,
+  Archive,
+  ArchiveRestore
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { GoogleGenAI } from "@google/genai";
@@ -2207,6 +2209,7 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
 
   useEffect(() => {
     const usersQuery = collection(db, 'users');
@@ -2333,26 +2336,40 @@ const AdminDashboard = () => {
       </div>
 
       {activeTab === 'inventory' && (
-        <div className="mb-8 flex justify-end gap-4">
-          <button 
-            onClick={seedProducts}
-            className={`px-6 py-3 font-bold rounded-xl transition-all flex items-center gap-2 ${
-              productsList.length === 0 
-                ? 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-lg shadow-emerald-100 scale-105' 
-                : 'bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-100'
-            }`}
-          >
-            <Package className="w-4 h-4" /> {productsList.length === 0 ? 'Add All Shop Products to Inventory' : 'Restore Default Inventory'}
-          </button>
-          <button 
-            onClick={() => {
-              setEditingProduct(null);
-              setIsProductModalOpen(true);
-            }}
-            className="px-6 py-3 bg-black text-white font-bold rounded-xl hover:bg-emerald-600 transition-all flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" /> Add New Product
-          </button>
+        <div className="mb-8 flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={() => setShowArchived(!showArchived)}
+              className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 border ${
+                showArchived 
+                  ? 'bg-gray-900 text-white border-gray-900' 
+                  : 'bg-white text-gray-400 border-gray-100 hover:border-gray-200'
+              }`}
+            >
+              <Archive className="w-4 h-4" /> {showArchived ? 'Showing All' : 'Hide Archived'}
+            </button>
+          </div>
+          <div className="flex gap-4">
+            <button 
+              onClick={seedProducts}
+              className={`px-6 py-3 font-bold rounded-xl transition-all flex items-center gap-2 ${
+                productsList.length === 0 
+                  ? 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-lg shadow-emerald-100 scale-105' 
+                  : 'bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-100'
+              }`}
+            >
+              <Package className="w-4 h-4" /> {productsList.length === 0 ? 'Add All Shop Products to Inventory' : 'Restore Default Inventory'}
+            </button>
+            <button 
+              onClick={() => {
+                setEditingProduct(null);
+                setIsProductModalOpen(true);
+              }}
+              className="px-6 py-3 bg-black text-white font-bold rounded-xl hover:bg-emerald-600 transition-all flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" /> Add New Product
+            </button>
+          </div>
         </div>
       )}
 
@@ -2410,17 +2427,23 @@ const AdminDashboard = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {productsList.length === 0 ? (
+                {productsList.filter(p => showArchived || !p.isArchived).length === 0 ? (
                   <tr>
                     <td colSpan={5} className="px-6 py-24 text-center">
                       <div className="max-w-xs mx-auto">
                         <Package className="w-12 h-12 text-gray-200 mx-auto mb-4" />
                         <h3 className="font-bold text-gray-900 mb-2">Inventory is Empty</h3>
-                        <p className="text-sm text-gray-500 mb-6">Your database is currently empty. Click the green button above to import all products from the shop page.</p>
+                        <p className="text-sm text-gray-500 mb-6">
+                          {showArchived 
+                            ? "Your database is currently empty. Click the green button above to import all products."
+                            : "No active products found. Try showing archived products or add a new one."}
+                        </p>
                       </div>
                     </td>
                   </tr>
-                ) : productsList.map((p) => {
+                ) : productsList
+                    .filter(p => showArchived || !p.isArchived)
+                    .map((p) => {
                   const isLowStock = (p.stock || 0) <= (p.lowStockThreshold || 5) && (p.stock || 0) > 0;
                   const isOutOfStock = (p.stock || 0) <= 0;
                   
@@ -2468,7 +2491,7 @@ const AdminDashboard = () => {
                         {p.isArchived ? (
                           <span className="px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-gray-100 text-gray-500">Archived</span>
                         ) : isOutOfStock ? (
-                          <span className="px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-red-100 text-red-700">Out of Stock</span>
+                          <span className="px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-red-100 text-red-700">Restocking Soon</span>
                         ) : isLowStock ? (
                           <span className="px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-700">Low Stock</span>
                         ) : (
@@ -2494,9 +2517,10 @@ const AdminDashboard = () => {
                                 });
                               }
                             }}
-                            className={`p-2 rounded-lg transition-all ${p.isArchived ? 'text-emerald-500 hover:bg-emerald-50' : 'text-gray-400 hover:text-red-500 hover:bg-red-50'}`}
+                            title={p.isArchived ? 'Unarchive Product' : 'Archive Product'}
+                            className={`p-2 rounded-lg transition-all ${p.isArchived ? 'text-emerald-500 hover:bg-emerald-50' : 'text-gray-400 hover:text-amber-500 hover:bg-amber-50'}`}
                           >
-                            <Settings className="w-4 h-4" />
+                            {p.isArchived ? <ArchiveRestore className="w-4 h-4" /> : <Archive className="w-4 h-4" />}
                           </button>
                           <button 
                             onClick={async () => {
@@ -3050,12 +3074,12 @@ const ProductCard: React.FC<{
           <img 
             src={product.image} 
             alt={product.name} 
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
+            className="w-full h-full object-cover scale-110 group-hover:scale-125 transition-transform duration-700" 
             referrerPolicy="no-referrer"
           />
           {product.inStock === false && (
             <div className="absolute top-6 left-6 px-4 py-2 bg-red-500 text-white text-[10px] font-bold uppercase tracking-widest rounded-full shadow-lg">
-              Out of Stock
+              Restocking Soon
             </div>
           )}
           <button 
@@ -3066,7 +3090,7 @@ const ProductCard: React.FC<{
             }}
             className="absolute bottom-6 left-6 right-6 py-4 bg-black text-white font-bold rounded-2xl opacity-0 translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
-            {product.inStock === false ? 'Out of Stock' : <><Plus className="w-4 h-4" /> Add to Cart</>}
+            {product.inStock === false ? 'Restocking Soon' : <><Plus className="w-4 h-4" /> Add to Cart</>}
           </button>
         </div>
         <div className="p-8">
@@ -3091,12 +3115,12 @@ const ProductCard: React.FC<{
         <img 
           src={product.image} 
           alt={product.name} 
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
+          className="w-full h-full object-cover scale-110 group-hover:scale-125 transition-transform duration-700" 
           referrerPolicy="no-referrer"
         />
         {product.inStock === false && (
           <div className="absolute top-4 left-4 px-3 py-1.5 bg-red-500 text-white text-[9px] font-bold uppercase tracking-widest rounded-full shadow-lg">
-            Out of Stock
+            Restocking Soon
           </div>
         )}
         <div className="absolute top-4 right-4">
@@ -3133,7 +3157,7 @@ const ProductCard: React.FC<{
             }}
             className="w-full py-3 bg-black text-white text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-emerald-600 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
-            {product.inStock === false ? 'Out of Stock' : <><ShoppingCart className="w-4 h-4" /> Add to Cart</>}
+            {product.inStock === false ? 'Restocking Soon' : <><ShoppingCart className="w-4 h-4" /> Add to Cart</>}
           </button>
         </div>
       </div>
@@ -3146,7 +3170,12 @@ const FeaturedProducts: React.FC<{
   onAddToCart: (product: Product) => void, 
   onSelectProduct: (product: Product) => void 
 }> = ({ products, onAddToCart, onSelectProduct }) => {
-  const featured = products.filter(p => !p.isArchived && (['2', '3', '10'].includes(p.id) || p.name === 'BPC-157' || p.name === 'GHK-Cu' || p.name === 'NAD+'));
+  const featured = products.filter(p => !p.isArchived && (['2', '3', '10'].includes(p.id) || p.name === 'BPC-157' || p.name === 'GHK-Cu' || p.name === 'NAD+'))
+    .sort((a, b) => {
+      if (a.inStock && !b.inStock) return -1;
+      if (!a.inStock && b.inStock) return 1;
+      return 0;
+    });
 
   return (
     <section className="py-24 bg-black">
@@ -3157,7 +3186,7 @@ const FeaturedProducts: React.FC<{
             <p className="text-gray-400">Our most requested high-purity research materials.</p>
           </div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-3 gap-4 md:gap-8">
           {featured.map((product) => (
             <ProductCard 
               key={product.id}
@@ -3191,6 +3220,11 @@ const ShopView: React.FC<{
                          p.category.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesPrice = p.price <= maxPrice;
     return matchesSearch && matchesPrice;
+  }).sort((a, b) => {
+    // Sort by inStock status: true (in stock) comes before false (out of stock)
+    if (a.inStock && !b.inStock) return -1;
+    if (!a.inStock && b.inStock) return 1;
+    return 0;
   });
 
   return (
@@ -3275,7 +3309,7 @@ const ShopView: React.FC<{
                 className="w-full bg-white border border-gray-200 rounded-xl py-3 pl-12 pr-4 text-sm text-black focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all shadow-sm"
               />
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-10">
+            <div className="grid grid-cols-3 gap-x-3 gap-y-8 md:gap-x-6 md:gap-y-10">
               {filteredProducts.length > 0 ? (
                 filteredProducts.map((product) => (
                   <ProductCard 
@@ -3992,7 +4026,7 @@ const ProductDetailView = ({ product, products, onAddToCart, onBack, onSelectPro
           <img src={product.image} alt={product.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
           {product.inStock === false && (
             <div className="absolute top-8 left-8 px-6 py-3 bg-red-500 text-white text-xs font-bold uppercase tracking-[0.2em] rounded-full shadow-2xl">
-              Out of Stock
+              Restocking Soon
             </div>
           )}
         </motion.div>
@@ -4034,7 +4068,7 @@ const ProductDetailView = ({ product, products, onAddToCart, onBack, onSelectPro
                   onClick={() => setQuantity(num)}
                   className={`relative aspect-square rounded-2xl overflow-hidden border-2 transition-all ${quantity === num ? 'border-emerald-500 ring-4 ring-emerald-500/10' : 'border-transparent hover:border-gray-200'}`}
                 >
-                  <img src={quantityImages[num]} alt={`${num} Bottle`} className="w-full h-full object-cover" />
+                  <img src={quantityImages[num]} alt={`${num} Bottle`} className="w-full h-full object-cover scale-125" />
                   <div className={`absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex flex-col justify-end p-3 text-left transition-opacity ${quantity === num ? 'opacity-100' : 'opacity-80'}`}>
                     <span className="text-white font-bold text-sm">{num} {num === 1 ? 'Bottle' : 'Bottles'}</span>
                     <span className="text-emerald-400 text-[10px] font-bold uppercase tracking-wider">
@@ -4083,7 +4117,7 @@ const ProductDetailView = ({ product, products, onAddToCart, onBack, onSelectPro
                   onClick={() => onAddToCart(product, quantity)}
                   className="px-12 py-5 bg-black text-white font-bold rounded-2xl hover:bg-emerald-600 transition-all active:scale-95 flex items-center gap-3 shadow-xl shadow-black/10 disabled:opacity-50 disabled:bg-gray-400 disabled:cursor-not-allowed"
                 >
-                  {product.inStock === false ? 'Out of Stock' : <><ShoppingCart className="w-5 h-5" /> Add to Cart</>}
+                  {product.inStock === false ? 'Restocking Soon' : <><ShoppingCart className="w-5 h-5" /> Add to Cart</>}
                 </button>
               </div>
             </div>
@@ -4123,7 +4157,7 @@ const ProductDetailView = ({ product, products, onAddToCart, onBack, onSelectPro
                 onClick={() => onSelectProduct(rec)}
               >
                 <div className="aspect-square rounded-3xl overflow-hidden bg-gray-50 border border-gray-100 mb-6 relative">
-                  <img src={rec.image} alt={rec.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" referrerPolicy="no-referrer" />
+                  <img src={rec.image} alt={rec.name} className="w-full h-full object-cover scale-110 group-hover:scale-125 transition-transform duration-700" referrerPolicy="no-referrer" />
                   {rec.dosage && (
                     <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full border border-gray-100">
                       <span className="text-[10px] font-bold text-gray-900">{rec.dosage}</span>
