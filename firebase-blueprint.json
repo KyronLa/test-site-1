@@ -82,12 +82,23 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["email", "product", "status", "createdAt"]
+    },
+    "SiteSettings": {
+      "title": "SiteSettings",
+      "description": "Global website configuration and features.",
+      "type": "object",
+      "properties": {
+        "countdownActive": { "type": "boolean", "description": "Whether the countdown timer is active." },
+        "countdownText": { "type": "string", "description": "Custom text to display with the timer." },
+        "countdownTarget": { "type": "string", "format": "date-time", "description": "The target date and time for the countdown." }
+      }
     }
   },
   "firestore": {
     "/products": { "schema": "Product", "description": "Collection of available research compounds." },
     "/users": { "schema": "User", "description": "User profile data." },
     "/orders": { "schema": "Order", "description": "Customer order history." },
-    "/coa_requests": { "schema": "COARequest", "description": "Requests for Certificates of Analysis." }
+    "/coa_requests": { "schema": "COARequest", "description": "Requests for Certificates of Analysis." },
+    "/settings": { "schema": "SiteSettings", "description": "Global site configuration." }
   }
 }

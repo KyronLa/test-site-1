@@ -37,7 +37,8 @@ import {
   Eye,
   EyeOff,
   Archive,
-  ArchiveRestore
+  ArchiveRestore,
+  Clock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { GoogleGenAI } from "@google/genai";
@@ -180,6 +181,7 @@ export interface Product {
   id: string;
   name: string;
   price: number;
+  originalPrice?: number;
   category: string;
   image: string;
   description?: string;
@@ -199,6 +201,15 @@ interface CartItem extends Product {
   quantity: number;
 }
 
+interface SiteSettings {
+  countdownActive: boolean;
+  countdownText: string;
+  countdownTarget: string;
+  durationDays?: number;
+  durationHours?: number;
+  durationMinutes?: number;
+}
+
 interface AuthContextType {
   user: FirebaseUser | null;
   loading: boolean;
@@ -214,6 +225,79 @@ const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) throw new Error('useAuth must be used within AuthProvider');
   return context;
+};
+
+const CountdownBanner = ({ currentView }: { currentView: string }) => {
+  const [settings, setSettings] = useState<SiteSettings | null>(null);
+  const [timeLeft, setTimeLeft] = useState<{ days: number, hours: number, minutes: number, seconds: number } | null>(null);
+
+  useEffect(() => {
+    const unsubscribe = onSnapshot(doc(db, 'settings', 'site'), (doc) => {
+      if (doc.exists()) {
+        setSettings(doc.data() as SiteSettings);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!settings?.countdownActive || !settings?.countdownTarget) {
+      setTimeLeft(null);
+      return;
+    }
+
+    const calculateTimeLeft = () => {
+      const target = new Date(settings.countdownTarget).getTime();
+      const now = new Date().getTime();
+      const difference = target - now;
+
+      if (difference <= 0) {
+        setTimeLeft(null);
+        return false;
+      }
+
+      setTimeLeft({
+        days: Math.floor(difference / (1000 * 60 * 60 * 24)),
+        hours: Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+        minutes: Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60)),
+        seconds: Math.floor((difference % (1000 * 60)) / 1000)
+      });
+      return true;
+    };
+
+    const hasTime = calculateTimeLeft();
+    if (!hasTime) return;
+
+    const timer = setInterval(calculateTimeLeft, 1000);
+    return () => clearInterval(timer);
+  }, [settings]);
+
+  const showOnViews = ['home', 'shop', 'product', 'checkout'];
+  if (!settings?.countdownActive || !timeLeft || !showOnViews.includes(currentView)) return null;
+
+  return (
+    <div className="bg-emerald-600 text-white py-2 px-4 text-center relative z-[60]">
+      <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-6">
+        <div className="flex items-center gap-2">
+          <Clock className="w-3 h-3 animate-pulse" />
+          <span className="text-[10px] font-bold uppercase tracking-widest">{settings.countdownText}</span>
+        </div>
+        <div className="flex items-center gap-4">
+          {[
+            { label: 'Days', value: timeLeft.days },
+            { label: 'Hrs', value: timeLeft.hours },
+            { label: 'Min', value: timeLeft.minutes },
+            { label: 'Sec', value: timeLeft.seconds }
+          ].map((item, i) => (
+            <div key={i} className="flex flex-col items-center min-w-[30px]">
+              <span className="text-sm font-black tabular-nums">{item.value.toString().padStart(2, '0')}</span>
+              <span className="text-[7px] uppercase font-bold opacity-70 tracking-tighter">{item.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 };
 
 // --- Components ---
@@ -233,7 +317,7 @@ const Navbar = ({ cartCount, onOpenCart, onOpenAuth, onNavigate, currentView }: 
   }, []);
 
   return (
-    <nav className="fixed top-0 w-full z-50 transition-all duration-200">
+    <nav className="w-full transition-all duration-200">
       <motion.div
         initial={false}
         animate={{ 
@@ -2201,11 +2285,12 @@ const AccountView = ({ onNavigate, onEditOrder }: { onNavigate: (view: any) => v
 };
 
 const AdminDashboard = () => {
-  const [activeTab, setActiveTab] = useState<'users' | 'orders' | 'coas' | 'inventory'>('inventory');
+  const [activeTab, setActiveTab] = useState<'users' | 'orders' | 'coas' | 'inventory' | 'settings'>('inventory');
   const [users, setUsers] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
   const [coaRequests, setCoaRequests] = useState<any[]>([]);
   const [productsList, setProductsList] = useState<Product[]>([]);
+  const [siteSettings, setSiteSettings] = useState<SiteSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -2238,11 +2323,18 @@ const AdminDashboard = () => {
       setLoading(false);
     });
 
+    const unsubscribeSettings = onSnapshot(doc(db, 'settings', 'site'), (doc) => {
+      if (doc.exists()) {
+        setSiteSettings(doc.data() as SiteSettings);
+      }
+    });
+
     return () => {
       unsubscribeUsers();
       unsubscribeOrders();
       unsubscribeCoas();
       unsubscribeProducts();
+      unsubscribeSettings();
     };
   }, []);
 
@@ -2331,6 +2423,12 @@ const AdminDashboard = () => {
             className={`px-6 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'inventory' ? 'bg-white text-black shadow-sm' : 'text-gray-500 hover:text-black'}`}
           >
             Inventory
+          </button>
+          <button 
+            onClick={() => setActiveTab('settings')}
+            className={`px-6 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'settings' ? 'bg-white text-black shadow-sm' : 'text-gray-500 hover:text-black'}`}
+          >
+            Settings
           </button>
         </div>
       </div>
@@ -2599,6 +2697,115 @@ const AdminDashboard = () => {
             </table>
           </div>
         </div>
+      ) : activeTab === 'settings' ? (
+        <div className="max-w-2xl mx-auto">
+          <div className="bg-white rounded-[2rem] border border-gray-100 overflow-hidden shadow-sm p-8">
+            <h2 className="text-2xl font-bold mb-8 flex items-center gap-2">
+              <Clock className="w-6 h-6 text-emerald-500" /> Countdown Timer Settings
+            </h2>
+            
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              const formData = new FormData(e.currentTarget);
+              const days = parseInt(formData.get('days') as string) || 0;
+              const hours = parseInt(formData.get('hours') as string) || 0;
+              const minutes = parseInt(formData.get('minutes') as string) || 0;
+
+              const oldDays = siteSettings?.durationDays || 0;
+              const oldHours = siteSettings?.durationHours || 0;
+              const oldMinutes = siteSettings?.durationMinutes || 0;
+              
+              let countdownTarget = siteSettings?.countdownTarget;
+              
+              // Only reset the target if duration changed or target is missing
+              if (days !== oldDays || hours !== oldHours || minutes !== oldMinutes || !countdownTarget) {
+                const durationMs = (days * 24 * 60 * 60 * 1000) + (hours * 60 * 60 * 1000) + (minutes * 60 * 1000);
+                countdownTarget = new Date(Date.now() + durationMs).toISOString();
+              }
+
+              const settingsData = {
+                countdownActive: formData.get('countdownActive') === 'on',
+                countdownText: formData.get('countdownText') as string,
+                countdownTarget,
+                durationDays: days,
+                durationHours: hours,
+                durationMinutes: minutes,
+              };
+
+              try {
+                await setDoc(doc(db, 'settings', 'site'), settingsData, { merge: true });
+                alert('Settings saved successfully!');
+              } catch (error) {
+                console.error('Error saving settings:', error);
+                alert('Failed to save settings.');
+              }
+            }} className="space-y-6">
+              <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                <input 
+                  type="checkbox" 
+                  name="countdownActive" 
+                  id="countdownActive"
+                  defaultChecked={siteSettings?.countdownActive}
+                  className="w-5 h-5 rounded border-gray-300 text-emerald-500 focus:ring-emerald-500"
+                />
+                <label htmlFor="countdownActive" className="text-sm font-bold text-gray-700">Activate Countdown Timer</label>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Banner Text</label>
+                <input 
+                  name="countdownText" 
+                  defaultValue={siteSettings?.countdownText || 'Flash Sale Ending In:'}
+                  placeholder="e.g. Limited Time Offer Ends In:"
+                  className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-black outline-none" 
+                />
+              </div>
+
+              <div className="space-y-3">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Countdown Duration</label>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">Days</label>
+                    <input 
+                      name="days" 
+                      type="number"
+                      min="0"
+                      defaultValue={siteSettings?.durationDays || 0}
+                      className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-black outline-none" 
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">Hours</label>
+                    <input 
+                      name="hours" 
+                      type="number"
+                      min="0"
+                      max="23"
+                      defaultValue={siteSettings?.durationHours || 0}
+                      className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-black outline-none" 
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">Minutes</label>
+                    <input 
+                      name="minutes" 
+                      type="number"
+                      min="0"
+                      max="59"
+                      defaultValue={siteSettings?.durationMinutes || 0}
+                      className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-black outline-none" 
+                    />
+                  </div>
+                </div>
+                <p className="text-[10px] text-gray-400 italic">Changing the duration will restart the countdown from the new time.</p>
+              </div>
+
+              <button type="submit" className="w-full py-4 bg-black text-white rounded-2xl font-bold hover:bg-emerald-600 transition-all flex items-center justify-center gap-2">
+                <Save className="w-5 h-5" /> Save Settings
+              </button>
+            </form>
+          </div>
+        </div>
       ) : (
         <div className="bg-white rounded-[2rem] border border-gray-100 overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
@@ -2670,17 +2877,16 @@ const AdminDashboard = () => {
                 const formData = new FormData(e.currentTarget);
                 const quantityImages: Record<string, string> = {};
                 const q1 = formData.get('qImg1') as string;
-                const q5 = formData.get('qImg5') as string;
-                const q10 = formData.get('qImg10') as string;
-                const q20 = formData.get('qImg20') as string;
+                const q2 = formData.get('qImg2') as string;
+                const q3 = formData.get('qImg3') as string;
                 if (q1) quantityImages['1'] = q1;
-                if (q5) quantityImages['5'] = q5;
-                if (q10) quantityImages['10'] = q10;
-                if (q20) quantityImages['20'] = q20;
+                if (q2) quantityImages['2'] = q2;
+                if (q3) quantityImages['3'] = q3;
 
                 const productData = {
                   name: formData.get('name') as string,
                   price: parseFloat(formData.get('price') as string),
+                  originalPrice: formData.get('originalPrice') ? parseFloat(formData.get('originalPrice') as string) : null,
                   category: formData.get('category') as string,
                   dosage: formData.get('dosage') as string,
                   image: formData.get('image') as string,
@@ -2710,13 +2916,18 @@ const AdminDashboard = () => {
               }} className="space-y-6">
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Product Name</label>
-                    <input required name="name" defaultValue={editingProduct?.name} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-black outline-none" />
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Original Price (Optional)</label>
+                    <input name="originalPrice" type="number" step="0.01" defaultValue={editingProduct?.originalPrice} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-black outline-none" />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Price (USD)</label>
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Discounted Price (USD)</label>
                     <input required name="price" type="number" step="0.01" defaultValue={editingProduct?.price} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-black outline-none" />
                   </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Product Name</label>
+                  <input required name="name" defaultValue={editingProduct?.name} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-black outline-none" />
                 </div>
 
                 <div className="grid grid-cols-2 gap-6">
@@ -2753,22 +2964,18 @@ const AdminDashboard = () => {
 
                 <div className="space-y-4">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Quantity Images (Optional)</label>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="space-y-1">
                       <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">1 Unit Image</label>
                       <input name="qImg1" placeholder="URL for 1 unit" defaultValue={editingProduct?.quantityImages?.['1']} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-2 text-xs focus:ring-2 focus:ring-black outline-none" />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">5 Units Image</label>
-                      <input name="qImg5" placeholder="URL for 5 units" defaultValue={editingProduct?.quantityImages?.['5']} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-2 text-xs focus:ring-2 focus:ring-black outline-none" />
+                      <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">2 Units Image</label>
+                      <input name="qImg2" placeholder="URL for 2 units" defaultValue={editingProduct?.quantityImages?.['2']} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-2 text-xs focus:ring-2 focus:ring-black outline-none" />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">10 Units Image</label>
-                      <input name="qImg10" placeholder="URL for 10 units" defaultValue={editingProduct?.quantityImages?.['10']} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-2 text-xs focus:ring-2 focus:ring-black outline-none" />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">20 Units Image</label>
-                      <input name="qImg20" placeholder="URL for 20 units" defaultValue={editingProduct?.quantityImages?.['20']} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-2 text-xs focus:ring-2 focus:ring-black outline-none" />
+                      <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">3 Units Image</label>
+                      <input name="qImg3" placeholder="URL for 3 units" defaultValue={editingProduct?.quantityImages?.['3']} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-2 text-xs focus:ring-2 focus:ring-black outline-none" />
                     </div>
                   </div>
                 </div>
@@ -3051,7 +3258,56 @@ const Hero = ({ onShopNow, onViewCOAs }: { onShopNow: () => void, onViewCOAs: ()
   );
 };
 
-// --- Constants ---
+// --- Components ---
+
+const ProductRating: React.FC<{ productId: string, size?: 'sm' | 'md' }> = ({ productId, size = 'sm' }) => {
+  // Use a simple hash of the productId to get consistent random values
+  const getSeed = (str: string) => {
+    let hash = 0;
+    if (!str) return 0;
+    for (let i = 0; i < str.length; i++) {
+      hash = (hash << 5) - hash + str.charCodeAt(i);
+      hash |= 0;
+    }
+    return Math.abs(hash);
+  };
+
+  const seed = getSeed(productId);
+  // Rating between 4.6 and 5.0
+  const rating = (4.6 + (seed % 5) / 10).toFixed(1);
+  // Reviews between 40 and 80
+  const reviews = 40 + (seed % 41);
+
+  const starSize = size === 'sm' ? 'w-3 h-3' : 'w-4 h-4';
+  const textSize = size === 'sm' ? 'text-[11px]' : 'text-sm';
+
+  return (
+    <div className="flex items-center gap-2">
+      <div className="flex items-center">
+        {[...Array(5)].map((_, i) => {
+          const fillPercentage = Math.min(Math.max(Number(rating) - i, 0), 1) * 100;
+          return (
+            <div key={i} className={`relative ${starSize}`}>
+              <Star className={`${starSize} text-gray-200 fill-gray-200`} />
+              {fillPercentage > 0 && (
+                <div 
+                  className="absolute top-0 left-0 overflow-hidden" 
+                  style={{ width: `${fillPercentage}%` }}
+                >
+                  <Star className={`${starSize} text-yellow-400 fill-yellow-400`} />
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex items-center gap-1.5">
+        <span className={`${textSize} font-bold text-gray-900`}>{rating}</span>
+        <span className={`${textSize} text-gray-400 font-medium`}>({reviews} reviews)</span>
+      </div>
+    </div>
+  );
+};
 
 const ProductCard: React.FC<{ 
   product: Product, 
@@ -3082,6 +3338,11 @@ const ProductCard: React.FC<{
               Restocking Soon
             </div>
           )}
+          {product.originalPrice && product.originalPrice > product.price && (
+            <div className="absolute top-6 right-6 px-4 py-2 bg-emerald-500 text-white text-[10px] font-bold uppercase tracking-widest rounded-full shadow-lg">
+              Save {Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}%
+            </div>
+          )}
           <button 
             disabled={product.inStock === false}
             onClick={(e) => {
@@ -3094,11 +3355,19 @@ const ProductCard: React.FC<{
           </button>
         </div>
         <div className="p-8">
+          <div className="mb-2">
+            <ProductRating productId={product.id} />
+          </div>
           <h3 className="font-bold text-lg text-gray-900 mb-1">{product.name}</h3>
           {product.dosage && (
             <p className="text-emerald-600 text-[10px] font-bold uppercase tracking-wider mb-4">{product.dosage}</p>
           )}
-          <span className="text-emerald-600 font-bold text-xl">${product.price.toFixed(2)}</span>
+          <div className="flex items-center gap-3">
+            <span className="text-emerald-600 font-bold text-xl">${product.price.toFixed(2)}</span>
+            {product.originalPrice && product.originalPrice > product.price && (
+              <span className="text-gray-400 line-through text-sm font-medium">${product.originalPrice.toFixed(2)}</span>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -3123,6 +3392,11 @@ const ProductCard: React.FC<{
             Restocking Soon
           </div>
         )}
+        {product.originalPrice && product.originalPrice > product.price && (
+          <div className="absolute top-4 left-4 px-3 py-1.5 bg-emerald-500 text-white text-[9px] font-bold uppercase tracking-widest rounded-full shadow-lg">
+            {Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}% OFF
+          </div>
+        )}
         <div className="absolute top-4 right-4">
           <button 
             disabled={product.inStock === false}
@@ -3137,6 +3411,9 @@ const ProductCard: React.FC<{
         </div>
       </div>
       <div className="flex flex-col flex-1">
+        <div className="mb-2">
+          <ProductRating productId={product.id} />
+        </div>
         <h3 className="font-bold text-gray-900 mb-1 group-hover:text-emerald-600 transition-colors">{product.name}</h3>
         <div className="flex items-center gap-2 mb-4">
           <p className="text-gray-500 text-[10px] font-bold uppercase tracking-wider">99%+ Purity</p>
@@ -3148,7 +3425,12 @@ const ProductCard: React.FC<{
           )}
         </div>
         <div className="mt-auto space-y-4">
-          <p className="text-xl font-bold text-black">${product.price.toFixed(2)}</p>
+          <div className="flex items-center gap-3">
+            <p className="text-xl font-bold text-black">${product.price.toFixed(2)}</p>
+            {product.originalPrice && product.originalPrice > product.price && (
+              <span className="text-gray-400 line-through text-sm font-medium">${product.originalPrice.toFixed(2)}</span>
+            )}
+          </div>
           <button 
             disabled={product.inStock === false}
             onClick={(e) => {
@@ -4040,11 +4322,8 @@ const ProductDetailView = ({ product, products, onAddToCart, onBack, onSelectPro
           <div className="mb-8">
             <span className="text-emerald-500 font-bold tracking-[0.2em] text-xs uppercase mb-4 block">{product.category}</span>
             <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4 tracking-tight">{product.name}</h1>
-            <div className="flex items-center gap-4 mb-6">
-              <div className="flex text-amber-400">
-                {[...Array(5)].map((_, i) => <Star key={i} className="w-4 h-4 fill-current" />)}
-              </div>
-              <span className="text-sm text-gray-400 font-medium">Verified Research Compound</span>
+            <div className="mb-6">
+              <ProductRating productId={product.id} size="md" />
             </div>
             <p className="text-gray-500 leading-relaxed text-lg mb-6">
               {product.description || "High-purity research compound synthesized for laboratory use. HPLC tested and verified for maximum precision in research applications."}
@@ -4053,7 +4332,14 @@ const ProductDetailView = ({ product, products, onAddToCart, onBack, onSelectPro
             {product.dosage && (
               <div className="pt-6 border-t border-gray-100">
                 <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400 mb-2">Research Dosage</h4>
-                <p className="text-2xl font-bold text-gray-900">{product.dosage}</p>
+                <div className="flex items-center gap-4">
+                  <p className="text-2xl font-bold text-gray-900">{product.dosage}</p>
+                  {product.originalPrice && product.originalPrice > product.price && (
+                    <div className="px-3 py-1 bg-emerald-500 text-white text-[10px] font-bold uppercase tracking-widest rounded-full">
+                      {Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}% OFF
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -4103,14 +4389,28 @@ const ProductDetailView = ({ product, products, onAddToCart, onBack, onSelectPro
                 </div>
                 <div className="text-right">
                   <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Price Per Bottle</p>
-                  <p className="text-xl font-bold text-black">${currentPrice.toFixed(2)}</p>
+                  <div className="flex flex-col items-end">
+                    <p className="text-xl font-bold text-black">${currentPrice.toFixed(2)}</p>
+                    {product.originalPrice && product.originalPrice > product.price && (
+                      <span className="text-gray-400 line-through text-xs font-medium">
+                        ${(product.originalPrice * (currentPrice / product.price)).toFixed(2)}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
               <div className="flex items-center justify-between pt-6 border-t border-gray-200">
                 <div>
                   <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Total Amount</p>
-                  <p className="text-3xl font-bold text-black">${total.toFixed(2)}</p>
+                  <div className="flex flex-col">
+                    <p className="text-3xl font-bold text-black">${total.toFixed(2)}</p>
+                    {product.originalPrice && product.originalPrice > product.price && (
+                      <span className="text-gray-400 line-through text-sm font-medium">
+                        ${(product.originalPrice * quantity * (currentPrice / product.price)).toFixed(2)}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <button 
                   disabled={product.inStock === false}
@@ -4460,6 +4760,16 @@ const AppContent = () => {
   const [isDbEmpty, setIsDbEmpty] = useState(false);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const { user, isAdmin } = useAuth();
+  const [settings, setSettings] = useState<SiteSettings | null>(null);
+
+  useEffect(() => {
+    const unsubscribe = onSnapshot(doc(db, 'settings', 'site'), (doc) => {
+      if (doc.exists()) {
+        setSettings(doc.data() as SiteSettings);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     const productsQuery = collection(db, 'products');
@@ -4571,17 +4881,22 @@ const AppContent = () => {
     setView('checkout');
   };
 
+  const isBannerActive = settings?.countdownActive && ['home', 'shop', 'product', 'checkout'].includes(view);
+
   return (
     <div className="min-h-screen bg-[#F9F9F9] font-sans selection:bg-emerald-100 selection:text-emerald-900">
-      <Navbar 
-        cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)} 
-        onOpenCart={() => setIsCartOpen(true)}
-        onOpenAuth={() => setIsAuthOpen(true)}
-        onNavigate={setView}
-        currentView={view}
-      />
+      <div className="fixed top-0 w-full z-50">
+        <CountdownBanner currentView={view} />
+        <Navbar 
+          cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)} 
+          onOpenCart={() => setIsCartOpen(true)}
+          onOpenAuth={() => setIsAuthOpen(true)}
+          onNavigate={setView}
+          currentView={view}
+        />
+      </div>
       
-      <main className={(view !== 'home' && view !== 'shop') ? 'pt-24' : ''}>
+      <main className={`${(view !== 'home' && view !== 'shop') ? 'pt-24' : ''} ${isBannerActive ? 'mt-12' : ''}`}>
         <AnimatePresence mode="wait">
           {view === 'home' && (
             <motion.div
