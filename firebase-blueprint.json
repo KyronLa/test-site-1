@@ -92,6 +92,25 @@
         "countdownText": { "type": "string", "description": "Custom text to display with the timer." },
         "countdownTarget": { "type": "string", "format": "date-time", "description": "The target date and time for the countdown." }
       }
+    },
+    "AffiliateApplication": {
+      "title": "AffiliateApplication",
+      "description": "An application to join the Research Affiliate program.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "fullName": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "socialHandle": { "type": "string", "description": "Instagram and/or TikTok handle" },
+        "followerCount": { "type": "string", "enum": ["Under 1K", "1K–10K", "10K–50K", "50K+"] },
+        "niche": { "type": "string", "enum": ["Fitness", "Bodybuilding", "Biohacking", "General Wellness", "Other"] },
+        "avgViews": { "type": "string", "description": "Average Views Per Post" },
+        "usesPeptides": { "type": "string", "enum": ["Yes", "No"] },
+        "whyPartner": { "type": "string", "description": "Why do you want to partner with Eclipse Research?", "maxLength": 300 },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["fullName", "email", "socialHandle", "followerCount", "niche", "avgViews", "usesPeptides", "whyPartner", "status", "createdAt"]
     }
   },
   "firestore": {
@@ -99,6 +118,7 @@
     "/users": { "schema": "User", "description": "User profile data." },
     "/orders": { "schema": "Order", "description": "Customer order history." },
     "/coa_requests": { "schema": "COARequest", "description": "Requests for Certificates of Analysis." },
-    "/settings": { "schema": "SiteSettings", "description": "Global site configuration." }
+    "/settings": { "schema": "SiteSettings", "description": "Global site configuration." },
+    "/affiliate_applications": { "schema": "AffiliateApplication", "description": "Applications for the affiliate program." }
   }
 }

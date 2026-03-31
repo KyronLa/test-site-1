@@ -351,7 +351,7 @@ const Navbar = ({ cartCount, onOpenCart, onOpenAuth, onNavigate, currentView }: 
           <button onClick={() => onNavigate('shop')} className={`text-sm font-medium hover:opacity-70 transition-opacity ${showSolidNav ? 'text-black' : 'text-white'}`}>Shop All</button>
           <button onClick={() => onNavigate('calculator')} className={`text-sm font-medium hover:opacity-70 transition-opacity ${showSolidNav ? 'text-black' : 'text-white'}`}>Calculator</button>
           <button onClick={() => onNavigate('about')} className={`text-sm font-medium hover:opacity-70 transition-opacity ${showSolidNav ? 'text-black' : 'text-white'}`}>About Us</button>
-          <button onClick={() => onNavigate('affiliate')} className={`text-sm font-medium hover:opacity-70 transition-opacity ${showSolidNav ? 'text-black' : 'text-white'}`}>Affiliate</button>
+          <button onClick={() => onNavigate('affiliate')} className={`text-sm font-medium hover:opacity-70 transition-opacity ${showSolidNav ? 'text-black' : 'text-white'}`}>Research Affiliate</button>
           {isAdmin && (
             <button onClick={() => onNavigate('admin')} className={`text-sm font-bold text-emerald-500 hover:opacity-70 transition-opacity`}>Admin Panel</button>
           )}
@@ -408,7 +408,7 @@ const Navbar = ({ cartCount, onOpenCart, onOpenAuth, onNavigate, currentView }: 
             <div className="flex flex-col gap-6 mt-12">
               <button onClick={() => { onNavigate('shop'); setIsMobileMenuOpen(false); }} className="text-2xl font-bold text-black border-b border-gray-100 pb-4 text-left">Shop All</button>
               <button onClick={() => { onNavigate('about'); setIsMobileMenuOpen(false); }} className="text-2xl font-bold text-black border-b border-gray-100 pb-4 text-left">About Us</button>
-              <button onClick={() => { onNavigate('affiliate'); setIsMobileMenuOpen(false); }} className="text-2xl font-bold text-black border-b border-gray-100 pb-4 text-left">Become an Affiliate</button>
+              <button onClick={() => { onNavigate('affiliate'); setIsMobileMenuOpen(false); }} className="text-2xl font-bold text-black border-b border-gray-100 pb-4 text-left">Become a Research Affiliate</button>
               <button onClick={() => { onNavigate('track'); setIsMobileMenuOpen(false); }} className="text-2xl font-bold text-black border-b border-gray-100 pb-4 text-left">Track Order</button>
               <button onClick={() => { onNavigate('calculator'); setIsMobileMenuOpen(false); }} className="text-2xl font-bold text-black border-b border-gray-100 pb-4 text-left">Calculator</button>
               <button onClick={() => { onNavigate('coas'); setIsMobileMenuOpen(false); }} className="text-2xl font-bold text-black border-b border-gray-100 pb-4 text-left">Request COA's</button>
@@ -1600,11 +1600,191 @@ const PrivacyPolicyView = ({ onBack }: { onBack: () => void }) => {
   );
 };
 
+const AffiliateApplicationModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
+  const [formData, setFormData] = useState({
+    fullName: '',
+    email: '',
+    socialHandle: '',
+    followerCount: 'Under 1K',
+    niche: 'Fitness',
+    avgViews: '',
+    usesPeptides: 'No',
+    whyPartner: ''
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      await addDoc(collection(db, 'affiliate_applications'), {
+        ...formData,
+        status: 'pending',
+        createdAt: serverTimestamp(),
+        userId: auth.currentUser?.uid || null
+      });
+      alert('Application submitted successfully! We will review it and get back to you soon.');
+      onClose();
+    } catch (error) {
+      console.error('Error submitting application:', error);
+      alert('Failed to submit application. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        className="bg-[#0A0A0A] border border-white/10 rounded-[2.5rem] w-full max-w-2xl overflow-hidden shadow-2xl shadow-emerald-500/5"
+      >
+        <div className="p-8 md:p-12 max-h-[90vh] overflow-y-auto custom-scrollbar">
+          <div className="flex justify-between items-center mb-8">
+            <div>
+              <h2 className="text-3xl font-bold tracking-tight text-white">Research Affiliate Application</h2>
+              <p className="text-gray-400 mt-1 text-sm font-medium">Join the Eclipse Research network.</p>
+            </div>
+            <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-full transition-colors text-gray-400 hover:text-white">
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest ml-1">Full Name</label>
+                <input
+                  required
+                  type="text"
+                  value={formData.fullName}
+                  onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                  className="w-full px-6 py-4 bg-white/5 border border-white/10 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all text-sm font-medium text-white placeholder:text-gray-600"
+                  placeholder="John Doe"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest ml-1">Email Address</label>
+                <input
+                  required
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  className="w-full px-6 py-4 bg-white/5 border border-white/10 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all text-sm font-medium text-white placeholder:text-gray-600"
+                  placeholder="john@example.com"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest ml-1">Social Handle (IG/TikTok)</label>
+                <input
+                  required
+                  type="text"
+                  value={formData.socialHandle}
+                  onChange={(e) => setFormData({ ...formData, socialHandle: e.target.value })}
+                  className="w-full px-6 py-4 bg-white/5 border border-white/10 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all text-sm font-medium text-white placeholder:text-gray-600"
+                  placeholder="@yourhandle"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest ml-1">Follower Count</label>
+                <select
+                  value={formData.followerCount}
+                  onChange={(e) => setFormData({ ...formData, followerCount: e.target.value })}
+                  className="w-full px-6 py-4 bg-white/5 border border-white/10 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all text-sm font-medium text-white appearance-none cursor-pointer"
+                >
+                  <option value="Under 1K">Under 1K</option>
+                  <option value="1K–10K">1K–10K</option>
+                  <option value="10K–50K">10K–50K</option>
+                  <option value="50K+">50K+</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest ml-1">Niche</label>
+                <select
+                  value={formData.niche}
+                  onChange={(e) => setFormData({ ...formData, niche: e.target.value })}
+                  className="w-full px-6 py-4 bg-white/5 border border-white/10 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all text-sm font-medium text-white appearance-none cursor-pointer"
+                >
+                  <option value="Fitness">Fitness</option>
+                  <option value="Bodybuilding">Bodybuilding</option>
+                  <option value="Biohacking">Biohacking</option>
+                  <option value="General Wellness">General Wellness</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest ml-1">Avg Views Per Post</label>
+                <input
+                  required
+                  type="text"
+                  value={formData.avgViews}
+                  onChange={(e) => setFormData({ ...formData, avgViews: e.target.value })}
+                  className="w-full px-6 py-4 bg-white/5 border border-white/10 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all text-sm font-medium text-white placeholder:text-gray-600"
+                  placeholder="e.g. 5,000"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest ml-1">Do you currently use peptides or research compounds?</label>
+              <select
+                value={formData.usesPeptides}
+                onChange={(e) => setFormData({ ...formData, usesPeptides: e.target.value })}
+                className="w-full px-6 py-4 bg-white/5 border border-white/10 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all text-sm font-medium text-white appearance-none cursor-pointer"
+              >
+                <option value="Yes">Yes</option>
+                <option value="No">No</option>
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest ml-1">Why do you want to partner with Eclipse Research? (Max 300 chars)</label>
+              <textarea
+                required
+                maxLength={300}
+                rows={3}
+                value={formData.whyPartner}
+                onChange={(e) => setFormData({ ...formData, whyPartner: e.target.value })}
+                className="w-full px-6 py-4 bg-white/5 border border-white/10 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all text-sm font-medium text-white resize-none placeholder:text-gray-600"
+                placeholder="Tell us why you're a good fit..."
+              />
+              <div className="text-[10px] text-gray-500 text-right font-mono">{formData.whyPartner.length}/300</div>
+            </div>
+
+            <button
+              disabled={isSubmitting}
+              type="submit"
+              className="w-full py-5 bg-emerald-500 text-black font-bold rounded-2xl hover:bg-emerald-400 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-xl shadow-emerald-500/20"
+            >
+              {isSubmitting ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <>Submit Application <ChevronRight className="w-4 h-4" /></>
+              )}
+            </button>
+          </form>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
 const AffiliateView = ({ onBack }: { onBack: () => void }) => {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   return (
     <section className="py-24 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+      <AffiliateApplicationModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -1623,12 +1803,15 @@ const AffiliateView = ({ onBack }: { onBack: () => void }) => {
               <Gift className="w-8 h-8" />
             </div>
           </div>
-          <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-gray-900 mb-6">Become an Affiliate</h1>
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-gray-900 mb-6">Become a Research Affiliate and Earn Free Supply</h1>
           <p className="text-gray-500 text-lg max-w-2xl mx-auto leading-relaxed mb-8">
-            Join the Eclipse Research affiliate program and earn competitive commissions while helping the scientific community access high-purity research compounds.
+            Join our Research Affiliate program and earn competitive commissions while helping the scientific community access high-purity research compounds.
           </p>
-          <button className="px-8 py-4 bg-emerald-500 text-white font-bold rounded-2xl hover:bg-emerald-600 transition-all active:scale-95 shadow-lg shadow-emerald-500/20">
-            Apply for Affiliate Program
+          <button 
+            onClick={() => setIsModalOpen(true)}
+            className="px-8 py-4 bg-emerald-500 text-white font-bold rounded-2xl hover:bg-emerald-600 transition-all active:scale-95 shadow-lg shadow-emerald-500/20"
+          >
+            Apply for Research Affiliate Program
           </button>
         </div>
 
@@ -1666,7 +1849,7 @@ const AffiliateView = ({ onBack }: { onBack: () => void }) => {
               { 
                 step: "01", 
                 title: "Sign Up", 
-                desc: "Create your affiliate account and get approved within 48 hours." 
+                desc: "Create your Research Affiliate account and get approved within 48 hours." 
               },
               { 
                 step: "02", 
@@ -1692,17 +1875,18 @@ const AffiliateView = ({ onBack }: { onBack: () => void }) => {
 
         {/* Commission Tiers */}
         <div className="mb-24">
-          <h2 className="text-2xl font-bold text-gray-900 mb-12 text-center">Commission Tiers</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-12 text-center">Commission Tiers & Perks</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
-              { tier: "Starter", referrals: "0–10 referrals", commission: "10% commission" },
-              { tier: "Growth", referrals: "11–25 referrals", commission: "12% commission" },
-              { tier: "Elite", referrals: "25+ referrals", commission: "15% commission" }
+              { tier: "Starter", referrals: "0–10 referrals", commission: "15% Commission", perk: "Highly Discounted Supply" },
+              { tier: "Growth", referrals: "11–25 referrals", commission: "15% Commission", perk: "1 Free Restock / Month" },
+              { tier: "Elite", referrals: "25+ referrals", commission: "15% Commission", perk: "Full Supply Covered" }
             ].map((tier, i) => (
               <div key={i} className="p-8 bg-black rounded-[2rem] border border-gray-800 text-center group hover:border-emerald-500/50 transition-colors">
                 <h3 className="text-emerald-500 font-bold uppercase tracking-widest text-xs mb-4">{tier.tier}</h3>
                 <div className="text-white text-3xl font-bold mb-2">{tier.commission}</div>
-                <p className="text-gray-400 text-sm">{tier.referrals}</p>
+                <p className="text-emerald-500 font-bold text-sm mb-2">{tier.perk}</p>
+                <p className="text-gray-400 text-xs">{tier.referrals}</p>
               </div>
             ))}
           </div>
@@ -1722,9 +1906,9 @@ const AffiliateView = ({ onBack }: { onBack: () => void }) => {
                 </div>
               </div>
               
-              <h3 className="text-2xl font-bold text-white mb-4">Milestone Reward</h3>
+              <h3 className="text-2xl font-bold text-white mb-4">Milestone Rewards</h3>
               <p className="text-gray-400 text-lg leading-relaxed max-w-xl mx-auto">
-                Hit <span className="text-emerald-500 font-bold">10 referral sales</span> and we'll send you a free supply of your choice compound. Keep earning, keep receiving.
+                Reach <span className="text-emerald-500 font-bold">11 referral sales</span> to unlock monthly restocks, or <span className="text-emerald-500 font-bold">25+ sales</span> to have your entire research supply covered by us.
               </p>
               
               <div className="mt-8 flex justify-center gap-2">
@@ -1755,7 +1939,7 @@ const AffiliateView = ({ onBack }: { onBack: () => void }) => {
               },
               { 
                 q: "What marketing materials do you provide?", 
-                a: "Affiliates get access to a library of high-quality product images, banners, and technical data sheets to help promote our compounds effectively." 
+                a: "Research Affiliates get access to a library of high-quality product images, banners, and technical data sheets to help promote our compounds effectively." 
               }
             ].map((faq, i) => (
               <div key={i} className="border border-gray-100 rounded-2xl overflow-hidden">
@@ -1790,8 +1974,11 @@ const AffiliateView = ({ onBack }: { onBack: () => void }) => {
           <p className="text-gray-400 mb-10 max-w-xl mx-auto">
             Apply today to join our network of researchers and content creators. We review all applications within 48 business hours.
           </p>
-          <button className="px-10 py-5 bg-emerald-500 text-white font-bold rounded-2xl hover:bg-emerald-600 transition-all active:scale-95">
-            Apply for Affiliate Program
+          <button 
+            onClick={() => setIsModalOpen(true)}
+            className="px-10 py-5 bg-emerald-500 text-white font-bold rounded-2xl hover:bg-emerald-600 transition-all active:scale-95"
+          >
+            Apply for Research Affiliate Program
           </button>
         </div>
       </motion.div>
@@ -2285,10 +2472,11 @@ const AccountView = ({ onNavigate, onEditOrder }: { onNavigate: (view: any) => v
 };
 
 const AdminDashboard = () => {
-  const [activeTab, setActiveTab] = useState<'users' | 'orders' | 'coas' | 'inventory' | 'settings'>('inventory');
+  const [activeTab, setActiveTab] = useState<'users' | 'orders' | 'coas' | 'inventory' | 'settings' | 'affiliates'>('inventory');
   const [users, setUsers] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
   const [coaRequests, setCoaRequests] = useState<any[]>([]);
+  const [affiliateApplications, setAffiliateApplications] = useState<any[]>([]);
   const [productsList, setProductsList] = useState<Product[]>([]);
   const [siteSettings, setSiteSettings] = useState<SiteSettings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -2300,6 +2488,7 @@ const AdminDashboard = () => {
     const usersQuery = collection(db, 'users');
     const ordersQuery = collection(db, 'orders');
     const coaQuery = collection(db, 'coa_requests');
+    const affiliateQuery = collection(db, 'affiliate_applications');
     const productsQuery = collection(db, 'products');
 
     const unsubscribeUsers = onSnapshot(usersQuery, (snapshot) => {
@@ -2312,6 +2501,10 @@ const AdminDashboard = () => {
 
     const unsubscribeCoas = onSnapshot(coaQuery, (snapshot) => {
       setCoaRequests(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
+    const unsubscribeAffiliates = onSnapshot(affiliateQuery, (snapshot) => {
+      setAffiliateApplications(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
     const unsubscribeProducts = onSnapshot(productsQuery, (snapshot) => {
@@ -2333,6 +2526,7 @@ const AdminDashboard = () => {
       unsubscribeUsers();
       unsubscribeOrders();
       unsubscribeCoas();
+      unsubscribeAffiliates();
       unsubscribeProducts();
       unsubscribeSettings();
     };
@@ -2359,6 +2553,18 @@ const AdminDashboard = () => {
     } catch (error) {
       console.error('Error updating COA request:', error);
       alert('Failed to update request status.');
+    }
+  };
+
+  const updateAffiliateStatus = async (applicationId: string, newStatus: string) => {
+    try {
+      await updateDoc(doc(db, 'affiliate_applications', applicationId), {
+        status: newStatus,
+        updatedAt: serverTimestamp()
+      });
+    } catch (error) {
+      console.error('Error updating Research Affiliate application:', error);
+      alert('Failed to update application status.');
     }
   };
 
@@ -2429,6 +2635,12 @@ const AdminDashboard = () => {
             className={`px-6 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'settings' ? 'bg-white text-black shadow-sm' : 'text-gray-500 hover:text-black'}`}
           >
             Settings
+          </button>
+          <button 
+            onClick={() => setActiveTab('affiliates')}
+            className={`px-6 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'affiliates' ? 'bg-white text-black shadow-sm' : 'text-gray-500 hover:text-black'}`}
+          >
+            Research Affiliates
           </button>
         </div>
       </div>
@@ -2693,6 +2905,78 @@ const AdminDashboard = () => {
                     </td>
                   </tr>
                 ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : activeTab === 'affiliates' ? (
+        <div className="bg-white rounded-[2rem] border border-gray-100 overflow-hidden shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-100">
+                  <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Applicant</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Social / Stats</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Niche / Usage</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Why Partner?</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Status</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {affiliateApplications.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)).map((app) => (
+                  <tr key={app.id} className="hover:bg-gray-50/50 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="text-sm">
+                        <p className="font-bold">{app.fullName}</p>
+                        <p className="text-gray-400 text-[10px]">{app.email}</p>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm">
+                        <p className="text-emerald-600 font-bold">{app.socialHandle}</p>
+                        <p className="text-gray-500 text-[10px]">{app.followerCount} followers</p>
+                        <p className="text-gray-400 text-[10px]">{app.avgViews} avg views</p>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm">
+                        <p className="font-medium text-gray-700">{app.niche}</p>
+                        <p className="text-[10px] text-gray-400 uppercase tracking-tighter">Uses Peptides: <span className={app.usesPeptides === 'Yes' ? 'text-emerald-600 font-bold' : 'text-amber-600 font-bold'}>{app.usesPeptides}</span></p>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <p className="text-xs text-gray-600 line-clamp-3 max-w-[200px] leading-relaxed italic">"{app.whyPartner}"</p>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                        app.status === 'approved' ? 'bg-emerald-100 text-emerald-700' : 
+                        app.status === 'pending' ? 'bg-amber-100 text-amber-700' : 
+                        'bg-red-100 text-red-700'
+                      }`}>
+                        {app.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <select 
+                        value={app.status}
+                        onChange={(e) => updateAffiliateStatus(app.id, e.target.value)}
+                        className="text-[10px] font-bold uppercase tracking-widest bg-gray-50 border border-gray-100 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      >
+                        <option value="pending">Pending</option>
+                        <option value="approved">Approved</option>
+                        <option value="rejected">Rejected</option>
+                      </select>
+                    </td>
+                  </tr>
+                ))}
+                {affiliateApplications.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-12 text-center text-gray-400 text-sm italic">
+                      No Research Affiliate applications found.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -3334,12 +3618,12 @@ const ProductCard: React.FC<{
             referrerPolicy="no-referrer"
           />
           {product.inStock === false && (
-            <div className="absolute top-6 left-6 px-4 py-2 bg-red-500 text-white text-[10px] font-bold uppercase tracking-widest rounded-full shadow-lg">
+            <div className="absolute top-6 left-6 px-4 py-2 bg-red-500 text-white text-[10px] font-bold uppercase tracking-widest rounded-full shadow-lg z-10">
               Restocking Soon
             </div>
           )}
           {product.originalPrice && product.originalPrice > product.price && (
-            <div className="absolute top-6 right-6 px-4 py-2 bg-emerald-500 text-white text-[10px] font-bold uppercase tracking-widest rounded-full shadow-lg">
+            <div className={`absolute ${product.inStock === false ? 'top-16' : 'top-6'} left-6 px-4 py-2 bg-emerald-500 text-white text-[10px] font-bold uppercase tracking-widest rounded-full shadow-lg z-10`}>
               Save {Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}%
             </div>
           )}
@@ -3388,12 +3672,12 @@ const ProductCard: React.FC<{
           referrerPolicy="no-referrer"
         />
         {product.inStock === false && (
-          <div className="absolute top-4 left-4 px-3 py-1.5 bg-red-500 text-white text-[9px] font-bold uppercase tracking-widest rounded-full shadow-lg">
+          <div className="absolute top-4 left-4 px-3 py-1.5 bg-red-500 text-white text-[9px] font-bold uppercase tracking-widest rounded-full shadow-lg z-10">
             Restocking Soon
           </div>
         )}
         {product.originalPrice && product.originalPrice > product.price && (
-          <div className="absolute top-4 left-4 px-3 py-1.5 bg-emerald-500 text-white text-[9px] font-bold uppercase tracking-widest rounded-full shadow-lg">
+          <div className={`absolute ${product.inStock === false ? 'top-12' : 'top-4'} left-4 px-3 py-1.5 bg-emerald-500 text-white text-[9px] font-bold uppercase tracking-widest rounded-full shadow-lg z-10`}>
             {Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}% OFF
           </div>
         )}
@@ -3615,6 +3899,91 @@ const ShopView: React.FC<{
   );
 };
 
+const PremiumResearchSection = ({ onLearnMore }: { onLearnMore: () => void }) => {
+  return (
+    <section className="bg-black py-24 overflow-hidden border-t border-white/5">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex flex-col lg:flex-row items-center gap-16">
+          {/* Left Content */}
+          <div className="flex-1 space-y-10">
+            <div className="space-y-2">
+              <h2 className="text-5xl md:text-7xl font-black tracking-tighter text-white uppercase leading-none">
+                Premium Research
+              </h2>
+              <h2 className="text-5xl md:text-7xl font-black tracking-tighter text-gray-600 uppercase leading-none">
+                You Can Trust
+              </h2>
+            </div>
+
+            <div className="space-y-6 max-w-xl">
+              <p className="text-gray-400 text-lg leading-relaxed">
+                Eclipse Research stands as a leading provider of high-grade laboratory compounds, committed to delivering exceptional quality at competitive prices.
+              </p>
+              <p className="text-gray-400 text-lg leading-relaxed">
+                Our focus on efficient logistics means most orders are fulfilled and dispatched within 1-2 days. Scientists nationwide rely on us for dependable access to research materials with purity levels consistently above 99%.
+              </p>
+            </div>
+
+            <div className="pt-8 border-t border-white/10 flex flex-wrap gap-12">
+              <div className="space-y-1">
+                <p className="text-4xl font-black text-white tracking-tighter">99%+</p>
+                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em]">Purity</p>
+              </div>
+              <div className="w-[1px] h-12 bg-white/10 hidden sm:block" />
+              <div className="space-y-1">
+                <p className="text-4xl font-black text-white tracking-tighter">1-2 DAY</p>
+                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em]">Day Ship</p>
+              </div>
+              <div className="w-[1px] h-12 bg-white/10 hidden sm:block" />
+              <div className="space-y-1">
+                <p className="text-4xl font-black text-white tracking-tighter">LAB</p>
+                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em]">Certified</p>
+              </div>
+            </div>
+
+            <button 
+              onClick={onLearnMore}
+              className="group flex items-center gap-3 bg-white text-black px-10 py-5 rounded-lg font-bold uppercase tracking-widest text-xs hover:bg-emerald-500 hover:text-white transition-all active:scale-95 shadow-2xl shadow-white/5"
+            >
+              Learn More
+              <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </button>
+          </div>
+
+          {/* Right Image */}
+          <div className="flex-1 relative">
+            <div className="relative w-full aspect-square max-w-lg mx-auto">
+              {/* Background Glow */}
+              <div className="absolute inset-0 bg-emerald-500/10 blur-[120px] rounded-full" />
+              
+              {/* Main Image Container */}
+              <div className="relative z-10 w-full h-full flex items-center justify-center">
+                <img 
+                  src="https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969217/glp3-rt_gfcapz.png" 
+                  alt="Premium Research Vial" 
+                  className="w-4/5 h-4/5 object-contain drop-shadow-[0_0_80px_rgba(0,0,0,0.8)]"
+                  referrerPolicy="no-referrer"
+                />
+
+                {/* Overlay Badge - Positioned over the vial */}
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center text-center pointer-events-none">
+                  <div className="w-20 h-20 rounded-full bg-white flex items-center justify-center mb-6 shadow-[0_0_50px_rgba(255,255,255,0.3)]">
+                    <span className="text-3xl font-black text-black tracking-tighter">99%</span>
+                  </div>
+                  <div className="bg-white/90 backdrop-blur-md px-6 py-3 rounded-2xl shadow-xl">
+                    <h3 className="text-2xl font-black text-black uppercase tracking-tighter mb-1">Purity Guaranteed</h3>
+                    <p className="text-[10px] font-bold text-black uppercase tracking-[0.4em]">Third-Party Tested</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
 const ResearchDisclaimer = () => (
   <section className="py-24 bg-gray-50 border-y border-gray-100">
     <div className="max-w-3xl mx-auto px-4 text-center">
@@ -3689,6 +4058,21 @@ const COARequestView = () => {
 
   return (
     <section className="py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* Notice Banner */}
+      <motion.div 
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-12 bg-amber-50 border border-amber-100 rounded-2xl p-6 flex items-center gap-4 text-amber-800 shadow-sm"
+      >
+        <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
+          <Info className="w-5 h-5 text-amber-600" />
+        </div>
+        <div>
+          <p className="text-sm font-bold uppercase tracking-wider mb-0.5">Notice</p>
+          <p className="text-sm opacity-80 font-medium">Updated COA pdf's coming soon</p>
+        </div>
+      </motion.div>
+
       <div className="grid lg:grid-cols-2 gap-16 items-center">
         <motion.div
           initial={{ opacity: 0, x: -30 }}
@@ -4915,6 +5299,7 @@ const AppContent = () => {
                   window.scrollTo(0, 0);
                 }} 
               />
+              <PremiumResearchSection onLearnMore={() => setView('about')} />
               <ResearchDisclaimer />
             </motion.div>
           )}
@@ -5150,7 +5535,7 @@ const AppContent = () => {
               <ul className="space-y-4 text-sm text-gray-600 font-medium">
                 <li><button onClick={() => setView('shop')} className="hover:text-black transition-colors">Shop All Compounds</button></li>
                 <li><button onClick={() => setView('about')} className="hover:text-black transition-colors">About Us</button></li>
-                <li><button onClick={() => setView('affiliate')} className="hover:text-black transition-colors">Become an Affiliate</button></li>
+                <li><button onClick={() => setView('affiliate')} className="hover:text-black transition-colors">Become a Research Affiliate</button></li>
                 <li><button onClick={() => setView('track')} className="hover:text-black transition-colors">Track Order</button></li>
                 <li><button onClick={() => setView('calculator')} className="hover:text-black transition-colors">Reconstitution Calculator</button></li>
                 <li><button onClick={() => setView('coas')} className="hover:text-black transition-colors">Request COA's</button></li>

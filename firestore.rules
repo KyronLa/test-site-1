@@ -56,6 +56,18 @@ service cloud.firestore {
              (!('countdownTarget' in data) || data.countdownTarget is string);
     }
 
+    function isValidAffiliateApplication(data) {
+      return data.email is string &&
+             data.fullName is string && data.fullName.size() > 0 &&
+             data.socialHandle is string && data.socialHandle.size() > 0 &&
+             data.followerCount in ["Under 1K", "1K–10K", "10K–50K", "50K+"] &&
+             data.niche in ["Fitness", "Bodybuilding", "Biohacking", "General Wellness", "Other"] &&
+             data.avgViews is string &&
+             data.usesPeptides in ["Yes", "No"] &&
+             data.whyPartner is string && data.whyPartner.size() <= 300 &&
+             data.status in ['pending', 'approved', 'rejected'];
+    }
+
     // Rules
     match /products/{productId} {
       allow read: if true; // Products are publicly viewable
@@ -91,6 +103,11 @@ service cloud.firestore {
 
     match /coa_requests/{requestId} {
       allow create: if true; // Anyone can request a COA
+      allow read, update, delete: if isAdmin();
+    }
+
+    match /affiliate_applications/{applicationId} {
+      allow create: if isValidAffiliateApplication(request.resource.data);
       allow read, update, delete: if isAdmin();
     }
   }
