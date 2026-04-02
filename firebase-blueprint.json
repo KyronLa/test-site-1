@@ -111,6 +111,18 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["fullName", "email", "socialHandle", "followerCount", "niche", "avgViews", "usesPeptides", "whyPartner", "status", "createdAt"]
+    },
+    "PromoCode": {
+      "title": "PromoCode",
+      "description": "A promotional discount code.",
+      "type": "object",
+      "properties": {
+        "code": { "type": "string", "description": "The alphanumeric code (e.g., RESEARCH20)." },
+        "discount": { "type": "number", "description": "The discount percentage (e.g., 20 for 20%)." },
+        "isActive": { "type": "boolean", "description": "Whether the code is currently active." },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["code", "discount", "isActive", "createdAt"]
     }
   },
   "firestore": {
@@ -119,6 +131,7 @@
     "/orders": { "schema": "Order", "description": "Customer order history." },
     "/coa_requests": { "schema": "COARequest", "description": "Requests for Certificates of Analysis." },
     "/settings": { "schema": "SiteSettings", "description": "Global site configuration." },
-    "/affiliate_applications": { "schema": "AffiliateApplication", "description": "Applications for the affiliate program." }
+    "/affiliate_applications": { "schema": "AffiliateApplication", "description": "Applications for the affiliate program." },
+    "/promo_codes": { "schema": "PromoCode", "description": "Active and inactive promotional codes." }
   }
 }

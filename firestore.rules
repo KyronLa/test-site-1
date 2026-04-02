@@ -68,6 +68,12 @@ service cloud.firestore {
              data.status in ['pending', 'approved', 'rejected'];
     }
 
+    function isValidPromoCode(data) {
+      return data.code is string && data.code.size() > 0 &&
+             data.discount is number && data.discount >= 0 && data.discount <= 100 &&
+             data.isActive is bool;
+    }
+
     // Rules
     match /products/{productId} {
       allow read: if true; // Products are publicly viewable
@@ -109,6 +115,11 @@ service cloud.firestore {
     match /affiliate_applications/{applicationId} {
       allow create: if isValidAffiliateApplication(request.resource.data);
       allow read, update, delete: if isAdmin();
+    }
+
+    match /promo_codes/{promoId} {
+      allow read: if true; // Publicly readable for validation during checkout
+      allow write: if isAdmin() && isValidPromoCode(request.resource.data);
     }
   }
 }

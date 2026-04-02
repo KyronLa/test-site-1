@@ -38,7 +38,8 @@ import {
   EyeOff,
   Archive,
   ArchiveRestore,
-  Clock
+  Clock,
+  Tag
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { GoogleGenAI } from "@google/genai";
@@ -433,7 +434,9 @@ const CartDrawer = ({
   onUpdateQuantity, 
   onRemove,
   onCheckout,
-  onAddToCart
+  onAddToCart,
+  appliedPromo,
+  onApplyPromo
 }: { 
   isOpen: boolean, 
   onClose: () => void, 
@@ -441,13 +444,53 @@ const CartDrawer = ({
   onUpdateQuantity: (id: string, delta: number) => void,
   onRemove: (id: string) => void,
   onCheckout: () => void,
-  onAddToCart: (product: Product) => void
+  onAddToCart: (product: Product) => void,
+  appliedPromo: { code: string, discount: number } | null,
+  onApplyPromo: (promo: { code: string, discount: number } | null) => void
 }) => {
-  const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const freeShippingThreshold = 250;
-  const progress = Math.min((total / freeShippingThreshold) * 100, 100);
-  const remaining = Math.max(freeShippingThreshold - total, 0);
+  const progress = Math.min((subtotal / freeShippingThreshold) * 100, 100);
+  const remaining = Math.max(freeShippingThreshold - subtotal, 0);
   const [promoCode, setPromoCode] = useState('');
+  const [promoError, setPromoError] = useState('');
+  const [isApplying, setIsApplying] = useState(false);
+
+  const shipping = subtotal >= freeShippingThreshold ? 0 : 15;
+  const totalBeforePromo = subtotal + shipping;
+  const discountAmount = appliedPromo ? (totalBeforePromo * (appliedPromo.discount / 100)) : 0;
+  const finalTotal = totalBeforePromo - discountAmount;
+
+  const handleApplyPromo = async () => {
+    if (!promoCode.trim()) return;
+    setIsApplying(true);
+    setPromoError('');
+    try {
+      const q = query(
+        collection(db, 'promo_codes'), 
+        where('code', '==', promoCode.toUpperCase().trim()),
+        where('isActive', '==', true)
+      );
+      const querySnapshot = await getDocs(q);
+      
+      if (querySnapshot.empty) {
+        setPromoError('Invalid or inactive promo code');
+        onApplyPromo(null);
+      } else {
+        const promoData = querySnapshot.docs[0].data();
+        onApplyPromo({
+          code: promoData.code,
+          discount: promoData.discount
+        });
+        setPromoCode('');
+      }
+    } catch (error) {
+      console.error('Error applying promo code:', error);
+      setPromoError('Error applying promo code');
+    } finally {
+      setIsApplying(false);
+    }
+  };
 
   const recommendedProduct: Product = {
     id: '7',
@@ -486,7 +529,7 @@ const CartDrawer = ({
             <div className="px-4 py-3 bg-black border-b border-white/10">
               <div className="flex justify-between items-center mb-1.5">
                 <span className="text-[10px] font-bold text-white uppercase tracking-wider">
-                  {total >= freeShippingThreshold ? '🎉 You unlocked free shipping!' : `Add $${remaining.toFixed(2)} more for free shipping`}
+                  {subtotal >= freeShippingThreshold ? '🎉 You unlocked free shipping!' : `Add $${remaining.toFixed(2)} more for free shipping`}
                 </span>
                 <span className="text-[9px] font-bold text-white/60">{Math.round(progress)}%</span>
               </div>
@@ -567,33 +610,57 @@ const CartDrawer = ({
 
             {items.length > 0 && (
               <div className="p-4 border-t border-gray-100 bg-white space-y-3">
-                <div className="flex gap-2">
-                  <input 
-                    type="text" 
-                    placeholder="Promo Code"
-                    value={promoCode}
-                    onChange={(e) => setPromoCode(e.target.value)}
-                    className="flex-1 bg-gray-50 border border-gray-100 rounded-lg px-3 py-1.5 text-xs focus:ring-2 focus:ring-black outline-none"
-                  />
-                  <button className="px-3 py-1.5 bg-black text-white font-bold text-[10px] rounded-lg hover:bg-gray-800 transition-colors">
-                    Apply
-                  </button>
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <input 
+                      type="text" 
+                      placeholder="Promo Code"
+                      value={promoCode}
+                      onChange={(e) => setPromoCode(e.target.value)}
+                      className="flex-1 bg-gray-50 border border-gray-100 rounded-lg px-3 py-1.5 text-xs focus:ring-2 focus:ring-black outline-none uppercase"
+                    />
+                    <button 
+                      onClick={handleApplyPromo}
+                      disabled={isApplying || !promoCode.trim()}
+                      className="px-3 py-1.5 bg-black text-white font-bold text-[10px] rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50"
+                    >
+                      {isApplying ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Apply'}
+                    </button>
+                  </div>
+                  {promoError && <p className="text-[10px] text-red-500 font-medium ml-1">{promoError}</p>}
+                  {appliedPromo && (
+                    <div className="flex justify-between items-center bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-1.5">
+                      <div className="flex items-center gap-2">
+                        <Tag className="w-3 h-3 text-emerald-600" />
+                        <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">{appliedPromo.code} Applied</span>
+                      </div>
+                      <button onClick={() => onApplyPromo(null)} className="text-emerald-600 hover:text-emerald-800">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <div className="pt-3 border-t border-gray-100">
                   <div className="flex justify-between mb-1">
                     <span className="text-gray-500 text-xs">Subtotal</span>
-                    <span className="text-xs font-bold">${total.toFixed(2)}</span>
+                    <span className="text-xs font-bold">${subtotal.toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between mb-3">
+                  <div className="flex justify-between mb-1">
                     <span className="text-gray-500 text-xs">Shipping</span>
                     <span className="text-xs font-bold text-emerald-600">
-                      {total >= freeShippingThreshold ? 'FREE' : '$15.00'}
+                      {shipping === 0 ? 'FREE' : `$${shipping.toFixed(2)}`}
                     </span>
                   </div>
+                  {appliedPromo && (
+                    <div className="flex justify-between mb-1">
+                      <span className="text-emerald-600 text-xs">Discount ({appliedPromo.discount}%)</span>
+                      <span className="text-xs font-bold text-emerald-600">-${discountAmount.toFixed(2)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between mb-4 pt-3 border-t border-gray-100">
                     <span className="text-base font-bold">Total</span>
-                    <span className="text-lg font-bold">${(total + (total >= freeShippingThreshold ? 0 : 15)).toFixed(2)}</span>
+                    <span className="text-lg font-bold">${finalTotal.toFixed(2)}</span>
                   </div>
                   <button 
                     onClick={onCheckout}
@@ -2472,17 +2539,19 @@ const AccountView = ({ onNavigate, onEditOrder }: { onNavigate: (view: any) => v
 };
 
 const AdminDashboard = () => {
-  const [activeTab, setActiveTab] = useState<'users' | 'orders' | 'coas' | 'inventory' | 'settings' | 'affiliates'>('inventory');
+  const [activeTab, setActiveTab] = useState<'users' | 'orders' | 'coas' | 'inventory' | 'settings' | 'affiliates' | 'promos'>('inventory');
   const [users, setUsers] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
   const [coaRequests, setCoaRequests] = useState<any[]>([]);
   const [affiliateApplications, setAffiliateApplications] = useState<any[]>([]);
+  const [promoCodes, setPromoCodes] = useState<any[]>([]);
   const [productsList, setProductsList] = useState<Product[]>([]);
   const [siteSettings, setSiteSettings] = useState<SiteSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [showArchived, setShowArchived] = useState(false);
+  const [newPromo, setNewPromo] = useState({ code: '', discount: 0 });
 
   useEffect(() => {
     const usersQuery = collection(db, 'users');
@@ -2490,6 +2559,7 @@ const AdminDashboard = () => {
     const coaQuery = collection(db, 'coa_requests');
     const affiliateQuery = collection(db, 'affiliate_applications');
     const productsQuery = collection(db, 'products');
+    const promoQuery = collection(db, 'promo_codes');
 
     const unsubscribeUsers = onSnapshot(usersQuery, (snapshot) => {
       setUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
@@ -2505,6 +2575,10 @@ const AdminDashboard = () => {
 
     const unsubscribeAffiliates = onSnapshot(affiliateQuery, (snapshot) => {
       setAffiliateApplications(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
+    const unsubscribePromos = onSnapshot(promoQuery, (snapshot) => {
+      setPromoCodes(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
     const unsubscribeProducts = onSnapshot(productsQuery, (snapshot) => {
@@ -2527,6 +2601,7 @@ const AdminDashboard = () => {
       unsubscribeOrders();
       unsubscribeCoas();
       unsubscribeAffiliates();
+      unsubscribePromos();
       unsubscribeProducts();
       unsubscribeSettings();
     };
@@ -2565,6 +2640,46 @@ const AdminDashboard = () => {
     } catch (error) {
       console.error('Error updating Research Affiliate application:', error);
       alert('Failed to update application status.');
+    }
+  };
+
+  const addPromoCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPromo.code || newPromo.discount <= 0) return;
+    try {
+      await addDoc(collection(db, 'promo_codes'), {
+        code: newPromo.code.toUpperCase().trim(),
+        discount: Number(newPromo.discount),
+        isActive: true,
+        createdAt: serverTimestamp()
+      });
+      setNewPromo({ code: '', discount: 0 });
+      alert('Promo code added successfully!');
+    } catch (error) {
+      console.error('Error adding promo code:', error);
+      alert('Failed to add promo code.');
+    }
+  };
+
+  const togglePromoStatus = async (promoId: string, currentStatus: boolean) => {
+    try {
+      await updateDoc(doc(db, 'promo_codes', promoId), {
+        isActive: !currentStatus,
+        updatedAt: serverTimestamp()
+      });
+    } catch (error) {
+      console.error('Error toggling promo status:', error);
+      alert('Failed to update promo code.');
+    }
+  };
+
+  const deletePromoCode = async (promoId: string) => {
+    if (!window.confirm('Are you sure you want to delete this promo code?')) return;
+    try {
+      await deleteDoc(doc(db, 'promo_codes', promoId));
+    } catch (error) {
+      console.error('Error deleting promo code:', error);
+      alert('Failed to delete promo code.');
     }
   };
 
@@ -2641,6 +2756,12 @@ const AdminDashboard = () => {
             className={`px-6 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'affiliates' ? 'bg-white text-black shadow-sm' : 'text-gray-500 hover:text-black'}`}
           >
             Research Affiliates
+          </button>
+          <button 
+            onClick={() => setActiveTab('promos')}
+            className={`px-6 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'promos' ? 'bg-white text-black shadow-sm' : 'text-gray-500 hover:text-black'}`}
+          >
+            Promo Codes
           </button>
         </div>
       </div>
@@ -3088,6 +3209,91 @@ const AdminDashboard = () => {
                 <Save className="w-5 h-5" /> Save Settings
               </button>
             </form>
+          </div>
+        </div>
+      ) : activeTab === 'promos' ? (
+        <div className="max-w-4xl mx-auto space-y-8">
+          <div className="bg-white rounded-[2rem] border border-gray-100 overflow-hidden shadow-sm p-8">
+            <h2 className="text-2xl font-bold mb-8 flex items-center gap-2">
+              <Plus className="w-6 h-6 text-emerald-500" /> Create New Promo Code
+            </h2>
+            <form onSubmit={addPromoCode} className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Promo Code</label>
+                <input 
+                  type="text"
+                  value={newPromo.code}
+                  onChange={(e) => setNewPromo({ ...newPromo, code: e.target.value })}
+                  placeholder="e.g. RESEARCH20"
+                  className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-black outline-none font-mono uppercase" 
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Discount %</label>
+                <input 
+                  type="number"
+                  value={newPromo.discount || ''}
+                  onChange={(e) => setNewPromo({ ...newPromo, discount: parseInt(e.target.value) || 0 })}
+                  placeholder="e.g. 20"
+                  min="1"
+                  max="100"
+                  className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-black outline-none" 
+                />
+              </div>
+              <button type="submit" className="py-4 bg-black text-white rounded-xl font-bold hover:bg-emerald-600 transition-all flex items-center justify-center gap-2">
+                <Plus className="w-5 h-5" /> Add Code
+              </button>
+            </form>
+          </div>
+
+          <div className="bg-white rounded-[2rem] border border-gray-100 overflow-hidden shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-100">
+                    <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Code</th>
+                    <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Discount</th>
+                    <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Status</th>
+                    <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {promoCodes.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)).map((promo) => (
+                    <tr key={promo.id} className="hover:bg-gray-50/50 transition-colors">
+                      <td className="px-6 py-4">
+                        <span className="font-mono font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-lg border border-emerald-100">{promo.code}</span>
+                      </td>
+                      <td className="px-6 py-4 font-bold text-gray-900">{promo.discount}% OFF</td>
+                      <td className="px-6 py-4">
+                        <button 
+                          onClick={() => togglePromoStatus(promo.id, promo.isActive)}
+                          className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all ${
+                            promo.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-400'
+                          }`}
+                        >
+                          {promo.isActive ? 'Active' : 'Inactive'}
+                        </button>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <button 
+                          onClick={() => deletePromoCode(promo.id)}
+                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {promoCodes.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="px-6 py-12 text-center text-gray-400 text-sm italic">
+                        No promotional codes created yet.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       ) : (
@@ -4171,7 +4377,7 @@ const COARequestView = () => {
   );
 };
 
-const CheckoutView = ({ cart, onBack, onComplete, initialOrder, userProfile }: { cart: CartItem[], onBack: () => void, onComplete: (info: any) => void, initialOrder?: any, userProfile?: any }) => {
+const CheckoutView = ({ cart, onBack, onComplete, initialOrder, userProfile, appliedPromo }: { cart: CartItem[], onBack: () => void, onComplete: (info: any) => void, initialOrder?: any, userProfile?: any, appliedPromo: { code: string, discount: number } | null }) => {
   const [step, setStep] = useState(1);
   const [shippingInfo, setShippingInfo] = useState(() => {
     if (initialOrder?.shippingInfo) return initialOrder.shippingInfo;
@@ -4208,9 +4414,9 @@ const CheckoutView = ({ cart, onBack, onComplete, initialOrder, userProfile }: {
         firstName: userProfile.firstName || '',
         lastName: userProfile.lastName || '',
         address: defaultAddress?.street || '',
-        city: defaultAddress?.city || '',
-        state: defaultAddress?.state || '',
-        zip: defaultAddress?.zip || '',
+        city: userProfile.city || defaultAddress?.city || '',
+        state: userProfile.state || defaultAddress?.state || '',
+        zip: userProfile.zip || defaultAddress?.zip || '',
       });
     }
   }, [userProfile, initialOrder]);
@@ -4239,17 +4445,20 @@ const CheckoutView = ({ cart, onBack, onComplete, initialOrder, userProfile }: {
 
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const shipping = subtotal >= 250 ? 0 : 15.00;
-  
-  // 5% discount for crypto
-  const discount = paymentMethod === 'crypto' ? subtotal * 0.05 : 0;
-  const total = subtotal + shipping - discount;
+  const totalBeforePromo = subtotal + shipping;
+  const promoDiscount = appliedPromo ? (totalBeforePromo * (appliedPromo.discount / 100)) : 0;
+  const totalAfterPromo = totalBeforePromo - promoDiscount;
+  const cryptoDiscount = paymentMethod === 'crypto' ? totalAfterPromo * 0.05 : 0;
+  const total = totalAfterPromo - cryptoDiscount;
 
   const handlePlaceOrder = async () => {
     onComplete({
       shippingInfo,
       shippingMethod,
       paymentMethod,
-      total
+      total,
+      promoCode: appliedPromo?.code || null,
+      promoDiscount
     });
   };
 
@@ -4580,10 +4789,19 @@ const CheckoutView = ({ cart, onBack, onComplete, initialOrder, userProfile }: {
                   {shipping <= 0 ? 'FREE' : `$${shipping.toFixed(2)}`}
                 </span>
               </div>
-              {discount > 0 && (
+              {appliedPromo && (
+                <div className="flex justify-between text-emerald-600">
+                  <div className="flex items-center gap-2">
+                    <Tag className="w-3 h-3" />
+                    <span>Promo Discount ({appliedPromo.discount}%)</span>
+                  </div>
+                  <span className="font-bold">-${promoDiscount.toFixed(2)}</span>
+                </div>
+              )}
+              {cryptoDiscount > 0 && (
                 <div className="flex justify-between text-emerald-600">
                   <span>Crypto Discount (5%)</span>
-                  <span className="font-bold">-${discount.toFixed(2)}</span>
+                  <span className="font-bold">-${cryptoDiscount.toFixed(2)}</span>
                 </div>
               )}
               <div className="pt-4 border-t border-gray-100 flex justify-between items-end">
@@ -5140,6 +5358,7 @@ const AppContent = () => {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [editingOrder, setEditingOrder] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
+  const [appliedPromo, setAppliedPromo] = useState<{ code: string, discount: number } | null>(null);
   const [productsList, setProductsList] = useState<Product[]>([]);
   const [isDbEmpty, setIsDbEmpty] = useState(false);
   const [loadingProducts, setLoadingProducts] = useState(true);
@@ -5427,6 +5646,7 @@ const AppContent = () => {
                 cart={cart} 
                 initialOrder={editingOrder}
                 userProfile={userProfile}
+                appliedPromo={appliedPromo}
                 onBack={() => {
                   if (editingOrder) {
                     setEditingOrder(null);
@@ -5437,7 +5657,7 @@ const AppContent = () => {
                   }
                 }} 
                 onComplete={async (data) => {
-                  const { shippingInfo, shippingMethod, paymentMethod, total } = data;
+                  const { shippingInfo, shippingMethod, paymentMethod, total, promoCode, promoDiscount } = data;
                   try {
                     if (editingOrder) {
                       await updateDoc(doc(db, 'orders', editingOrder.id), {
@@ -5446,11 +5666,14 @@ const AppContent = () => {
                         shippingInfo,
                         shippingMethod,
                         paymentMethod,
+                        promoCode: promoCode || null,
+                        promoDiscount: promoDiscount || 0,
                         updatedAt: serverTimestamp()
                       });
                       alert('Order updated successfully!');
                       setEditingOrder(null);
                       setCart([]);
+                      setAppliedPromo(null);
                       setView('account');
                     } else {
                       // Generate a readable Order ID: VR-YYYYMMDD-RANDOM
@@ -5481,10 +5704,13 @@ const AppContent = () => {
                         shippingInfo,
                         shippingMethod,
                         paymentMethod,
+                        promoCode: promoCode || null,
+                        promoDiscount: promoDiscount || 0,
                         createdAt: serverTimestamp()
                       });
                       alert(`Order placed successfully! Your Order ID is: ${orderId}`);
                       setCart([]);
+                      setAppliedPromo(null);
                       setView('home');
                     }
                   } catch (error) {
@@ -5603,6 +5829,8 @@ const AppContent = () => {
         onRemove={removeFromCart}
         onCheckout={handleCheckout}
         onAddToCart={addToCart}
+        appliedPromo={appliedPromo}
+        onApplyPromo={setAppliedPromo}
       />
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} onNavigate={setView} />
       <ChatBot />
