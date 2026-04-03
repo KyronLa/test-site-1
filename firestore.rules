@@ -77,12 +77,14 @@ service cloud.firestore {
     // Rules
     match /products/{productId} {
       allow read: if true; // Products are publicly viewable
-      allow write: if isAdmin() && isValidProduct(request.resource.data);
+      allow create, update: if isAdmin() && isValidProduct(request.resource.data);
+      allow delete: if isAdmin();
     }
 
     match /settings/{settingId} {
       allow read: if true; // Settings are publicly readable
-      allow write: if isAdmin() && isValidSettings(request.resource.data);
+      allow create, update: if isAdmin() && isValidSettings(request.resource.data);
+      allow delete: if isAdmin();
     }
 
     match /users/{userId} {
@@ -90,6 +92,7 @@ service cloud.firestore {
       allow create: if isAuthenticated() && request.auth.uid == userId && isValidUser(request.resource.data);
       allow update: if isOwner(userId) && isValidUser(request.resource.data) &&
                     (!('role' in request.resource.data) || request.resource.data.role == resource.data.role);
+      allow delete: if isAdmin();
     }
 
     match /orders/{orderId} {
@@ -119,7 +122,8 @@ service cloud.firestore {
 
     match /promo_codes/{promoId} {
       allow read: if true; // Publicly readable for validation during checkout
-      allow write: if isAdmin() && isValidPromoCode(request.resource.data);
+      allow create, update: if isAdmin() && isValidPromoCode(request.resource.data);
+      allow delete: if isAdmin();
     }
   }
 }

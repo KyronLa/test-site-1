@@ -308,7 +308,7 @@ const Navbar = ({ cartCount, onOpenCart, onOpenAuth, onNavigate, currentView }: 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { user, logout, isAdmin } = useAuth();
 
-  const isDarkPage = currentView === 'home' || currentView === 'shop' || currentView === 'track' || currentView === 'about';
+  const isDarkPage = currentView === 'home' || currentView === 'shop' || currentView === 'track';
   const showSolidNav = isScrolled || !isDarkPage;
 
   useEffect(() => {
@@ -318,11 +318,11 @@ const Navbar = ({ cartCount, onOpenCart, onOpenAuth, onNavigate, currentView }: 
   }, []);
 
   return (
-    <nav className="w-full transition-all duration-200">
+    <nav className="w-full transition-all duration-200 relative overflow-hidden">
       <motion.div
         initial={false}
         animate={{ 
-          y: showSolidNav ? 0 : -100,
+          y: showSolidNav ? 0 : -200,
           opacity: showSolidNav ? 1 : 0
         }}
         transition={{ duration: 0.2, ease: "easeOut" }}
@@ -2552,6 +2552,7 @@ const AdminDashboard = () => {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const [newPromo, setNewPromo] = useState({ code: '', discount: 0 });
+  const [isDeletingPromo, setIsDeletingPromo] = useState<string | null>(null);
 
   useEffect(() => {
     const usersQuery = collection(db, 'users');
@@ -2674,9 +2675,9 @@ const AdminDashboard = () => {
   };
 
   const deletePromoCode = async (promoId: string) => {
-    if (!window.confirm('Are you sure you want to delete this promo code?')) return;
     try {
       await deleteDoc(doc(db, 'promo_codes', promoId));
+      setIsDeletingPromo(null);
     } catch (error) {
       console.error('Error deleting promo code:', error);
       alert('Failed to delete promo code.');
@@ -3276,7 +3277,7 @@ const AdminDashboard = () => {
                       </td>
                       <td className="px-6 py-4 text-right">
                         <button 
-                          onClick={() => deletePromoCode(promo.id)}
+                          onClick={() => setIsDeletingPromo(promo.id)}
                           className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -3341,6 +3342,40 @@ const AdminDashboard = () => {
           </div>
         </div>
       )}
+
+      <AnimatePresence>
+        {isDeletingPromo && (
+          <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-[2.5rem] p-10 max-w-sm w-full shadow-2xl text-center"
+            >
+              <div className="w-20 h-20 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Trash2 className="w-10 h-10" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-4">Delete Promo?</h3>
+              <p className="text-gray-500 mb-8 font-medium">This action cannot be undone. Are you sure you want to delete this promo code?</p>
+              
+              <div className="flex flex-col gap-3">
+                <button 
+                  onClick={() => deletePromoCode(isDeletingPromo)}
+                  className="w-full py-4 bg-red-500 text-white font-bold rounded-2xl hover:bg-red-600 transition-all"
+                >
+                  Delete Promo
+                </button>
+                <button 
+                  onClick={() => setIsDeletingPromo(null)}
+                  className="w-full py-4 bg-gray-100 text-gray-600 font-bold rounded-2xl hover:bg-gray-200 transition-all"
+                >
+                  Keep Promo
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {isProductModalOpen && (
@@ -4452,6 +4487,36 @@ const CheckoutView = ({ cart, onBack, onComplete, initialOrder, userProfile, app
   const total = totalAfterPromo - cryptoDiscount;
 
   const handlePlaceOrder = async () => {
+    if (paymentMethod === 'card') {
+      try {
+        // Call our backend API (equivalent to Cloud Function)
+        const response = await fetch('/api/create-bankful-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            cart,
+            shippingInfo,
+            total,
+            promoCode: appliedPromo?.code || null,
+            promoDiscount
+          })
+        });
+
+        const data = await response.json();
+        if (data.url) {
+          // Redirect to Bankful Hosted Payment Page
+          window.location.href = data.url;
+          return;
+        } else {
+          throw new Error('Failed to get redirect URL');
+        }
+      } catch (error) {
+        console.error('Bankful Error:', error);
+        alert('There was an error initializing the payment. Please try again.');
+        return;
+      }
+    }
+
     onComplete({
       shippingInfo,
       shippingMethod,
@@ -4711,20 +4776,39 @@ const CheckoutView = ({ cart, onBack, onComplete, initialOrder, userProfile, app
                   </div>
                 </label>
 
-                {/* Coming Soon: Credit Card / Apple Pay */}
+                {/* Credit Card */}
+                <label className={`flex items-center justify-between p-5 rounded-2xl border-2 transition-all cursor-pointer ${paymentMethod === 'card' ? 'border-emerald-500 bg-emerald-50/30' : 'border-gray-100 hover:border-gray-200'}`}>
+                  <div className="flex items-center gap-6">
+                    <input 
+                      type="radio" 
+                      name="payment" 
+                      checked={paymentMethod === 'card'} 
+                      onChange={() => setPaymentMethod('card')} 
+                      className="w-5 h-5 text-emerald-600 flex-shrink-0 cursor-pointer" 
+                    />
+                    <div className="flex items-center gap-4">
+                      <div className="flex gap-1">
+                        <div className="w-10 h-10 bg-gray-50 rounded-lg flex items-center justify-center p-1.5 border border-gray-100">
+                          <img src="https://cdn.worldvectorlogo.com/logos/visa.svg" alt="Visa" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                        </div>
+                        <div className="w-10 h-10 bg-gray-50 rounded-lg flex items-center justify-center p-1.5 border border-gray-100">
+                          <img src="https://cdn.worldvectorlogo.com/logos/mastercard-6.svg" alt="Mastercard" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                        </div>
+                      </div>
+                      <span className="font-bold text-gray-900">Credit Card</span>
+                    </div>
+                  </div>
+                </label>
+
+                {/* Coming Soon: Apple Pay */}
                 <div className="p-5 rounded-2xl border border-dashed border-gray-200 opacity-50 flex items-center justify-between">
                   <div className="flex items-center gap-4">
                     <div className="w-4 h-4 rounded-full border border-gray-300" />
                     <div className="flex items-center gap-3">
-                      <div className="flex gap-1">
-                        <div className="w-8 h-8 bg-gray-100 rounded flex items-center justify-center p-1">
-                          <img src="https://cdn.worldvectorlogo.com/logos/visa.svg" alt="Visa" className="w-full grayscale" referrerPolicy="no-referrer" />
-                        </div>
-                        <div className="w-8 h-8 bg-gray-100 rounded flex items-center justify-center p-1">
-                          <img src="https://cdn.worldvectorlogo.com/logos/apple-pay.svg" alt="Apple Pay" className="w-full grayscale" referrerPolicy="no-referrer" />
-                        </div>
+                      <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center p-2">
+                        <img src="https://cdn.worldvectorlogo.com/logos/apple-pay.svg" alt="Apple Pay" className="w-full grayscale" referrerPolicy="no-referrer" />
                       </div>
-                      <span className="font-bold text-gray-400">Credit Card / Apple Pay</span>
+                      <span className="font-bold text-gray-400">Apple Pay</span>
                     </div>
                   </div>
                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Coming Soon</span>
@@ -4750,7 +4834,9 @@ const CheckoutView = ({ cart, onBack, onComplete, initialOrder, userProfile, app
                     <p className="text-sm text-gray-600 leading-relaxed">
                       {paymentMethod === 'crypto' 
                         ? "You've selected Cryptocurrency. A 5% discount has been applied to your research materials. Instructions for payment will be sent to your email after order confirmation."
-                        : `You've selected ${paymentMethod.charAt(0).toUpperCase() + paymentMethod.slice(1)}. Payment instructions will be provided on the next screen and sent to your email.`}
+                        : paymentMethod === 'card'
+                          ? "You've selected Credit Card. You will be redirected to our secure payment processor to complete your transaction."
+                          : `You've selected ${paymentMethod.charAt(0).toUpperCase() + paymentMethod.slice(1)}. Payment instructions will be provided on the next screen and sent to your email.`}
                     </p>
                   </div>
                 </div>
@@ -4860,7 +4946,7 @@ const CheckoutView = ({ cart, onBack, onComplete, initialOrder, userProfile, app
                 onClick={handlePlaceOrder}
                 className="w-full py-5 bg-black text-white font-bold rounded-2xl hover:bg-emerald-600 disabled:opacity-30 disabled:hover:bg-black transition-all shadow-xl shadow-black/10 flex items-center justify-center gap-3 mt-8 group"
               >
-                {initialOrder ? 'Complete Order' : 'Complete Purchase'} <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                {initialOrder ? 'Complete Order' : (paymentMethod === 'card' ? 'Pay with Credit Card' : 'Complete Purchase')} <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </button>
               
               <p className="text-[10px] text-gray-400 text-center mt-6 leading-relaxed">
@@ -5484,22 +5570,49 @@ const AppContent = () => {
     setView('checkout');
   };
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const paymentStatus = params.get('payment');
+    
+    if (paymentStatus === 'success') {
+      const isSimulated = params.get('simulated') === 'true';
+      if (isSimulated) {
+        alert('Simulation Mode: Payment successful! (The Bankful API was unreachable, so this is a simulated success for testing the flow).');
+      } else {
+        alert('Payment successful! Your order is being processed.');
+      }
+      setCart([]);
+      setAppliedPromo(null);
+      setView('home');
+      // Clear URL params
+      window.history.replaceState({}, '', window.location.pathname);
+    } else if (paymentStatus === 'cancel') {
+      alert('Payment was cancelled. You can try again or choose another payment method.');
+      setView('checkout');
+      // Clear URL params
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
+
+  const isDarkPage = ['home', 'shop', 'track'].includes(view);
   const isBannerActive = settings?.countdownActive && ['home', 'shop', 'product', 'checkout'].includes(view);
 
   return (
     <div className="min-h-screen bg-[#F9F9F9] font-sans selection:bg-emerald-100 selection:text-emerald-900">
-      <div className="fixed top-0 w-full z-50">
-        <CountdownBanner currentView={view} />
-        <Navbar 
-          cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)} 
-          onOpenCart={() => setIsCartOpen(true)}
-          onOpenAuth={() => setIsAuthOpen(true)}
-          onNavigate={setView}
-          currentView={view}
-        />
+      <div className="fixed top-0 w-full z-50 bg-transparent pointer-events-none">
+        <div className="pointer-events-auto">
+          <CountdownBanner currentView={view} />
+          <Navbar 
+            cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)} 
+            onOpenCart={() => setIsCartOpen(true)}
+            onOpenAuth={() => setIsAuthOpen(true)}
+            onNavigate={setView}
+            currentView={view}
+          />
+        </div>
       </div>
       
-      <main className={`${(view !== 'home' && view !== 'shop') ? 'pt-24' : ''} ${isBannerActive ? 'mt-12' : ''}`}>
+      <main className={`${!isDarkPage ? (isBannerActive ? 'pt-[132px]' : 'pt-24') : ''}`}>
         <AnimatePresence mode="wait">
           {view === 'home' && (
             <motion.div
