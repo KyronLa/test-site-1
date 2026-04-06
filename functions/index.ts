@@ -39,14 +39,31 @@ export const createBankfulSession = onRequest(
 
     payload.signature = crypto.createHmac("sha256", salt).update(payloadString).digest("hex");
 
-    const response = await fetch("https://api.paybybankful.com/front-calls/go-in/hosted-page-pay", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    console.log("Sending payload to Bankful:", JSON.stringify(payload, null, 2));
 
-    const data = await response.json();
-    console.log("Bankful response:", data);
-    res.json(data);
+    try {
+      const response = await fetch("https://api.paybybankful.com/front-calls/go-in/hosted-page-pay", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Bankful API error: ${response.status} ${response.statusText}`, errorText);
+        return res.status(response.status).json({ error: "Bankful API error", details: errorText });
+      }
+
+      const data = await response.json();
+      console.log("Bankful response:", data);
+      return res.json(data);
+    } catch (error: any) {
+      console.error("Fetch error when calling Bankful:", error);
+      return res.status(500).json({ 
+        error: "Failed to fetch from Bankful", 
+        message: error.message,
+        stack: error.stack 
+      });
+    }
   }
 );
