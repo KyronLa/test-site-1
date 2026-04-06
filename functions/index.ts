@@ -16,11 +16,6 @@ export const createBankfulSession = onRequest(
 
     const { cart, total, customerEmail, orderId, shippingInfo } = data || {};
 
-    if (!total || !customerEmail || !orderId) {
-      console.error("Missing required fields in request body:", { total, customerEmail, orderId });
-      // We'll still try to proceed if possible, but log the error
-    }
-
     const rawPayload: any = {
       req_username: "info@eclipseresearch.shop",
       transaction_type: "CAPTURE",
@@ -77,15 +72,28 @@ export const createBankfulSession = onRequest(
         body: JSON.stringify(finalPayload),
       });
 
+      const responseStatus = response.status;
+      const responseStatusText = response.statusText;
+      const responseBody = await response.text();
+      
+      console.log(`Bankful API Response Status: ${responseStatus} ${responseStatusText}`);
+      console.log(`Bankful API Response Body: ${responseBody}`);
+
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`Bankful API error: ${response.status} ${response.statusText}`, errorText);
-        return res.status(response.status).json({ error: "Bankful API error", details: errorText });
+        return res.status(responseStatus).json({ 
+          error: "Bankful API error", 
+          status: responseStatus,
+          details: responseBody 
+        });
       }
 
-      const data = await response.json();
-      console.log("Bankful response:", data);
-      return res.json(data);
+      try {
+        const responseData = JSON.parse(responseBody);
+        return res.json(responseData);
+      } catch (e) {
+        console.log("Response body is not JSON, returning raw text");
+        return res.json({ rawResponse: responseBody });
+      }
     } catch (error: any) {
       console.error("Fetch error when calling Bankful:", error);
       return res.status(500).json({ 
