@@ -4,14 +4,29 @@ import * as crypto from "crypto";
 export const createBankfulSession = onRequest(
   { cors: true, invoker: "public" },
   async (req, res) => {
-    const { cart, total, customerEmail, orderId, shippingInfo } = req.body;
+    console.log("Request Headers:", JSON.stringify(req.headers, null, 2));
+    console.log("Request Body:", JSON.stringify(req.body, null, 2));
+
+    let data = req.body;
+    // Handle cases where body might be wrapped in a 'data' field (like onCall)
+    if (data && data.data) {
+      console.log("Extracting data from 'data' wrapper");
+      data = data.data;
+    }
+
+    const { cart, total, customerEmail, orderId, shippingInfo } = data || {};
+
+    if (!total || !customerEmail || !orderId) {
+      console.error("Missing required fields in request body:", { total, customerEmail, orderId });
+      // We'll still try to proceed if possible, but log the error
+    }
 
     const rawPayload: any = {
       req_username: "info@eclipseresearch.shop",
       transaction_type: "CAPTURE",
-      amount: Number(total).toFixed(2),
+      amount: total ? Number(total).toFixed(2) : "0.00",
       request_currency: "USD",
-      cust_email: customerEmail,
+      cust_email: customerEmail || "",
       cust_fname: shippingInfo?.firstName || "",
       cust_lname: shippingInfo?.lastName || "",
       cust_phone: shippingInfo?.phone || "0000000000",
@@ -20,7 +35,7 @@ export const createBankfulSession = onRequest(
       bill_addr_state: shippingInfo?.state || "",
       bill_addr_zip: shippingInfo?.zip || "",
       bill_addr_country: "US",
-      xtl_order_id: orderId,
+      xtl_order_id: orderId || "unknown",
       cart_name: "Hosted-Page",
       url_complete: "https://eclipseresearch.shop/order-success",
       url_failed: "https://eclipseresearch.shop/order-failed",
