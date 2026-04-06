@@ -7,7 +7,8 @@ const BANKFUL_SALT = "Munyun1028!!";
 
 export const createBankfulSession = onCall({
   region: "us-central1",
-  invoker: "public"
+  invoker: "public",
+  cors: ["https://eclipseresearch.shop", "https://ais-dev-lanec77ko7d7o7gsimd2hj-283839196859.us-west2.run.app", "https://ais-pre-lanec77ko7d7o7gsimd2hj-283839196859.us-west2.run.app"]
 }, async (request) => {
   try {
     const { total, customerEmail, orderId, shippingInfo } = request.data;
