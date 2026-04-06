@@ -69,8 +69,7 @@ import {
   updateDoc,
   Timestamp
 } from 'firebase/firestore';
-import { auth, db, functions } from './firebase';
-import { httpsCallable } from 'firebase/functions';
+import { auth, db } from './firebase';
 import { INITIAL_PRODUCTS } from './constants';
 
 // --- Firestore Error Handling ---
@@ -4496,16 +4495,25 @@ const CheckoutView = ({ cart, onBack, onComplete, initialOrder, userProfile, app
 
     if (paymentMethod === 'card') {
       try {
-        const createBankfulSession = httpsCallable(functions, 'createBankfulSession');
-        const result = await createBankfulSession({
-          cart,
-          total,
-          customerEmail: shippingInfo.email,
-          orderId,
-          shippingInfo
+        const response = await fetch('https://us-central1-gen-lang-client-0437247227.cloudfunctions.net/createBankfulSession', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            cart,
+            total,
+            customerEmail: shippingInfo.email,
+            orderId,
+            shippingInfo
+          })
         });
 
-        const data = result.data as { redirect_url: string };
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json() as { redirect_url: string };
         if (data.redirect_url) {
           window.location.href = data.redirect_url;
           return;
