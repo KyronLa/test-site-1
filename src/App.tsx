@@ -69,7 +69,8 @@ import {
   updateDoc,
   Timestamp
 } from 'firebase/firestore';
-import { auth, db } from './firebase';
+import { auth, db, functions } from './firebase';
+import { httpsCallable } from 'firebase/functions';
 import { INITIAL_PRODUCTS } from './constants';
 
 // --- Firestore Error Handling ---
@@ -4494,29 +4495,29 @@ const CheckoutView = ({ cart, onBack, onComplete, initialOrder, userProfile, app
     const orderId = `VR-${dateStr}-${randomStr}`;
 
     if (paymentMethod === 'card') {
-      const form = document.createElement('form');
-      form.method = 'POST';
-      form.action = 'https://api.paybybankful.com/front-calls/go-in/hosted-page-pay';
+      try {
+        const createBankfulSession = httpsCallable(functions, 'createBankfulSession');
+        const result = await createBankfulSession({
+          cart,
+          total,
+          customerEmail: shippingInfo.email,
+          orderId,
+          shippingInfo
+        });
 
-      const fields = {
-        amount: total.toFixed(2),
-        cust_fname: shippingInfo.firstName,
-        cust_lname: shippingInfo.lastName,
-        cust_email: shippingInfo.email,
-        xtl_order_id: orderId
-      };
-
-      Object.entries(fields).forEach(([name, value]) => {
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = name;
-        input.value = value;
-        form.appendChild(input);
-      });
-
-      document.body.appendChild(form);
-      form.submit();
-      return;
+        const data = result.data as { redirect_url: string };
+        if (data.redirect_url) {
+          window.location.href = data.redirect_url;
+          return;
+        } else {
+          throw new Error('Failed to get redirect URL');
+        }
+      } catch (error: any) {
+        console.error('Bankful Error:', error);
+        const errorMessage = error.message || 'There was an error initializing the payment. Please try again.';
+        alert(`Bankful Error: ${errorMessage}`);
+        return;
+      }
     }
 
     onComplete({
