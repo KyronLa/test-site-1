@@ -72,6 +72,9 @@ export const createBankfulSession = onCall({
       signature
     };
 
+    logger.info("Bankful HPP Payload:", finalPayload);
+    logger.info("Bankful Signature String:", signatureString);
+
     logger.info("Calling Bankful HPP API", { orderId });
 
     // Check if global fetch is available (Node 18+)
@@ -89,6 +92,7 @@ export const createBankfulSession = onCall({
 
     const responseText = await response.text();
     logger.info("Bankful API response received", { status: response.status });
+    logger.info("Bankful Raw Response:", responseText);
 
     let data: any;
     try {
