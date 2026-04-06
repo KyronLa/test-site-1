@@ -45,7 +45,13 @@ export const createBankfulSession = onRequest(
       .map((k) => `${k}${payload[k]}`)
       .join("");
 
-    payload.signature = crypto.createHmac("sha256", salt).update(payloadString).digest("hex");
+    console.log("Signature Payload String:", payloadString);
+
+    const signature = crypto.createHmac("sha256", salt).update(payloadString).digest("hex");
+    payload.signature = signature;
+
+    console.log("Generated Signature:", signature);
+    console.log("Final Payload sent to Bankful:", JSON.stringify(payload, null, 2));
 
     const bankfulRes = await fetch("https://api.paybybankful.com/front-calls/go-in/hosted-page-pay", {
       method: "POST",
@@ -55,7 +61,7 @@ export const createBankfulSession = onRequest(
 
     const text = await bankfulRes.text();
     console.log("Bankful status:", bankfulRes.status);
-    console.log("Bankful response:", text);
+    console.log("Full Bankful response body:", text);
 
     res.set("Access-Control-Allow-Origin", "https://eclipseresearch.shop");
     res.status(bankfulRes.status).send(text);
