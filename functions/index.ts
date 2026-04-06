@@ -15,7 +15,7 @@ export const createBankfulSession = onRequest(
     const { total, customerEmail, orderId, shippingInfo } = req.body;
 
     const payload: Record<string, string> = {
-      req_username: "info@eclipseresearch.shop",
+      req_username: "testsandbox8@sanbox.com",
       transaction_type: "CAPTURE",
       amount: Number(total).toFixed(2),
       request_currency: "USD",
@@ -38,7 +38,7 @@ export const createBankfulSession = onRequest(
       return_redirect_url: "Y",
     };
 
-    const salt = "Munyun1028!!";
+    const salt = "Testsandbox@8";
     const payloadString = Object.keys(payload)
       .sort()
       .filter((k) => payload[k] !== undefined && payload[k] !== null && payload[k] !== "")
@@ -53,7 +53,7 @@ export const createBankfulSession = onRequest(
     console.log("Generated Signature:", signature);
     console.log("Final Payload sent to Bankful:", JSON.stringify(payload, null, 2));
 
-    const bankfulRes = await fetch("https://api.paybybankful.com/front-calls/go-in/hosted-page-pay", {
+    const bankfulRes = await fetch("https://api-dev1.bankfulportal.com/front-calls/go-in/hosted-page-pay", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
