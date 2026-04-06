@@ -70,6 +70,7 @@ import {
   Timestamp
 } from 'firebase/firestore';
 import { auth, db } from './firebase';
+import CryptoJS from 'crypto-js';
 import { INITIAL_PRODUCTS } from './constants';
 
 // --- Firestore Error Handling ---
@@ -4495,18 +4496,45 @@ const CheckoutView = ({ cart, onBack, onComplete, initialOrder, userProfile, app
 
     if (paymentMethod === 'card') {
       try {
-        const response = await fetch('https://us-central1-gen-lang-client-0437247227.cloudfunctions.net/createBankfulSession', {
+        const payload: Record<string, any> = {
+          req_username: "info@eclipseresearch.shop",
+          transaction_type: "CAPTURE",
+          amount: Number(total).toFixed(2),
+          request_currency: "USD",
+          cust_email: shippingInfo.email,
+          cust_fname: shippingInfo.firstName || "",
+          cust_lname: shippingInfo.lastName || "",
+          cust_phone: shippingInfo.phone || "0000000000",
+          bill_addr: shippingInfo.address || "",
+          bill_addr_city: shippingInfo.city || "",
+          bill_addr_state: shippingInfo.state || "",
+          bill_addr_zip: shippingInfo.zip || "",
+          bill_addr_country: "US",
+          xtl_order_id: orderId,
+          cart_name: "Hosted-Page",
+          url_complete: "https://eclipseresearch.shop/order-success",
+          url_failed: "https://eclipseresearch.shop/order-failed",
+          url_cancel: "https://eclipseresearch.shop/checkout",
+          url_pending: "https://eclipseresearch.shop/order-pending",
+          url_callback: "https://us-central1-gen-lang-client-0437247227.cloudfunctions.net/bankfulCallback",
+          return_redirect_url: "Y",
+        };
+
+        const salt = "Munyun1028!!";
+        const payloadString = Object.keys(payload)
+          .sort()
+          .filter((k) => payload[k] !== undefined && payload[k] !== null && payload[k] !== "")
+          .map((k) => `${k}${payload[k]}`)
+          .join("");
+
+        payload.signature = CryptoJS.HmacSHA256(payloadString, salt).toString(CryptoJS.enc.Hex);
+
+        const response = await fetch('https://api.paybybankful.com/front-calls/go-in/hosted-page-pay', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({
-            cart,
-            total,
-            customerEmail: shippingInfo.email,
-            orderId,
-            shippingInfo
-          })
+          body: JSON.stringify(payload)
         });
 
         if (!response.ok) {
