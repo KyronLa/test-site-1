@@ -1,3 +1,4 @@
+// Last deployed: 2026-04-06T03:17:13Z
 import { onRequest } from "firebase-functions/v2/https";
 import * as crypto from "crypto";
 
