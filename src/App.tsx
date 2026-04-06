@@ -69,7 +69,8 @@ import {
   updateDoc,
   Timestamp
 } from 'firebase/firestore';
-import { auth, db } from './firebase';
+import { auth, db, functions } from './firebase';
+import { httpsCallable } from 'firebase/functions';
 import { INITIAL_PRODUCTS } from './constants';
 
 // --- Firestore Error Handling ---
@@ -233,9 +234,9 @@ const CountdownBanner = ({ currentView }: { currentView: string }) => {
   const [timeLeft, setTimeLeft] = useState<{ days: number, hours: number, minutes: number, seconds: number } | null>(null);
 
   useEffect(() => {
-    const unsubscribe = onSnapshot(doc(db, 'settings', 'site'), (doc) => {
-      if (doc.exists()) {
-        setSettings(doc.data() as SiteSettings);
+    const unsubscribe = onSnapshot(doc(db, 'settings', 'site'), (snapshot) => {
+      if (snapshot.exists()) {
+        setSettings(snapshot.data() as SiteSettings);
       }
     });
     return () => unsubscribe();
@@ -2072,9 +2073,9 @@ const AccountView = ({ onNavigate, onEditOrder }: { onNavigate: (view: any) => v
       setOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a: any, b: any) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)));
     });
 
-    const unsubscribeProfile = onSnapshot(doc(db, 'users', user.uid), (doc) => {
-      if (doc.exists()) {
-        const data = doc.data();
+    const unsubscribeProfile = onSnapshot(doc(db, 'users', user.uid), (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data();
         setProfile(data);
         setEditData({
           firstName: data.firstName || '',
@@ -2591,9 +2592,9 @@ const AdminDashboard = () => {
       setLoading(false);
     });
 
-    const unsubscribeSettings = onSnapshot(doc(db, 'settings', 'site'), (doc) => {
-      if (doc.exists()) {
-        setSiteSettings(doc.data() as SiteSettings);
+    const unsubscribeSettings = onSnapshot(doc(db, 'settings', 'site'), (snapshot) => {
+      if (snapshot.exists()) {
+        setSiteSettings(snapshot.data() as SiteSettings);
       }
     });
 
@@ -4487,32 +4488,34 @@ const CheckoutView = ({ cart, onBack, onComplete, initialOrder, userProfile, app
   const total = totalAfterPromo - cryptoDiscount;
 
   const handlePlaceOrder = async () => {
+    // Generate a readable Order ID: VR-YYYYMMDD-RANDOM
+    const date = new Date();
+    const dateStr = date.toISOString().split('T')[0].replace(/-/g, '');
+    const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase();
+    const orderId = `VR-${dateStr}-${randomStr}`;
+
     if (paymentMethod === 'card') {
       try {
-        // Call our backend API (equivalent to Cloud Function)
-        const response = await fetch('/api/create-bankful-session', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            cart,
-            shippingInfo,
-            total,
-            promoCode: appliedPromo?.code || null,
-            promoDiscount
-          })
+        const createBankfulSession = httpsCallable(functions, 'createBankfulSession');
+        const result = await createBankfulSession({
+          cart,
+          total,
+          customerEmail: shippingInfo.email,
+          orderId,
+          shippingInfo
         });
 
-        const data = await response.json();
-        if (data.url) {
-          // Redirect to Bankful Hosted Payment Page
-          window.location.href = data.url;
+        const data = result.data as { redirect_url: string };
+        if (data.redirect_url) {
+          window.location.href = data.redirect_url;
           return;
         } else {
           throw new Error('Failed to get redirect URL');
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Bankful Error:', error);
-        alert('There was an error initializing the payment. Please try again.');
+        const errorMessage = error.message || 'There was an error initializing the payment. Please try again.';
+        alert(`Bankful Error: ${errorMessage}`);
         return;
       }
     }
@@ -4523,7 +4526,8 @@ const CheckoutView = ({ cart, onBack, onComplete, initialOrder, userProfile, app
       paymentMethod,
       total,
       promoCode: appliedPromo?.code || null,
-      promoDiscount
+      promoDiscount,
+      orderId // Pass the pre-generated orderId
     });
   };
 
@@ -5452,9 +5456,9 @@ const AppContent = () => {
   const [settings, setSettings] = useState<SiteSettings | null>(null);
 
   useEffect(() => {
-    const unsubscribe = onSnapshot(doc(db, 'settings', 'site'), (doc) => {
-      if (doc.exists()) {
-        setSettings(doc.data() as SiteSettings);
+    const unsubscribe = onSnapshot(doc(db, 'settings', 'site'), (snapshot) => {
+      if (snapshot.exists()) {
+        setSettings(snapshot.data() as SiteSettings);
       }
     });
     return () => unsubscribe();
@@ -5511,9 +5515,9 @@ const AppContent = () => {
       setUserProfile(null);
       return;
     }
-    const unsubscribe = onSnapshot(doc(db, 'users', user.uid), (doc) => {
-      if (doc.exists()) {
-        setUserProfile(doc.data());
+    const unsubscribe = onSnapshot(doc(db, 'users', user.uid), (snapshot) => {
+      if (snapshot.exists()) {
+        setUserProfile(snapshot.data());
       }
     });
     return () => unsubscribe();
@@ -5770,7 +5774,7 @@ const AppContent = () => {
                   }
                 }} 
                 onComplete={async (data) => {
-                  const { shippingInfo, shippingMethod, paymentMethod, total, promoCode, promoDiscount } = data;
+                  const { shippingInfo, shippingMethod, paymentMethod, total, promoCode, promoDiscount, orderId: passedOrderId } = data;
                   try {
                     if (editingOrder) {
                       await updateDoc(doc(db, 'orders', editingOrder.id), {
@@ -5789,11 +5793,7 @@ const AppContent = () => {
                       setAppliedPromo(null);
                       setView('account');
                     } else {
-                      // Generate a readable Order ID: VR-YYYYMMDD-RANDOM
-                      const date = new Date();
-                      const dateStr = date.toISOString().split('T')[0].replace(/-/g, '');
-                      const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase();
-                      const orderId = `VR-${dateStr}-${randomStr}`;
+                      const orderId = passedOrderId;
 
                       // Decrement inventory
                       for (const item of cart) {
