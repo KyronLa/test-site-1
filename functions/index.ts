@@ -2,7 +2,7 @@ import { onRequest } from "firebase-functions/v2/https";
 import * as crypto from "crypto";
 
 export const createBankfulSession = onRequest(
-  { cors: true },
+  { cors: true, invoker: "public" },
   async (req, res) => {
     const { cart, total, customerEmail, orderId, shippingInfo } = req.body;
 
