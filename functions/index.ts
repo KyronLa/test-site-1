@@ -6,7 +6,7 @@ export const createBankfulSession = onRequest(
   async (req, res) => {
     const { cart, total, customerEmail, orderId, shippingInfo } = req.body;
 
-    const payload: any = {
+    const rawPayload: any = {
       req_username: "info@eclipseresearch.shop",
       transaction_type: "CAPTURE",
       amount: Number(total).toFixed(2),
@@ -30,22 +30,36 @@ export const createBankfulSession = onRequest(
       return_redirect_url: "Y",
     };
 
+    // Filter out null, undefined, or empty string values
+    const filteredPayload: Record<string, string> = {};
+    Object.keys(rawPayload).forEach(key => {
+      const val = rawPayload[key];
+      if (val !== null && val !== undefined && val !== "") {
+        filteredPayload[key] = String(val);
+      }
+    });
+
+    // Sort keys alphabetically and concatenate as key1value1key2value2...
+    const sortedKeys = Object.keys(filteredPayload).sort();
+    const signatureString = sortedKeys.map(key => `${key}${filteredPayload[key]}`).join("");
+    
+    console.log("Signature String before hashing:", signatureString);
+
     const salt = "Munyun1028!!";
-    const payloadString = Object.keys(payload)
-      .sort()
-      .filter((k) => payload[k] !== undefined && payload[k] !== null && payload[k] !== "")
-      .map((k) => `${k}${payload[k]}`)
-      .join("");
+    const signature = crypto.createHmac("sha256", salt).update(signatureString).digest("hex");
 
-    payload.signature = crypto.createHmac("sha256", salt).update(payloadString).digest("hex");
+    const finalPayload = {
+      ...filteredPayload,
+      signature
+    };
 
-    console.log("Sending payload to Bankful:", JSON.stringify(payload, null, 2));
+    console.log("Sending payload to Bankful:", JSON.stringify(finalPayload, null, 2));
 
     try {
       const response = await fetch("https://api.paybybankful.com/front-calls/go-in/hosted-page-pay", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(finalPayload),
       });
 
       if (!response.ok) {
