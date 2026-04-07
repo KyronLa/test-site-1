@@ -1,5 +1,9 @@
 import { onRequest } from "firebase-functions/v2/https";
 import * as crypto from "crypto";
+import * as admin from "firebase-admin";
+
+admin.initializeApp();
+const db = admin.firestore();
 
 /**
  * Rebuilt Bankful Session Creator
@@ -18,9 +22,28 @@ export const createBankfulSession = onRequest(
     }
 
     try {
-      const { total, customerEmail, orderId, shippingInfo } = req.body;
+      const { total, customerEmail, orderId, shippingInfo, cart } = req.body;
 
-      // 1. Construct initial payload
+      // 1. Save pending order to Firestore
+      await db.collection("orders").doc(orderId).set({
+        orderId,
+        customerEmail: customerEmail || "",
+        customerName: `${shippingInfo?.firstName || ""} ${shippingInfo?.lastName || ""}`.trim(),
+        amount: Number(total),
+        status: "pending",
+        shippingInfo: {
+          address: shippingInfo?.address || "",
+          city: shippingInfo?.city || "",
+          state: shippingInfo?.state || "",
+          zip: shippingInfo?.zip || "",
+          phone: shippingInfo?.phone || ""
+        },
+        items: cart || [],
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+
+      // 2. Construct initial payload
       const payload: Record<string, any> = {
         req_username: "testsandbox8@sanbox.com",
         transaction_type: "CAPTURE",
@@ -40,7 +63,7 @@ export const createBankfulSession = onRequest(
         url_cancel: "https://eclipseresearch.shop/checkout",
         url_complete: "https://eclipseresearch.shop",
         url_failed: "https://eclipseresearch.shop",
-        url_callback: "https://eclipseresearch.shop/order-callback",
+        url_callback: "https://us-central1-gen-lang-client-0437247227.cloudfunctions.net/bankfulWebhook",
         url_pending: "https://eclipseresearch.shop",
         return_redirect_url: "Y",
       };
@@ -93,6 +116,42 @@ export const createBankfulSession = onRequest(
         error: "Internal Server Error",
         message: error.message
       });
+    }
+  }
+);
+
+/**
+ * Bankful Webhook Handler
+ * Updates order status in Firestore when payment is approved
+ */
+export const bankfulWebhook = onRequest(
+  { invoker: "public" },
+  async (req, res) => {
+    console.log("Bankful Webhook Received:", JSON.stringify(req.body, null, 2));
+
+    try {
+      const { xtl_order_id, response_code, response_text } = req.body;
+
+      if (!xtl_order_id) {
+        res.status(400).send("Missing xtl_order_id");
+        return;
+      }
+
+      // response_code "100" usually means approved in Bankful
+      const isApproved = response_code === "100" || response_text?.toLowerCase().includes("approved");
+      const status = isApproved ? "approved" : "failed";
+
+      await db.collection("orders").doc(xtl_order_id).update({
+        status,
+        bankfulResponse: req.body,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+
+      console.log(`Order ${xtl_order_id} updated to ${status}`);
+      res.status(200).send("OK");
+    } catch (error: any) {
+      console.error("Webhook Error:", error);
+      res.status(500).send("Internal Server Error");
     }
   }
 );

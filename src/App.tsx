@@ -2553,6 +2553,7 @@ const AdminDashboard = () => {
   const [showArchived, setShowArchived] = useState(false);
   const [newPromo, setNewPromo] = useState({ code: '', discount: 0 });
   const [isDeletingPromo, setIsDeletingPromo] = useState<string | null>(null);
+  const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
 
   useEffect(() => {
     const usersQuery = collection(db, 'users');
@@ -2984,8 +2985,10 @@ const AdminDashboard = () => {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
+                  <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest w-10"></th>
                   <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Order ID</th>
                   <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Customer</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Shipping Address</th>
                   <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Total</th>
                   <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Status</th>
                   <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Actions</th>
@@ -2993,40 +2996,116 @@ const AdminDashboard = () => {
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {orders.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)).map((o) => (
-                  <tr key={o.id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="px-6 py-4">
-                      <span className="font-mono text-xs font-bold text-emerald-600">{o.id}</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm">
-                        <p className="font-bold">{o.shippingInfo.firstName} {o.shippingInfo.lastName}</p>
-                        <p className="text-gray-400 text-[10px]">{o.shippingInfo.email}</p>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm font-bold">${o.total.toFixed(2)}</td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                        o.status === 'completed' ? 'bg-emerald-100 text-emerald-700' : 
-                        o.status === 'pending' ? 'bg-amber-100 text-amber-700' : 
-                        'bg-blue-100 text-blue-700'
-                      }`}>
-                        {o.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <select 
-                        value={o.status}
-                        onChange={(e) => updateOrderStatus(o.id, e.target.value)}
-                        className="text-[10px] font-bold uppercase tracking-widest bg-gray-50 border border-gray-100 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      >
-                        <option value="pending">Pending</option>
-                        <option value="shipped">Shipped</option>
-                        <option value="completed">Completed</option>
-                        <option value="cancelled">Cancelled</option>
-                      </select>
+                  <React.Fragment key={o.id}>
+                    <tr 
+                      className={`hover:bg-gray-50/50 transition-colors cursor-pointer ${expandedOrder === o.id ? 'bg-gray-50/80' : ''}`}
+                      onClick={() => setExpandedOrder(expandedOrder === o.id ? null : o.id)}
+                    >
+                      <td className="px-6 py-4">
+                        {expandedOrder === o.id ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="font-mono text-xs font-bold text-emerald-600">{o.id}</span>
+                        <p className="text-[9px] text-gray-400 mt-1">
+                          {o.createdAt?.toDate ? o.createdAt.toDate().toLocaleString() : 'N/A'}
+                        </p>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="text-sm">
+                          <p className="font-bold">{o.customerName || `${o.shippingInfo?.firstName} ${o.shippingInfo?.lastName}`}</p>
+                          <p className="text-gray-400 text-[10px]">{o.customerEmail || o.shippingInfo?.email}</p>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="text-[10px] text-gray-500 max-w-[200px] leading-relaxed">
+                          <p>{o.shippingInfo?.address}</p>
+                          <p>{o.shippingInfo?.city}, {o.shippingInfo?.state} {o.shippingInfo?.zip}</p>
+                          <p className="text-emerald-600 font-bold mt-1">{o.shippingInfo?.phone}</p>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-sm font-bold text-gray-900">
+                        ${(o.amount || o.total || 0).toFixed(2)}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                          o.status === 'completed' || o.status === 'approved' ? 'bg-emerald-100 text-emerald-700' : 
+                          o.status === 'pending' ? 'bg-amber-100 text-amber-700' : 
+                          o.status === 'failed' || o.status === 'cancelled' ? 'bg-red-100 text-red-700' :
+                          'bg-blue-100 text-blue-700'
+                        }`}>
+                          {o.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                        <select 
+                          value={o.status}
+                          onChange={(e) => updateOrderStatus(o.id, e.target.value)}
+                          className="text-[10px] font-bold uppercase tracking-widest bg-gray-50 border border-gray-100 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        >
+                          <option value="pending">Pending</option>
+                          <option value="approved">Approved</option>
+                          <option value="shipped">Shipped</option>
+                          <option value="completed">Completed</option>
+                          <option value="cancelled">Cancelled</option>
+                          <option value="failed">Failed</option>
+                        </select>
+                      </td>
+                    </tr>
+                    <AnimatePresence>
+                      {expandedOrder === o.id && (
+                        <tr>
+                          <td colSpan={7} className="px-0 py-0 bg-gray-50/30">
+                            <motion.div
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: 'auto', opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              className="overflow-hidden"
+                            >
+                              <div className="p-8 border-t border-gray-100">
+                                <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-6">Order Items</h4>
+                                <div className="space-y-4">
+                                  {(o.items || []).map((item: any, idx: number) => (
+                                    <div key={idx} className="flex items-center justify-between p-4 bg-white rounded-2xl border border-gray-100 shadow-sm">
+                                      <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 bg-gray-50 rounded-xl flex items-center justify-center overflow-hidden border border-gray-100">
+                                          <img src={item.image} alt="" className="w-full h-full object-cover" />
+                                        </div>
+                                        <div>
+                                          <p className="font-bold text-gray-900 text-sm">{item.name}</p>
+                                          <p className="text-[10px] text-gray-400 uppercase tracking-wider">{item.dosage} · Qty: {item.quantity}</p>
+                                        </div>
+                                      </div>
+                                      <div className="text-right">
+                                        <p className="font-bold text-gray-900 text-sm">${(item.price * item.quantity).toFixed(2)}</p>
+                                        <p className="text-[10px] text-gray-400">${item.price.toFixed(2)} each</p>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                                
+                                {o.bankfulResponse && (
+                                  <div className="mt-8 pt-8 border-t border-gray-100">
+                                    <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4">Bankful Transaction Details</h4>
+                                    <pre className="bg-gray-900 text-emerald-400 p-6 rounded-2xl text-[10px] font-mono overflow-x-auto">
+                                      {JSON.stringify(o.bankfulResponse, null, 2)}
+                                    </pre>
+                                  </div>
+                                )}
+                              </div>
+                            </motion.div>
+                          </td>
+                        </tr>
+                      )}
+                    </AnimatePresence>
+                  </React.Fragment>
+                ))}
+                {orders.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-24 text-center text-gray-400 text-sm italic">
+                      No orders found in the system.
                     </td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>
