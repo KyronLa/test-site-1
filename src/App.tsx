@@ -5492,10 +5492,10 @@ const OrderSuccessView = ({ onBackToHome }: { onBackToHome: () => void }) => {
           </motion.div>
         </div>
 
-        <h1 className="text-4xl font-bold text-gray-900 mb-6 tracking-tight">Order Confirmed</h1>
+        <h1 className="text-4xl font-bold text-gray-900 mb-6 tracking-tight">Thank You!</h1>
         <div className="space-y-4 mb-12">
           <p className="text-gray-600 leading-relaxed text-lg">
-            Thank you for choosing <strong className="text-black">Eclipse Research</strong>. Your order has been successfully placed and is now in our secure processing queue.
+            Your order has been successfully placed with <strong className="text-black">Eclipse Research</strong>. We appreciate your trust in our scientific compounds.
           </p>
           <p className="text-sm text-gray-400 uppercase tracking-widest font-bold">
             A confirmation email has been sent to your inbox
@@ -5523,7 +5523,7 @@ const OrderSuccessView = ({ onBackToHome }: { onBackToHome: () => void }) => {
           onClick={onBackToHome}
           className="inline-flex items-center gap-3 px-12 py-5 bg-black text-white font-bold rounded-2xl hover:bg-emerald-600 transition-all active:scale-95 shadow-xl shadow-black/10 group"
         >
-          Return to Research Hub
+          Continue Shopping
           <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
         </button>
       </motion.div>

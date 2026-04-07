@@ -140,5 +140,19 @@ export const INITIAL_PRODUCTS: Product[] = [
       2: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969683/2nad_y1kupy.png",
       3: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971669/3nad_o7dofh.png"
     }
+  },
+  {
+    id: 'test-5',
+    name: "Test Product ($5)",
+    price: 5.00,
+    category: "Test",
+    image: "https://picsum.photos/seed/testproduct/400/400",
+    description: "A test product for verifying payment flows and checkout functionality.",
+    dosage: "5.00",
+    quantityImages: {
+      1: "https://picsum.photos/seed/test1/400/400",
+      2: "https://picsum.photos/seed/test2/400/400",
+      3: "https://picsum.photos/seed/test3/400/400"
+    }
   }
 ];
