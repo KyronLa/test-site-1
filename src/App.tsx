@@ -5448,8 +5448,34 @@ const CalculatorView = () => {
   );
 };
 
+const OrderSuccessView = ({ onBackToHome }: { onBackToHome: () => void }) => {
+  return (
+    <section className="min-h-[70vh] flex items-center justify-center px-4 py-20">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="max-w-md w-full text-center"
+      >
+        <div className="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-8">
+          <CheckCircle2 className="w-10 h-10" />
+        </div>
+        <h1 className="text-3xl font-bold text-gray-900 mb-4 tracking-tight">Order Successful!</h1>
+        <p className="text-gray-600 mb-10 leading-relaxed">
+          Thank you for your purchase. Your order has been placed successfully and is now being processed by our research team.
+        </p>
+        <button 
+          onClick={onBackToHome}
+          className="w-full py-4 bg-black text-white font-bold rounded-2xl hover:bg-emerald-600 transition-all active:scale-95 shadow-lg shadow-black/5"
+        >
+          Return to Home
+        </button>
+      </motion.div>
+    </section>
+  );
+};
+
 const AppContent = () => {
-  const [view, setView] = useState<'home' | 'shop' | 'about' | 'track' | 'coas' | 'admin' | 'account' | 'checkout' | 'product' | 'terms' | 'shipping' | 'refund' | 'privacy' | 'calculator' | 'affiliate'>('home');
+  const [view, setView] = useState<'home' | 'shop' | 'about' | 'track' | 'coas' | 'admin' | 'account' | 'checkout' | 'product' | 'terms' | 'shipping' | 'refund' | 'privacy' | 'calculator' | 'affiliate' | 'order-success'>('home');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -5585,24 +5611,25 @@ const AppContent = () => {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const paymentStatus = params.get('payment');
+    const isOrderSuccessPath = window.location.pathname === '/order-success';
     
-    if (paymentStatus === 'success') {
+    if (isOrderSuccessPath || paymentStatus === 'success') {
+      setView('order-success');
+      setCart([]);
+      setAppliedPromo(null);
+      
       const isSimulated = params.get('simulated') === 'true';
       if (isSimulated) {
         alert('Simulation Mode: Payment successful! (The Bankful API was unreachable, so this is a simulated success for testing the flow).');
-      } else {
-        alert('Payment successful! Your order is being processed.');
       }
-      setCart([]);
-      setAppliedPromo(null);
-      setView('home');
-      // Clear URL params
-      window.history.replaceState({}, '', window.location.pathname);
+      
+      // Clear path and params to avoid re-triggering
+      window.history.replaceState({}, '', '/');
     } else if (paymentStatus === 'cancel') {
       alert('Payment was cancelled. You can try again or choose another payment method.');
       setView('checkout');
       // Clear URL params
-      window.history.replaceState({}, '', window.location.pathname);
+      window.history.replaceState({}, '', '/');
     }
   }, []);
 
@@ -5758,6 +5785,10 @@ const AppContent = () => {
 
           {view === 'affiliate' && (
             <AffiliateView onBack={() => setView('home')} />
+          )}
+
+          {view === 'order-success' && (
+            <OrderSuccessView onBackToHome={() => setView('home')} />
           )}
 
           {view === 'checkout' && (
