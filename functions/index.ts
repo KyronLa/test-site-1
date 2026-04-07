@@ -38,10 +38,10 @@ export const createBankfulSession = onRequest(
         xtl_order_id: orderId || "000001",
         cart_name: "Hosted-Page",
         url_cancel: "https://eclipseresearch.shop/checkout",
-        url_complete: "https://eclipseresearch.shop/order-success",
-        url_failed: "https://eclipseresearch.shop/order-failed",
+        url_complete: "https://eclipseresearch.shop",
+        url_failed: "https://eclipseresearch.shop",
         url_callback: "https://eclipseresearch.shop/order-callback",
-        url_pending: "https://eclipseresearch.shop/order-pending",
+        url_pending: "https://eclipseresearch.shop",
         return_redirect_url: "Y",
       };
 
