@@ -29,7 +29,7 @@ export const createBankfulSession = onRequest(
         cust_email: customerEmail || "",
         cust_fname: shippingInfo?.firstName || "",
         cust_lname: shippingInfo?.lastName || "",
-        cust_phone: "9999212345",
+        cust_phone: shippingInfo?.phone || "9999212345",
         bill_addr: shippingInfo?.address || "",
         bill_addr_city: shippingInfo?.city || "",
         bill_addr_state: shippingInfo?.state || "",

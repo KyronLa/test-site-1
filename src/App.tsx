@@ -4424,6 +4424,7 @@ const CheckoutView = ({ cart, onBack, onComplete, initialOrder, userProfile, app
       email: userProfile?.email || '',
       firstName: userProfile?.firstName || '',
       lastName: userProfile?.lastName || '',
+      phone: userProfile?.phone || '',
       address: defaultAddress?.street || '',
       city: defaultAddress?.city || '',
       state: defaultAddress?.state || '',
@@ -4448,6 +4449,7 @@ const CheckoutView = ({ cart, onBack, onComplete, initialOrder, userProfile, app
         email: userProfile.email || '',
         firstName: userProfile.firstName || '',
         lastName: userProfile.lastName || '',
+        phone: userProfile.phone || '',
         address: defaultAddress?.street || '',
         city: userProfile.city || defaultAddress?.city || '',
         state: userProfile.state || defaultAddress?.state || '',
@@ -4539,7 +4541,7 @@ const CheckoutView = ({ cart, onBack, onComplete, initialOrder, userProfile, app
     });
   };
 
-  const isStep1Valid = shippingInfo.email && shippingInfo.firstName && shippingInfo.lastName && shippingInfo.address && shippingInfo.city && shippingInfo.state && shippingInfo.zip;
+  const isStep1Valid = shippingInfo.email && shippingInfo.firstName && shippingInfo.lastName && shippingInfo.phone && shippingInfo.address && shippingInfo.city && shippingInfo.state && shippingInfo.zip;
 
   return (
     <div className="pt-32 pb-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -4591,6 +4593,16 @@ const CheckoutView = ({ cart, onBack, onComplete, initialOrder, userProfile, app
                     className="w-full px-4 py-3 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-black transition-all"
                     value={shippingInfo.lastName}
                     onChange={e => setShippingInfo({...shippingInfo, lastName: e.target.value})}
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Phone Number</label>
+                  <input 
+                    type="tel" 
+                    placeholder="(555) 000-0000"
+                    className="w-full px-4 py-3 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-black transition-all"
+                    value={shippingInfo.phone}
+                    onChange={e => setShippingInfo({...shippingInfo, phone: e.target.value})}
                   />
                 </div>
                 <div className="md:col-span-2">
@@ -5450,24 +5462,69 @@ const CalculatorView = () => {
 
 const OrderSuccessView = ({ onBackToHome }: { onBackToHome: () => void }) => {
   return (
-    <section className="min-h-[70vh] flex items-center justify-center px-4 py-20">
+    <section className="min-h-[80vh] flex items-center justify-center px-4 py-20 bg-white">
       <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="max-w-md w-full text-center"
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="max-w-xl w-full text-center"
       >
-        <div className="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-8">
-          <CheckCircle2 className="w-10 h-10" />
+        <div className="flex justify-center mb-12">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-black rounded-xl flex items-center justify-center rotate-3 group-hover:rotate-6 transition-transform">
+              <FlaskConical className="w-6 h-6 text-emerald-400" />
+            </div>
+            <div className="text-left">
+              <span className="block text-xl font-black tracking-tighter leading-none">ECLIPSE</span>
+              <span className="block text-[10px] font-bold tracking-[0.3em] text-emerald-500 leading-none mt-1">RESEARCH</span>
+            </div>
+          </div>
         </div>
-        <h1 className="text-3xl font-bold text-gray-900 mb-4 tracking-tight">Order Successful!</h1>
-        <p className="text-gray-600 mb-10 leading-relaxed">
-          Thank you for your purchase. Your order has been placed successfully and is now being processed by our research team.
-        </p>
+
+        <div className="w-24 h-24 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-8 relative">
+          <CheckCircle2 className="w-12 h-12" />
+          <motion.div 
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ delay: 0.3, type: "spring" }}
+            className="absolute -right-2 -top-2 w-8 h-8 bg-black text-white rounded-lg flex items-center justify-center text-xs font-bold"
+          >
+            <ShieldCheck className="w-4 h-4" />
+          </motion.div>
+        </div>
+
+        <h1 className="text-4xl font-bold text-gray-900 mb-6 tracking-tight">Order Confirmed</h1>
+        <div className="space-y-4 mb-12">
+          <p className="text-gray-600 leading-relaxed text-lg">
+            Thank you for choosing <strong className="text-black">Eclipse Research</strong>. Your order has been successfully placed and is now in our secure processing queue.
+          </p>
+          <p className="text-sm text-gray-400 uppercase tracking-widest font-bold">
+            A confirmation email has been sent to your inbox
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-12">
+          <div className="p-6 bg-gray-50 rounded-3xl border border-gray-100 text-left">
+            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center mb-4 shadow-sm">
+              <Package className="w-5 h-5 text-emerald-500" />
+            </div>
+            <h3 className="font-bold text-gray-900 mb-1">Fast Shipping</h3>
+            <p className="text-xs text-gray-500">Orders typically ship within 24 hours via Express.</p>
+          </div>
+          <div className="p-6 bg-gray-50 rounded-3xl border border-gray-100 text-left">
+            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center mb-4 shadow-sm">
+              <ShieldCheck className="w-5 h-5 text-emerald-500" />
+            </div>
+            <h3 className="font-bold text-gray-900 mb-1">Quality Guaranteed</h3>
+            <p className="text-xs text-gray-500">Every batch is tested for 99%+ purity.</p>
+          </div>
+        </div>
+
         <button 
           onClick={onBackToHome}
-          className="w-full py-4 bg-black text-white font-bold rounded-2xl hover:bg-emerald-600 transition-all active:scale-95 shadow-lg shadow-black/5"
+          className="inline-flex items-center gap-3 px-12 py-5 bg-black text-white font-bold rounded-2xl hover:bg-emerald-600 transition-all active:scale-95 shadow-xl shadow-black/10 group"
         >
-          Return to Home
+          Return to Research Hub
+          <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
         </button>
       </motion.div>
     </section>
