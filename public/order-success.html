@@ -304,19 +304,19 @@
     </div>
   </main>
 
-  <!-- GoAffPro Conversion Tracking -->
-  <script type="text/javascript">
+  <script>
+    window.goaffproTrackConversion = function(order) {
+      if(window.goaffpro) {
+        window.goaffpro.trackConversion(order);
+      }
+    };
     const params = new URLSearchParams(window.location.search);
-    const transValue = params.get('TRANS_VALUE');
-    const orderId = params.get('xtl_order_id');
-    
-    if (transValue && orderId) {
-      window.goaffpro_order = {
-        number: orderId,
-        total: transValue
-      };
-      console.log('GoAffPro conversion tracked:', window.goaffpro_order);
-    }
+    const orderId = params.get('xtl_order_id') || params.get('TRANS_REQUEST_ID');
+    const orderValue = params.get('TRANS_VALUE');
+    window.goaffproTrackConversion({
+      number: orderId,
+      total: orderValue
+    });
   </script>
 </body>
 </html>
