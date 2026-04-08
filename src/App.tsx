@@ -5758,6 +5758,18 @@ const AppContent = () => {
       if (isSimulated) {
         alert('Simulation Mode: Payment successful! (The Bankful API was unreachable, so this is a simulated success for testing the flow).');
       }
+
+      // GoAffPro Conversion Tracking
+      const transValue = params.get('TRANS_VALUE');
+      const orderId = params.get('orderId') || params.get('xtl_order_id') || params.get('number');
+      
+      if (transValue && orderId) {
+        (window as any).goaffpro_order = {
+          number: orderId,
+          total: transValue
+        };
+        console.log('GoAffPro conversion tracked:', (window as any).goaffpro_order);
+      }
       
       // Clear path and params to avoid re-triggering
       window.history.replaceState({}, '', '/');
