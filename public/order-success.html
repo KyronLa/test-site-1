@@ -306,18 +306,15 @@
 
   <script src="https://api.goaffpro.com/loader.js?shop=oygbbfkclc"></script>
   <script>
-    function trackOrder() {
-      const params = new URLSearchParams(window.location.search);
-      const orderId = params.get('xtl_order_id') || params.get('TRANS_REQUEST_ID');
-      const orderValue = params.get('TRANS_VALUE');
-      if (window.goaffpro && orderId) {
-        window.goaffpro.trackConversion({
-          number: orderId,
-          total: orderValue
-        });
-      }
-    }
-    window.addEventListener('load', trackOrder);
+  var params = new URLSearchParams(window.location.search);
+  var orderId = params.get('xtl_order_id') || params.get('TRANS_REQUEST_ID');
+  var orderValue = params.get('TRANS_VALUE');
+  var goaffproOrder = {
+    number: orderId,
+    total: parseFloat(orderValue),
+    forceSDK: true
+  };
+  goaffproTrackConversion(goaffproOrder);
   </script>
 </body>
 </html>
