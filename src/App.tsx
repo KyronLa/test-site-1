@@ -5747,9 +5747,9 @@ const AppContent = () => {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const paymentStatus = params.get('payment');
-    const isOrderSuccessPath = window.location.pathname === '/order-success';
+    const path = window.location.pathname;
     
-    if (isOrderSuccessPath || paymentStatus === 'success') {
+    if (path === '/order-success' || paymentStatus === 'success') {
       setView('order-success');
       setCart([]);
       setAppliedPromo(null);
@@ -5761,7 +5761,7 @@ const AppContent = () => {
 
       // GoAffPro Conversion Tracking
       const transValue = params.get('TRANS_VALUE');
-      const orderId = params.get('orderId') || params.get('xtl_order_id') || params.get('number');
+      const orderId = params.get('xtl_order_id');
       
       if (transValue && orderId) {
         (window as any).goaffpro_order = {
@@ -5771,8 +5771,12 @@ const AppContent = () => {
         console.log('GoAffPro conversion tracked:', (window as any).goaffpro_order);
       }
       
-      // Clear path and params to avoid re-triggering
-      window.history.replaceState({}, '', '/');
+      // Clear sensitive params but maintain the route if it's /order-success
+      if (path === '/order-success') {
+        window.history.replaceState({}, '', '/order-success');
+      } else {
+        window.history.replaceState({}, '', '/');
+      }
     } else if (paymentStatus === 'cancel') {
       alert('Payment was cancelled. You can try again or choose another payment method.');
       setView('checkout');
