@@ -61,7 +61,7 @@ export const createBankfulSession = onRequest(
         xtl_order_id: orderId || "000001",
         cart_name: "Hosted-Page",
         url_cancel: "https://eclipseresearch.shop/checkout",
-        url_complete: "https://eclipseresearch.shop",
+        url_complete: "https://eclipseresearch.shop/order-success.html",
         url_failed: "https://eclipseresearch.shop",
         url_callback: "https://us-central1-gen-lang-client-0437247227.cloudfunctions.net/bankfulWebhook",
         url_pending: "https://eclipseresearch.shop",

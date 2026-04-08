@@ -5749,35 +5749,20 @@ const AppContent = () => {
     const paymentStatus = params.get('payment');
     const path = window.location.pathname;
     
-    if (path === '/order-success' || paymentStatus === 'success') {
-      setView('order-success');
-      setCart([]);
-      setAppliedPromo(null);
-      
-      const isSimulated = params.get('simulated') === 'true';
-      if (isSimulated) {
-        alert('Simulation Mode: Payment successful! (The Bankful API was unreachable, so this is a simulated success for testing the flow).');
-      }
+    if (paymentStatus === 'success') {
+      // Redirect to the standalone success page if we get a success param on the root
+      const search = window.location.search;
+      window.location.href = `/order-success.html${search}`;
+      return;
+    }
 
-      // GoAffPro Conversion Tracking
-      const transValue = params.get('TRANS_VALUE');
-      const orderId = params.get('xtl_order_id');
-      
-      if (transValue && orderId) {
-        (window as any).goaffpro_order = {
-          number: orderId,
-          total: transValue
-        };
-        console.log('GoAffPro conversion tracked:', (window as any).goaffpro_order);
-      }
-      
-      // Clear sensitive params but maintain the route if it's /order-success
-      if (path === '/order-success') {
-        window.history.replaceState({}, '', '/order-success');
-      } else {
-        window.history.replaceState({}, '', '/');
-      }
-    } else if (paymentStatus === 'cancel') {
+    if (path === '/order-success') {
+      // Fallback for direct /order-success hits
+      window.location.href = '/order-success.html';
+      return;
+    }
+
+    if (paymentStatus === 'cancel') {
       alert('Payment was cancelled. You can try again or choose another payment method.');
       setView('checkout');
       // Clear URL params
