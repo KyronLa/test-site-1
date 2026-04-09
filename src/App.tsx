@@ -218,6 +218,8 @@ interface AuthContextType {
   register: (email: string, pass: string, firstName: string, lastName: string, phone?: string) => Promise<void>;
   logout: () => Promise<void>;
   isAdmin: boolean;
+  isFreeShippingEnabled: boolean;
+  toggleFreeShipping: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -333,7 +335,7 @@ const Navbar = ({ cartCount, onOpenCart, onOpenAuth, onNavigate, currentView }: 
           onClick={() => onNavigate('home')}
           className="flex items-center gap-2 hover:opacity-80 transition-opacity"
         >
-          <div className="relative h-14 w-auto flex items-center justify-center">
+          <div className="relative h-10 sm:h-14 w-auto flex items-center justify-center">
             <motion.img 
               key={showSolidNav ? 'black' : 'white'}
               initial={{ scale: 0.8, opacity: 0, rotate: -10 }}
@@ -341,11 +343,11 @@ const Navbar = ({ cartCount, onOpenCart, onOpenAuth, onNavigate, currentView }: 
               transition={{ type: "spring", stiffness: 400, damping: 15 }}
               src={showSolidNav ? "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969647/blacklogo_dbbepi.png" : "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969635/logo_gc8g0q.png"} 
               alt="Eclipse Research" 
-              className="h-14 w-auto" 
+              className="h-10 sm:h-14 w-auto" 
               referrerPolicy="no-referrer"
             />
           </div>
-          <span className={`text-xl font-bold tracking-tight ${showSolidNav ? 'text-black' : 'text-white'}`}>ECLIPSE RESEARCH</span>
+          <span className={`text-lg sm:text-xl font-bold tracking-tight ${showSolidNav ? 'text-black' : 'text-white'}`}>ECLIPSE RESEARCH</span>
         </button>
 
         <div className="hidden md:flex items-center gap-8">
@@ -1220,7 +1222,7 @@ const AboutUsView = ({ onBack, onShopNow }: { onBack: () => void, onShopNow: () 
         </div>
 
         {/* Mission Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
           <div className="space-y-8">
             <div className="space-y-4">
               <h2 className="text-xs font-bold text-emerald-500 uppercase tracking-[0.3em]">Our Mission</h2>
@@ -1270,7 +1272,7 @@ const AboutUsView = ({ onBack, onShopNow }: { onBack: () => void, onShopNow: () 
         </div>
 
         {/* Quality Promise */}
-        <div className="bg-black rounded-[3rem] p-12 md:p-20 text-white relative overflow-hidden">
+        <div className="bg-black rounded-[2rem] md:rounded-[3rem] p-8 md:p-20 text-white relative overflow-hidden">
           <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 blur-[120px] rounded-full -mr-48 -mt-48" />
           <div className="relative z-10 space-y-16">
             <div className="text-center space-y-4">
@@ -1315,7 +1317,7 @@ const AboutUsView = ({ onBack, onShopNow }: { onBack: () => void, onShopNow: () 
         </div>
 
         {/* CTA Section */}
-        <div className="bg-emerald-500 rounded-[3rem] p-12 md:p-20 text-white text-center space-y-8">
+        <div className="bg-emerald-500 rounded-[2rem] md:rounded-[3rem] p-8 md:p-20 text-white text-center space-y-8">
           <h2 className="text-4xl md:text-5xl font-bold">Ready to start your research?</h2>
           <p className="text-emerald-100 text-lg max-w-xl mx-auto">
             Browse our collection of premium research compounds and accelerate your scientific discovery today.
@@ -2054,7 +2056,7 @@ const AffiliateView = ({ onBack }: { onBack: () => void }) => {
 };
 
 const AccountView = ({ onNavigate, onEditOrder }: { onNavigate: (view: any) => void, onEditOrder: (order: any) => void }) => {
-  const { user, logout, isAdmin } = useAuth();
+  const { user, logout, isAdmin, isFreeShippingEnabled, toggleFreeShipping } = useAuth();
   const [activeTab, setActiveTab] = useState<'orders' | 'details' | 'addresses' | 'rewards'>('orders');
   const [orders, setOrders] = useState<any[]>([]);
   const [profile, setProfile] = useState<any>(null);
@@ -2340,6 +2342,28 @@ const AccountView = ({ onNavigate, onEditOrder }: { onNavigate: (view: any) => v
                     )}
                   </div>
                 </div>
+
+                {isAdmin && (
+                  <div className="mt-8 pt-8 border-t border-gray-100">
+                    <div className="flex items-center justify-between p-4 bg-emerald-50 rounded-2xl border border-emerald-100">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
+                          <Truck className="w-5 h-5 text-emerald-600" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-gray-900">Personal Free Shipping</p>
+                          <p className="text-[10px] text-emerald-600 font-medium uppercase tracking-wider">Admin Exclusive Perk</p>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={toggleFreeShipping}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${isFreeShippingEnabled ? 'bg-emerald-500' : 'bg-gray-200'}`}
+                      >
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isFreeShippingEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {isEditingProfile && (
                   <div className="mt-12 flex gap-4">
@@ -3599,123 +3623,10 @@ const AdminDashboard = () => {
 
 // --- Main App ---
 
-const ChatBot = () => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<{role: 'user' | 'bot', text: string}[]>([
-    { role: 'bot', text: 'Hello! I am your Research Assistant. How can I help you with our compounds today?' }
-  ]);
-  const [input, setInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages]);
-
-  const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
-
-    const userMsg = input;
-    setInput('');
-    setMessages(prev => [...prev, { role: 'user', text: userMsg }]);
-    setIsLoading(true);
-
-    try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
-      const response = await ai.models.generateContent({
-        model: "gemini-3.1-pro-preview",
-        contents: userMsg,
-        config: {
-          systemInstruction: "You are a helpful assistant for a research peptide store. You provide information about peptides for laboratory research purposes only. You must always include a disclaimer that products are not for human consumption. Be professional, scientific, and concise."
-        }
-      });
-      
-      setMessages(prev => [...prev, { role: 'bot', text: response.text || "I'm sorry, I couldn't process that." }]);
-    } catch (error) {
-      setMessages(prev => [...prev, { role: 'bot', text: "Error connecting to research database." }]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  return (
-    <div className="fixed bottom-6 right-6 z-[100]">
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div 
-            initial={{ opacity: 0, y: 20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            className="bg-white w-80 md:w-96 h-[500px] rounded-3xl shadow-2xl border border-gray-100 flex flex-col overflow-hidden mb-4"
-          >
-            <div className="bg-black p-4 flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center">
-                  <MessageSquare className="text-white w-4 h-4" />
-                </div>
-                <span className="text-white font-bold text-sm">Research Assistant</span>
-              </div>
-              <button onClick={() => setIsOpen(false)} className="text-white/70 hover:text-white">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            
-            <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
-              {messages.map((m, i) => (
-                <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[80%] p-3 rounded-2xl text-sm ${
-                    m.role === 'user' ? 'bg-emerald-600 text-white rounded-tr-none' : 'bg-white text-gray-800 shadow-sm border border-gray-100 rounded-tl-none'
-                  }`}>
-                    {m.text}
-                  </div>
-                </div>
-              ))}
-              {isLoading && (
-                <div className="flex justify-start">
-                  <div className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 rounded-tl-none">
-                    <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="p-4 border-t border-gray-100 bg-white">
-              <div className="flex gap-2">
-                <input 
-                  type="text" 
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                  placeholder="Ask about research..."
-                  className="flex-1 bg-gray-100 border-none rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-emerald-500"
-                />
-                <button 
-                  onClick={handleSend}
-                  className="bg-black text-white p-2 rounded-xl hover:bg-emerald-600 transition-colors"
-                >
-                  <Send className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-      
-      <button 
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-14 h-14 bg-black text-white rounded-full shadow-lg flex items-center justify-center hover:scale-110 transition-transform"
-      >
-        <MessageSquare className="w-6 h-6" />
-      </button>
-    </div>
-  );
-};
-
 const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isFreeShippingEnabled, setIsFreeShippingEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -3725,7 +3636,9 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const userDoc = await getDoc(doc(db, 'users', u.uid));
         const adminEmails = ['info@eclipseresearch.shop', 'kyron.laskosky2@gmail.com'];
         if (userDoc.exists()) {
+          const userData = userDoc.data();
           setIsAdmin(adminEmails.includes(u.email || ''));
+          setIsFreeShippingEnabled(userData.isFreeShippingEnabled || false);
         } else if (adminEmails.includes(u.email || '')) {
           setIsAdmin(true);
         }
@@ -3788,8 +3701,21 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     await signOut(auth);
   };
 
+  const toggleFreeShipping = async () => {
+    if (!user || !isAdmin) return;
+    const newValue = !isFreeShippingEnabled;
+    try {
+      await updateDoc(doc(db, 'users', user.uid), {
+        isFreeShippingEnabled: newValue
+      });
+      setIsFreeShippingEnabled(newValue);
+    } catch (error) {
+      console.error('Error toggling free shipping:', error);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, isAdmin }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, isAdmin, isFreeShippingEnabled, toggleFreeShipping }}>
       {children}
     </AuthContext.Provider>
   );
@@ -3797,8 +3723,12 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
 const Hero = ({ onShopNow, onViewCOAs }: { onShopNow: () => void, onViewCOAs: () => void }) => {
   return (
-    <section className="relative h-screen flex items-center overflow-hidden bg-black">
-      {/* Background Video Layer */}
+    <>
+      {/* Mobile Black Bar Sitting on Top */}
+      <div className="h-[75px] bg-black md:hidden" />
+      
+      <section className="relative h-screen flex items-center overflow-hidden bg-black">
+        {/* Background Video Layer */}
       <div className="absolute inset-0 z-0">
         <video 
           autoPlay 
@@ -3828,7 +3758,7 @@ const Hero = ({ onShopNow, onViewCOAs }: { onShopNow: () => void, onViewCOAs: ()
             <div className="h-[1px] w-12 bg-emerald-500" />
             <span className="text-emerald-500 font-bold tracking-[0.3em] text-xs uppercase">Precision Synthesis</span>
           </div>
-          <h1 className="text-6xl md:text-8xl font-bold text-white tracking-tight mb-8 leading-[0.9]">
+          <h1 className="text-5xl sm:text-7xl md:text-8xl font-bold text-white tracking-tight mb-8 leading-[0.9]">
             Purity <br />
             <span className="text-emerald-500">Without</span> <br />
             Compromise
@@ -3837,16 +3767,16 @@ const Hero = ({ onShopNow, onViewCOAs }: { onShopNow: () => void, onViewCOAs: ()
             Synthesizing high-purity research compounds for the global scientific community. 
             HPLC tested, discreetly shipped, and laboratory verified.
           </p>
-          <div className="flex flex-wrap gap-6">
+          <div className="flex flex-wrap gap-4 md:gap-6 -mt-[45px] md:mt-0">
             <button 
               onClick={onShopNow}
-              className="px-10 py-5 bg-white text-black font-bold rounded-2xl hover:bg-emerald-500 hover:text-white transition-all active:scale-95 flex items-center gap-3"
+              className="px-6 py-3 md:px-10 md:py-5 bg-white text-black text-sm md:text-base font-bold rounded-2xl hover:bg-emerald-500 hover:text-white transition-all active:scale-95 flex items-center gap-2 md:gap-3"
             >
-              Explore Catalog <ChevronRight className="w-5 h-5" />
+              Explore Catalog <ChevronRight className="w-4 h-4 md:w-5 md:h-5" />
             </button>
             <button 
               onClick={onViewCOAs}
-              className="px-10 py-5 border border-white/20 text-white font-bold rounded-2xl hover:bg-white/10 transition-all"
+              className="px-6 py-3 md:px-10 md:py-5 border border-white/20 text-white text-sm md:text-base font-bold rounded-2xl hover:bg-white/10 transition-all"
             >
               Request COA's
             </button>
@@ -3854,11 +3784,12 @@ const Hero = ({ onShopNow, onViewCOAs }: { onShopNow: () => void, onViewCOAs: ()
         </motion.div>
       </div>
 
-      <div className="absolute bottom-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4 text-white/30">
+      <div className="absolute bottom-12 left-1/2 -translate-x-1/2 translate-y-[30px] flex flex-col items-center gap-4 text-white/30">
         <span className="text-[10px] font-bold uppercase tracking-[0.4em]">Scroll to Discover</span>
         <div className="w-[1px] h-12 bg-gradient-to-b from-white/30 to-transparent" />
       </div>
     </section>
+    </>
   );
 };
 
@@ -4018,7 +3949,7 @@ const ProductCard: React.FC<{
         <div className="mb-2">
           <ProductRating productId={product.id} />
         </div>
-        <h3 className="font-bold text-gray-900 mb-1 group-hover:text-emerald-600 transition-colors">{product.name}</h3>
+        <h3 className="font-bold text-sm sm:text-base text-gray-900 mb-1 group-hover:text-emerald-600 transition-colors">{product.name}</h3>
         <div className="flex items-center gap-2 mb-4">
           <p className="text-gray-500 text-[10px] font-bold uppercase tracking-wider">99%+ Purity</p>
           {product.dosage && (
@@ -4072,7 +4003,7 @@ const FeaturedProducts: React.FC<{
             <p className="text-gray-400">Our most requested high-purity research materials.</p>
           </div>
         </div>
-        <div className="grid grid-cols-3 gap-4 md:gap-8">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-8">
           {featured.map((product) => (
             <ProductCard 
               key={product.id}
@@ -4120,6 +4051,9 @@ const ShopView: React.FC<{
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
     >
+      {/* Mobile Black Bar Sitting on Top */}
+      <div className="h-[75px] bg-black md:hidden" />
+
       {/* Shop Header */}
       <section className="relative bg-black py-32 overflow-hidden">
         <div className="absolute inset-0 z-0">
@@ -4158,7 +4092,7 @@ const ShopView: React.FC<{
       
       {/* Product Section */}
       <section className="py-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col lg:flex-row gap-12">
+        <div className="flex flex-col lg:flex-row gap-8 lg:gap-12">
           {/* Sidebar Filter */}
           <aside className="w-full lg:w-64 flex-shrink-0">
             <div className="sticky top-32 space-y-8">
@@ -4195,7 +4129,7 @@ const ShopView: React.FC<{
                 className="w-full bg-white border border-gray-200 rounded-xl py-3 pl-12 pr-4 text-sm text-black focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all shadow-sm"
               />
             </div>
-            <div className="grid grid-cols-3 gap-x-3 gap-y-8 md:gap-x-6 md:gap-y-10">
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-3 gap-y-8 md:gap-x-6 md:gap-y-10">
               {filteredProducts.length > 0 ? (
                 filteredProducts.map((product) => (
                   <ProductCard 
@@ -4491,7 +4425,8 @@ const COARequestView = () => {
   );
 };
 
-const CheckoutView = ({ cart, onBack, onComplete, initialOrder, userProfile, appliedPromo }: { cart: CartItem[], onBack: () => void, onComplete: (info: any) => void, initialOrder?: any, userProfile?: any, appliedPromo: { code: string, discount: number } | null }) => {
+const CheckoutView = ({ cart, onBack, onComplete, initialOrder, userProfile, appliedPromo, onApplyPromo }: { cart: CartItem[], onBack: () => void, onComplete: (info: any) => void, initialOrder?: any, userProfile?: any, appliedPromo: { code: string, discount: number } | null, onApplyPromo: (promo: { code: string, discount: number } | null) => void }) => {
+  const { isFreeShippingEnabled } = useAuth();
   const [step, setStep] = useState(1);
   const [shippingInfo, setShippingInfo] = useState(() => {
     if (initialOrder?.shippingInfo) return initialOrder.shippingInfo;
@@ -4520,6 +4455,40 @@ const CheckoutView = ({ cart, onBack, onComplete, initialOrder, userProfile, app
 
   const [isStateDropdownOpen, setIsStateDropdownOpen] = useState(false);
   const stateRef = useRef<HTMLDivElement>(null);
+  const [promoCode, setPromoCode] = useState('');
+  const [promoError, setPromoError] = useState('');
+  const [isApplying, setIsApplying] = useState(false);
+
+  const handleApplyPromo = async () => {
+    if (!promoCode.trim()) return;
+    setIsApplying(true);
+    setPromoError('');
+    try {
+      const q = query(
+        collection(db, 'promo_codes'), 
+        where('code', '==', promoCode.toUpperCase().trim()),
+        where('isActive', '==', true)
+      );
+      const querySnapshot = await getDocs(q);
+      
+      if (querySnapshot.empty) {
+        setPromoError('Invalid or inactive promo code');
+        onApplyPromo(null);
+      } else {
+        const promoData = querySnapshot.docs[0].data();
+        onApplyPromo({
+          code: promoData.code,
+          discount: promoData.discount
+        });
+        setPromoCode('');
+      }
+    } catch (error) {
+      console.error('Error applying promo code:', error);
+      setPromoError('Error applying promo code');
+    } finally {
+      setIsApplying(false);
+    }
+  };
 
   useEffect(() => {
     if (userProfile && !initialOrder && !shippingInfo.email && !shippingInfo.firstName) {
@@ -4560,7 +4529,7 @@ const CheckoutView = ({ cart, onBack, onComplete, initialOrder, userProfile, app
   }, []);
 
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const shipping = subtotal >= 250 ? 0 : 15.00;
+  const shipping = (isFreeShippingEnabled || subtotal >= 250) ? 0 : 15.00;
   const totalBeforePromo = subtotal + shipping;
   const promoDiscount = appliedPromo ? (totalBeforePromo * (appliedPromo.discount / 100)) : 0;
   const totalAfterPromo = totalBeforePromo - promoDiscount;
@@ -4634,7 +4603,7 @@ const CheckoutView = ({ cart, onBack, onComplete, initialOrder, userProfile, app
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
         <div className="lg:col-span-7 space-y-6">
           {/* Step 1: Shipping Information */}
-          <section className={`bg-white rounded-[2.5rem] border transition-all duration-500 ${step === 1 ? 'border-emerald-200 shadow-xl shadow-emerald-500/5 p-8 md:p-12' : 'border-gray-100 p-6 opacity-60'}`}>
+          <section className={`bg-white rounded-[2.5rem] border transition-all duration-500 ${step === 1 ? 'border-emerald-200 shadow-xl shadow-emerald-500/5 p-6 md:p-12' : 'border-gray-100 p-6 opacity-60'}`}>
             <div className="flex items-center justify-between mb-8">
               <h2 className="text-2xl font-bold flex items-center gap-3">
                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm transition-colors ${step >= 1 ? 'bg-emerald-500 text-white' : 'bg-gray-100 text-gray-400'}`}>1</div>
@@ -4768,7 +4737,7 @@ const CheckoutView = ({ cart, onBack, onComplete, initialOrder, userProfile, app
           </section>
 
           {/* Step 2: Shipping Method */}
-          <section className={`bg-white rounded-[2.5rem] border transition-all duration-500 ${step === 2 ? 'border-emerald-200 shadow-xl shadow-emerald-500/5 p-8 md:p-12' : 'border-gray-100 p-6 opacity-60'}`}>
+          <section className={`bg-white rounded-[2.5rem] border transition-all duration-500 ${step === 2 ? 'border-emerald-200 shadow-xl shadow-emerald-500/5 p-6 md:p-12' : 'border-gray-100 p-6 opacity-60'}`}>
             <div className="flex items-center justify-between mb-8">
               <h2 className="text-2xl font-bold flex items-center gap-3">
                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm transition-colors ${step >= 2 ? 'bg-emerald-500 text-white' : 'bg-gray-100 text-gray-400'}`}>2</div>
@@ -4811,7 +4780,7 @@ const CheckoutView = ({ cart, onBack, onComplete, initialOrder, userProfile, app
           </section>
 
           {/* Step 3: Payment Method */}
-          <section className={`bg-white rounded-[2.5rem] border transition-all duration-500 ${step === 3 ? 'border-emerald-200 shadow-xl shadow-emerald-500/5 p-8 md:p-12' : 'border-gray-100 p-6 opacity-60'}`}>
+          <section className={`bg-white rounded-[2.5rem] border transition-all duration-500 ${step === 3 ? 'border-emerald-200 shadow-xl shadow-emerald-500/5 p-6 md:p-12' : 'border-gray-100 p-6 opacity-60'}`}>
             <h2 className="text-2xl font-bold mb-8 flex items-center gap-3">
               <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm transition-colors ${step >= 3 ? 'bg-emerald-500 text-white' : 'bg-gray-100 text-gray-400'}`}>3</div>
               Payment Method
@@ -4949,9 +4918,40 @@ const CheckoutView = ({ cart, onBack, onComplete, initialOrder, userProfile, app
         </div>
 
         <div className="lg:col-span-5">
-          <div className="bg-white rounded-[2.5rem] border border-gray-100 p-8 md:p-10 shadow-sm sticky top-32">
+          <div className="bg-white rounded-[2.5rem] border border-gray-100 p-6 md:p-10 shadow-sm sticky top-32">
             <h2 className="text-xl font-bold mb-8">Order Summary</h2>
             
+            <div className="mb-8 space-y-4">
+              <div className="flex gap-2">
+                <input 
+                  type="text" 
+                  placeholder="Promo Code"
+                  value={promoCode}
+                  onChange={(e) => setPromoCode(e.target.value)}
+                  className="flex-1 bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-black outline-none uppercase"
+                />
+                <button 
+                  onClick={handleApplyPromo}
+                  disabled={isApplying || !promoCode.trim()}
+                  className="px-6 py-3 bg-black text-white font-bold text-xs rounded-xl hover:bg-gray-800 transition-colors disabled:opacity-50"
+                >
+                  {isApplying ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Apply'}
+                </button>
+              </div>
+              {promoError && <p className="text-xs text-red-500 font-medium ml-1">{promoError}</p>}
+              {appliedPromo && (
+                <div className="flex justify-between items-center bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <Tag className="w-4 h-4 text-emerald-600" />
+                    <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider">{appliedPromo.code} Applied</span>
+                  </div>
+                  <button onClick={() => onApplyPromo(null)} className="text-emerald-600 hover:text-emerald-800">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+            </div>
+
             <div className="space-y-6 mb-8 max-h-[400px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-100">
               {cart.map((item) => (
                 <div key={item.id} className="flex gap-4">
@@ -5940,6 +5940,7 @@ const AppContent = () => {
                 initialOrder={editingOrder}
                 userProfile={userProfile}
                 appliedPromo={appliedPromo}
+                onApplyPromo={setAppliedPromo}
                 onBack={() => {
                   if (editingOrder) {
                     setEditingOrder(null);
@@ -6122,7 +6123,6 @@ const AppContent = () => {
         onApplyPromo={setAppliedPromo}
       />
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} onNavigate={setView} />
-      <ChatBot />
     </div>
   );
 };
