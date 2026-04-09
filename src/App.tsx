@@ -2811,7 +2811,7 @@ const AdminDashboard = () => {
                   : 'bg-white text-gray-400 border-gray-100 hover:border-gray-200'
               }`}
             >
-              <Archive className="w-4 h-4" /> {showArchived ? 'Showing All' : 'Hide Archived'}
+              <Archive className="w-4 h-4" /> {showArchived ? 'Showing All' : 'Show Archived'}
             </button>
           </div>
           <div className="flex gap-4">
@@ -2976,14 +2976,21 @@ const AdminDashboard = () => {
                           </button>
                           <button 
                             onClick={async () => {
-                              if (window.confirm(`Are you sure you want to ${p.isArchived ? 'unarchive' : 'archive'} this product?`)) {
+                              try {
                                 await updateDoc(doc(db, 'products', p.id), {
                                   isArchived: !p.isArchived
                                 });
+                              } catch (error) {
+                                console.error('Error toggling archive status:', error);
+                                alert('Failed to update product status.');
                               }
                             }}
                             title={p.isArchived ? 'Unarchive Product' : 'Archive Product'}
-                            className={`p-2 rounded-lg transition-all ${p.isArchived ? 'text-emerald-500 hover:bg-emerald-50' : 'text-gray-400 hover:text-amber-500 hover:bg-amber-50'}`}
+                            className={`p-2 rounded-lg transition-all ${
+                              p.isArchived 
+                                ? 'text-emerald-500 bg-emerald-50 hover:bg-emerald-100' 
+                                : 'text-amber-500 bg-amber-50 hover:bg-amber-100'
+                            }`}
                           >
                             {p.isArchived ? <ArchiveRestore className="w-4 h-4" /> : <Archive className="w-4 h-4" />}
                           </button>
@@ -3027,7 +3034,11 @@ const AdminDashboard = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {orders.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)).map((o) => (
+                {orders.sort((a, b) => {
+                  const dateA = a.timestamp?.seconds || a.createdAt?.seconds || 0;
+                  const dateB = b.timestamp?.seconds || b.createdAt?.seconds || 0;
+                  return dateB - dateA;
+                }).map((o) => (
                   <React.Fragment key={o.id}>
                     <tr 
                       className={`hover:bg-gray-50/50 transition-colors cursor-pointer ${expandedOrder === o.id ? 'bg-gray-50/80' : ''}`}
@@ -3037,9 +3048,9 @@ const AdminDashboard = () => {
                         {expandedOrder === o.id ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
                       </td>
                       <td className="px-6 py-4">
-                        <span className="font-mono text-xs font-bold text-emerald-600">{o.id}</span>
+                        <span className="font-mono text-xs font-bold text-emerald-600">{o.orderId || o.id}</span>
                         <p className="text-[9px] text-gray-400 mt-1">
-                          {o.createdAt?.toDate ? o.createdAt.toDate().toLocaleString() : 'N/A'}
+                          {o.timestamp?.toDate ? o.timestamp.toDate().toLocaleString() : o.createdAt?.toDate ? o.createdAt.toDate().toLocaleString() : 'N/A'}
                         </p>
                       </td>
                       <td className="px-6 py-4">
@@ -3050,19 +3061,25 @@ const AdminDashboard = () => {
                       </td>
                       <td className="px-6 py-4">
                         <div className="text-[10px] text-gray-500 max-w-[200px] leading-relaxed">
-                          <p>{o.shippingInfo?.address}</p>
-                          <p>{o.shippingInfo?.city}, {o.shippingInfo?.state} {o.shippingInfo?.zip}</p>
+                          {o.shippingAddress ? (
+                            <p>{o.shippingAddress}</p>
+                          ) : (
+                            <>
+                              <p>{o.shippingInfo?.address}</p>
+                              <p>{o.shippingInfo?.city}, {o.shippingInfo?.state} {o.shippingInfo?.zip}</p>
+                            </>
+                          )}
                           <p className="text-emerald-600 font-bold mt-1">{o.shippingInfo?.phone}</p>
                         </div>
                       </td>
                       <td className="px-6 py-4 text-sm font-bold text-gray-900">
-                        ${(o.amount || o.total || 0).toFixed(2)}
+                        ${(o.totalAmount || o.amount || o.total || 0).toFixed(2)}
                       </td>
                       <td className="px-6 py-4">
                         <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                          o.status === 'completed' || o.status === 'approved' ? 'bg-emerald-100 text-emerald-700' : 
+                          o.status === 'fulfilled' || o.status === 'paid' || o.status === 'approved' || o.status === 'completed' ? 'bg-emerald-100 text-emerald-700' : 
                           o.status === 'pending' ? 'bg-amber-100 text-amber-700' : 
-                          o.status === 'failed' || o.status === 'cancelled' ? 'bg-red-100 text-red-700' :
+                          o.status === 'cancelled' || o.status === 'failed' ? 'bg-red-100 text-red-700' :
                           'bg-blue-100 text-blue-700'
                         }`}>
                           {o.status}
@@ -3075,11 +3092,9 @@ const AdminDashboard = () => {
                           className="text-[10px] font-bold uppercase tracking-widest bg-gray-50 border border-gray-100 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                         >
                           <option value="pending">Pending</option>
-                          <option value="approved">Approved</option>
-                          <option value="shipped">Shipped</option>
-                          <option value="completed">Completed</option>
+                          <option value="paid">Paid</option>
+                          <option value="fulfilled">Fulfilled</option>
                           <option value="cancelled">Cancelled</option>
-                          <option value="failed">Failed</option>
                         </select>
                       </td>
                     </tr>
@@ -3530,7 +3545,7 @@ const AdminDashboard = () => {
                   stock: parseInt(formData.get('stock') as string) || 0,
                   lowStockThreshold: parseInt(formData.get('lowStockThreshold') as string) || 5,
                   inStock: (parseInt(formData.get('stock') as string) || 0) > 0,
-                  isArchived: editingProduct?.isArchived || false,
+                  isArchived: formData.get('isArchived') === 'on',
                   quantityImages,
                   updatedAt: serverTimestamp()
                 };
@@ -3596,6 +3611,19 @@ const AdminDashboard = () => {
                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Low Stock Threshold</label>
                     <input required name="lowStockThreshold" type="number" defaultValue={editingProduct?.lowStockThreshold || 5} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-black outline-none" />
                   </div>
+                </div>
+
+                <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                  <input 
+                    type="checkbox" 
+                    id="isArchived"
+                    name="isArchived"
+                    defaultChecked={editingProduct?.isArchived || false}
+                    className="w-5 h-5 rounded border-gray-300 text-black focus:ring-black"
+                  />
+                  <label htmlFor="isArchived" className="text-sm font-bold text-gray-700 cursor-pointer select-none">
+                    Archive Product (Hide from storefront)
+                  </label>
                 </div>
 
                 <div className="space-y-4">
@@ -4454,7 +4482,7 @@ const CheckoutView = ({ cart, onBack, onComplete, initialOrder, userProfile, app
     };
   });
   const [shippingMethod, setShippingMethod] = useState(initialOrder?.shippingMethod || 'express');
-  const [paymentMethod, setPaymentMethod] = useState(initialOrder?.paymentMethod || 'zelle');
+  const [paymentMethod, setPaymentMethod] = useState(initialOrder?.paymentMethod || 'card');
   const [acknowledgements, setAcknowledgements] = useState({
     age: false,
     research: false,
@@ -4796,66 +4824,6 @@ const CheckoutView = ({ cart, onBack, onComplete, initialOrder, userProfile, app
 
             {step === 3 && (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
-                {/* Zelle */}
-                <label className={`flex items-center justify-between p-5 rounded-2xl border-2 transition-all cursor-pointer ${paymentMethod === 'zelle' ? 'border-emerald-500 bg-emerald-50/30' : 'border-gray-100 hover:border-gray-200'}`}>
-                  <div className="flex items-center gap-6">
-                    <input 
-                      type="radio" 
-                      name="payment" 
-                      checked={paymentMethod === 'zelle'} 
-                      onChange={() => setPaymentMethod('zelle')} 
-                      className="w-5 h-5 text-emerald-600 flex-shrink-0 cursor-pointer" 
-                    />
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-xl flex items-center justify-center overflow-hidden flex-shrink-0 shadow-sm">
-                        <img src="https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971792/zelle_w6wa7a.png" alt="Zelle" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
-                      </div>
-                      <span className="font-bold text-gray-900">Zelle</span>
-                    </div>
-                  </div>
-                </label>
-
-                {/* Venmo */}
-                <label className={`flex items-center justify-between p-5 rounded-2xl border-2 transition-all cursor-pointer ${paymentMethod === 'venmo' ? 'border-emerald-500 bg-emerald-50/30' : 'border-gray-100 hover:border-gray-200'}`}>
-                  <div className="flex items-center gap-6">
-                    <input 
-                      type="radio" 
-                      name="payment" 
-                      checked={paymentMethod === 'venmo'} 
-                      onChange={() => setPaymentMethod('venmo')} 
-                      className="w-5 h-5 text-emerald-600 flex-shrink-0 cursor-pointer" 
-                    />
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-xl flex items-center justify-center overflow-hidden flex-shrink-0 shadow-sm">
-                        <img src="https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971791/venmo_ou9gtd.png" alt="Venmo" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
-                      </div>
-                      <span className="font-bold text-gray-900">Venmo</span>
-                    </div>
-                  </div>
-                </label>
-
-                {/* Crypto */}
-                <label className={`flex items-center justify-between p-5 rounded-2xl border-2 transition-all cursor-pointer ${paymentMethod === 'crypto' ? 'border-emerald-500 bg-emerald-50/30' : 'border-gray-100 hover:border-gray-200'}`}>
-                  <div className="flex items-center gap-6">
-                    <input 
-                      type="radio" 
-                      name="payment" 
-                      checked={paymentMethod === 'crypto'} 
-                      onChange={() => setPaymentMethod('crypto')} 
-                      className="w-5 h-5 text-emerald-600 flex-shrink-0 cursor-pointer" 
-                    />
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-[#f7931a] rounded-xl flex items-center justify-center overflow-hidden flex-shrink-0 shadow-sm p-2.5">
-                        <img src="https://cdn.worldvectorlogo.com/logos/bitcoin-1.svg" alt="Crypto" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
-                      </div>
-                      <div>
-                        <span className="font-bold text-gray-900">Cryptocurrency</span>
-                        <span className="ml-2 px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded uppercase tracking-wider">5% OFF</span>
-                      </div>
-                    </div>
-                  </div>
-                </label>
-
                 {/* Credit Card */}
                 <label className={`flex items-center justify-between p-5 rounded-2xl border-2 transition-all cursor-pointer ${paymentMethod === 'card' ? 'border-emerald-500 bg-emerald-50/30' : 'border-gray-100 hover:border-gray-200'}`}>
                   <div className="flex items-center gap-6">
@@ -4867,18 +4835,55 @@ const CheckoutView = ({ cart, onBack, onComplete, initialOrder, userProfile, app
                       className="w-5 h-5 text-emerald-600 flex-shrink-0 cursor-pointer" 
                     />
                     <div className="flex items-center gap-4">
-                      <div className="flex gap-1">
-                        <div className="w-10 h-10 bg-gray-50 rounded-lg flex items-center justify-center p-1.5 border border-gray-100">
-                          <img src="https://cdn.worldvectorlogo.com/logos/visa.svg" alt="Visa" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
-                        </div>
-                        <div className="w-10 h-10 bg-gray-50 rounded-lg flex items-center justify-center p-1.5 border border-gray-100">
-                          <img src="https://cdn.worldvectorlogo.com/logos/mastercard-6.svg" alt="Mastercard" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
-                        </div>
+                      <div className="w-24 h-16 bg-gray-50 rounded-xl flex items-center justify-center p-1 border border-gray-100 flex-shrink-0 shadow-sm">
+                        <img src="https://res.cloudinary.com/ditxwmhnj/image/upload/v1775706494/6963703_k4yzd8.png" alt="Credit Card" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
                       </div>
                       <span className="font-bold text-gray-900">Credit Card</span>
                     </div>
                   </div>
                 </label>
+
+                {/* Coming Soon: Zelle */}
+                <div className="p-5 rounded-2xl border border-dashed border-gray-200 opacity-50 flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-4 h-4 rounded-full border border-gray-300" />
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center p-2">
+                        <img src="https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971792/zelle_w6wa7a.png" alt="Zelle" className="w-full h-full object-contain grayscale" referrerPolicy="no-referrer" />
+                      </div>
+                      <span className="font-bold text-gray-400">Zelle</span>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Coming Soon</span>
+                </div>
+
+                {/* Coming Soon: Venmo */}
+                <div className="p-5 rounded-2xl border border-dashed border-gray-200 opacity-50 flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-4 h-4 rounded-full border border-gray-300" />
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center p-2">
+                        <img src="https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971791/venmo_ou9gtd.png" alt="Venmo" className="w-full h-full object-contain grayscale" referrerPolicy="no-referrer" />
+                      </div>
+                      <span className="font-bold text-gray-400">Venmo</span>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Coming Soon</span>
+                </div>
+
+                {/* Coming Soon: Crypto */}
+                <div className="p-5 rounded-2xl border border-dashed border-gray-200 opacity-50 flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-4 h-4 rounded-full border border-gray-300" />
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center p-2">
+                        <img src="https://cdn.worldvectorlogo.com/logos/bitcoin-1.svg" alt="Crypto" className="w-full h-full object-contain grayscale" referrerPolicy="no-referrer" />
+                      </div>
+                      <span className="font-bold text-gray-400">Cryptocurrency</span>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Coming Soon</span>
+                </div>
 
                 {/* Coming Soon: Apple Pay */}
                 <div className="p-5 rounded-2xl border border-dashed border-gray-200 opacity-50 flex items-center justify-between">
@@ -4912,11 +4917,9 @@ const CheckoutView = ({ cart, onBack, onComplete, initialOrder, userProfile, app
                   <div className="flex items-start gap-3">
                     <Info className="w-5 h-5 text-gray-400 mt-0.5" />
                     <p className="text-sm text-gray-600 leading-relaxed">
-                      {paymentMethod === 'crypto' 
-                        ? "You've selected Cryptocurrency. A 5% discount has been applied to your research materials. Instructions for payment will be sent to your email after order confirmation."
-                        : paymentMethod === 'card'
-                          ? "You've selected Credit Card. You will be redirected to our secure payment processor to complete your transaction."
-                          : `You've selected ${paymentMethod.charAt(0).toUpperCase() + paymentMethod.slice(1)}. Payment instructions will be provided on the next screen and sent to your email.`}
+                      {paymentMethod === 'card' 
+                        ? "You've selected Credit Card. You will be redirected to our secure payment processor to complete your transaction."
+                        : `You've selected ${paymentMethod.charAt(0).toUpperCase() + paymentMethod.slice(1)}. Payment instructions will be provided on the next screen and sent to your email.`}
                     </p>
                   </div>
                 </div>

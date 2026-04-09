@@ -30,6 +30,7 @@ export const createBankfulSession = onRequest(
         customerEmail: customerEmail || "",
         customerName: `${shippingInfo?.firstName || ""} ${shippingInfo?.lastName || ""}`.trim(),
         amount: Number(total),
+        totalAmount: Number(total),
         status: "pending",
         shippingInfo: {
           address: shippingInfo?.address || "",
@@ -38,8 +39,10 @@ export const createBankfulSession = onRequest(
           zip: shippingInfo?.zip || "",
           phone: shippingInfo?.phone || ""
         },
+        shippingAddress: `${shippingInfo?.address || ""}, ${shippingInfo?.city || ""}, ${shippingInfo?.state || ""} ${shippingInfo?.zip || ""}`,
         items: cart || [],
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
         updatedAt: admin.firestore.FieldValue.serverTimestamp()
       });
 
@@ -130,7 +133,19 @@ export const bankfulWebhook = onRequest(
     console.log("Bankful Webhook Received:", JSON.stringify(req.body, null, 2));
 
     try {
-      const { xtl_order_id, response_code, response_text } = req.body;
+      const { 
+        xtl_order_id, 
+        response_code, 
+        response_text,
+        cust_fname,
+        cust_lname,
+        cust_email,
+        bill_addr,
+        bill_addr_city,
+        bill_addr_state,
+        bill_addr_zip,
+        amount
+      } = req.body;
 
       if (!xtl_order_id) {
         res.status(400).send("Missing xtl_order_id");
@@ -139,15 +154,31 @@ export const bankfulWebhook = onRequest(
 
       // response_code "100" usually means approved in Bankful
       const isApproved = response_code === "100" || response_text?.toLowerCase().includes("approved");
-      const status = isApproved ? "approved" : "failed";
+      
+      if (isApproved) {
+        // Save/Update order with requested fields and 'paid' status
+        await db.collection("orders").doc(xtl_order_id).set({
+          orderId: xtl_order_id,
+          customerName: `${cust_fname || ""} ${cust_lname || ""}`.trim(),
+          customerEmail: cust_email || "",
+          shippingAddress: `${bill_addr || ""}, ${bill_addr_city || ""}, ${bill_addr_state || ""} ${bill_addr_zip || ""}`,
+          totalAmount: Number(amount) || 0,
+          status: "paid",
+          timestamp: admin.firestore.FieldValue.serverTimestamp(),
+          bankfulResponse: req.body,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        
+        console.log(`Order ${xtl_order_id} updated to paid`);
+      } else {
+        await db.collection("orders").doc(xtl_order_id).update({
+          status: "failed",
+          bankfulResponse: req.body,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+        console.log(`Order ${xtl_order_id} updated to failed`);
+      }
 
-      await db.collection("orders").doc(xtl_order_id).update({
-        status,
-        bankfulResponse: req.body,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp()
-      });
-
-      console.log(`Order ${xtl_order_id} updated to ${status}`);
       res.status(200).send("OK");
     } catch (error: any) {
       console.error("Webhook Error:", error);
