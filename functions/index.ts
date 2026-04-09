@@ -186,3 +186,39 @@ export const bankfulWebhook = onRequest(
     }
   }
 );
+
+/**
+ * saveOrder function
+ * Receives order data from client-side success page and saves to Firestore
+ */
+export const saveOrder = onRequest(
+  { cors: true, invoker: "public" },
+  async (req, res) => {
+    console.log("saveOrder called with:", JSON.stringify(req.body, null, 2));
+    try {
+      const { orderId, transactionId, total, status, requestAction, transStatusName } = req.body;
+
+      if (!orderId) {
+        res.status(400).json({ error: "Missing orderId" });
+        return;
+      }
+
+      // Save/Update order with requested fields
+      await db.collection("orders").doc(orderId).set({
+        orderId,
+        transactionId: transactionId || "",
+        totalAmount: Number(total) || 0,
+        status: status || "paid",
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        requestAction: requestAction || "",
+        transStatusName: transStatusName || "",
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+
+      res.status(200).json({ success: true, orderId });
+    } catch (error: any) {
+      console.error("Error in saveOrder:", error);
+      res.status(500).json({ error: "Internal Server Error", message: error.message });
+    }
+  }
+);

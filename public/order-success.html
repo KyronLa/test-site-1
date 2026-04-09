@@ -309,6 +309,32 @@
   var params = new URLSearchParams(window.location.search);
   var orderId = params.get('xtl_order_id') || params.get('TRANS_REQUEST_ID');
   var orderValue = params.get('TRANS_VALUE');
+  
+  // Extract all requested parameters
+  var requestAction = params.get('REQUEST_ACTION');
+  var transStatusName = params.get('TRANS_STATUS_NAME');
+  var transRequestId = params.get('TRANS_REQUEST_ID');
+  
+  // Call saveOrder function
+  if (orderId) {
+    fetch('https://us-central1-gen-lang-client-0437247227.cloudfunctions.net/saveOrder', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        orderId: orderId,
+        transactionId: transRequestId,
+        total: orderValue,
+        status: 'paid',
+        requestAction: requestAction,
+        transStatusName: transStatusName
+      })
+    }).then(response => response.json())
+      .then(data => console.log('Order saved:', data))
+      .catch(error => console.error('Error saving order:', error));
+  }
+
   var goaffproOrder = {
     number: orderId,
     total: parseFloat(orderValue),
