@@ -27,22 +27,13 @@ export const createBankfulSession = onRequest(
       // 1. Save pending order to Firestore
       await db.collection("orders").doc(orderId).set({
         orderId,
-        customerEmail: customerEmail || "",
         customerName: `${shippingInfo?.firstName || ""} ${shippingInfo?.lastName || ""}`.trim(),
-        amount: Number(total),
-        totalAmount: Number(total),
-        status: "pending",
-        shippingInfo: {
-          address: shippingInfo?.address || "",
-          city: shippingInfo?.city || "",
-          state: shippingInfo?.state || "",
-          zip: shippingInfo?.zip || "",
-          phone: shippingInfo?.phone || ""
-        },
+        customerEmail: customerEmail || "",
         shippingAddress: `${shippingInfo?.address || ""}, ${shippingInfo?.city || ""}, ${shippingInfo?.state || ""} ${shippingInfo?.zip || ""}`,
         items: cart || [],
+        total: Number(total),
+        status: "pending",
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        timestamp: admin.firestore.FieldValue.serverTimestamp(),
         updatedAt: admin.firestore.FieldValue.serverTimestamp()
       });
 
@@ -64,7 +55,7 @@ export const createBankfulSession = onRequest(
         xtl_order_id: orderId || "000001",
         cart_name: "Hosted-Page",
         url_cancel: "https://eclipseresearch.shop/checkout",
-        url_complete: "https://eclipseresearch.shop/order-success.html",
+        url_complete: "https://us-central1-gen-lang-client-0437247227.cloudfunctions.net/bankfulCallback",
         url_failed: "https://eclipseresearch.shop",
         url_callback: "https://us-central1-gen-lang-client-0437247227.cloudfunctions.net/bankfulWebhook",
         url_pending: "https://eclipseresearch.shop",
@@ -124,8 +115,36 @@ export const createBankfulSession = onRequest(
 );
 
 /**
+ * Bankful Redirect Callback Handler
+ * Updates order status to paid and redirects to success page
+ */
+export const bankfulCallback = onRequest(
+  { invoker: "public" },
+  async (req, res) => {
+    console.log("Bankful Callback Received:", JSON.stringify(req.body || req.query, null, 2));
+
+    try {
+      const orderId = req.body?.xtl_order_id || req.query?.xtl_order_id || req.body?.TRANS_REQUEST_ID || req.query?.TRANS_REQUEST_ID;
+
+      if (orderId) {
+        await db.collection("orders").doc(orderId as string).update({
+          status: "paid",
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+        console.log(`Order ${orderId} updated to paid via callback`);
+      }
+
+      res.redirect("https://eclipseresearch.shop/order-success.html");
+    } catch (error: any) {
+      console.error("Callback Error:", error);
+      // Even if update fails, redirect to success page so user isn't stuck
+      res.redirect("https://eclipseresearch.shop/order-success.html");
+    }
+  }
+);
+
+/**
  * Bankful Webhook Handler
- * Updates order status in Firestore when payment is approved
  */
 export const bankfulWebhook = onRequest(
   { invoker: "public" },
@@ -162,9 +181,9 @@ export const bankfulWebhook = onRequest(
           customerName: `${cust_fname || ""} ${cust_lname || ""}`.trim(),
           customerEmail: cust_email || "",
           shippingAddress: `${bill_addr || ""}, ${bill_addr_city || ""}, ${bill_addr_state || ""} ${bill_addr_zip || ""}`,
-          totalAmount: Number(amount) || 0,
+          total: Number(amount) || 0,
           status: "paid",
-          timestamp: admin.firestore.FieldValue.serverTimestamp(),
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
           bankfulResponse: req.body,
           updatedAt: admin.firestore.FieldValue.serverTimestamp()
         }, { merge: true });
@@ -207,9 +226,9 @@ export const saveOrder = onRequest(
       await db.collection("orders").doc(orderId).set({
         orderId,
         transactionId: transactionId || "",
-        totalAmount: Number(total) || 0,
+        total: Number(total) || 0,
         status: status || "paid",
-        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
         requestAction: requestAction || "",
         transStatusName: transStatusName || "",
         updatedAt: admin.firestore.FieldValue.serverTimestamp()

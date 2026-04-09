@@ -3073,11 +3073,11 @@ const AdminDashboard = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 text-sm font-bold text-gray-900">
-                        ${(o.totalAmount || o.amount || o.total || 0).toFixed(2)}
+                        ${(o.total || o.totalAmount || o.amount || 0).toFixed(2)}
                       </td>
                       <td className="px-6 py-4">
                         <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                          o.status === 'fulfilled' || o.status === 'paid' || o.status === 'approved' || o.status === 'completed' ? 'bg-emerald-100 text-emerald-700' : 
+                          o.status === 'fulfilled' || o.status === 'paid' || o.status === 'approved' || o.status === 'completed' || o.status === 'shipped' ? 'bg-emerald-100 text-emerald-700' : 
                           o.status === 'pending' ? 'bg-amber-100 text-amber-700' : 
                           o.status === 'cancelled' || o.status === 'failed' ? 'bg-red-100 text-red-700' :
                           'bg-blue-100 text-blue-700'
