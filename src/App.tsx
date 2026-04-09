@@ -63,6 +63,7 @@ import {
   deleteDoc,
   serverTimestamp, 
   getDocs,
+  orderBy,
   doc,
   getDoc,
   setDoc,
@@ -2589,7 +2590,7 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     const usersQuery = collection(db, 'users');
-    const ordersQuery = collection(db, 'orders');
+    const ordersQuery = query(collection(db, 'orders'), orderBy('createdAt', 'desc'));
     const coaQuery = collection(db, 'coa_requests');
     const affiliateQuery = collection(db, 'affiliate_applications');
     const productsQuery = collection(db, 'products');
@@ -3025,8 +3026,9 @@ const AdminDashboard = () => {
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
                   <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest w-10"></th>
-                  <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Order ID</th>
-                  <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Customer</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">ORDER ID</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Customer Name</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Email</th>
                   <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Shipping Address</th>
                   <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Total</th>
                   <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Status</th>
@@ -3034,11 +3036,7 @@ const AdminDashboard = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {orders.sort((a, b) => {
-                  const dateA = a.timestamp?.seconds || a.createdAt?.seconds || 0;
-                  const dateB = b.timestamp?.seconds || b.createdAt?.seconds || 0;
-                  return dateB - dateA;
-                }).map((o) => (
+                {orders.map((o) => (
                   <React.Fragment key={o.id}>
                     <tr 
                       className={`hover:bg-gray-50/50 transition-colors cursor-pointer ${expandedOrder === o.id ? 'bg-gray-50/80' : ''}`}
@@ -3048,39 +3046,28 @@ const AdminDashboard = () => {
                         {expandedOrder === o.id ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
                       </td>
                       <td className="px-6 py-4">
-                        <span className="font-mono text-xs font-bold text-emerald-600">{o.orderId || o.id}</span>
+                        <span className="font-mono text-xs font-bold text-emerald-600">{o.orderId}</span>
                         <p className="text-[9px] text-gray-400 mt-1">
-                          {o.timestamp?.toDate ? o.timestamp.toDate().toLocaleString() : o.createdAt?.toDate ? o.createdAt.toDate().toLocaleString() : 'N/A'}
+                          {o.createdAt?.toDate ? o.createdAt.toDate().toLocaleString() : 'N/A'}
                         </p>
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm">
-                          <p className="font-bold">{o.customerName || `${o.shippingInfo?.firstName} ${o.shippingInfo?.lastName}`}</p>
-                          <p className="text-gray-400 text-[10px]">{o.customerEmail || o.shippingInfo?.email}</p>
-                        </div>
+                      <td className="px-6 py-4 text-sm font-bold text-gray-900">
+                        {o.customerName}
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="text-[10px] text-gray-500 max-w-[200px] leading-relaxed">
-                          {o.shippingAddress ? (
-                            <p>{o.shippingAddress}</p>
-                          ) : (
-                            <>
-                              <p>{o.shippingInfo?.address}</p>
-                              <p>{o.shippingInfo?.city}, {o.shippingInfo?.state} {o.shippingInfo?.zip}</p>
-                            </>
-                          )}
-                          <p className="text-emerald-600 font-bold mt-1">{o.shippingInfo?.phone}</p>
-                        </div>
+                      <td className="px-6 py-4 text-sm text-gray-500">
+                        {o.customerEmail}
+                      </td>
+                      <td className="px-6 py-4 text-[10px] text-gray-500 max-w-[200px] leading-relaxed">
+                        {o.shippingAddress}
                       </td>
                       <td className="px-6 py-4 text-sm font-bold text-gray-900">
-                        ${(o.total || o.totalAmount || o.amount || 0).toFixed(2)}
+                        ${(o.total || 0).toFixed(2)}
                       </td>
                       <td className="px-6 py-4">
                         <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                          o.status === 'fulfilled' || o.status === 'paid' || o.status === 'approved' || o.status === 'completed' || o.status === 'shipped' ? 'bg-emerald-100 text-emerald-700' : 
+                          o.status === 'paid' || o.status === 'fulfilled' ? 'bg-emerald-100 text-emerald-700' : 
                           o.status === 'pending' ? 'bg-amber-100 text-amber-700' : 
-                          o.status === 'cancelled' || o.status === 'failed' ? 'bg-red-100 text-red-700' :
-                          'bg-blue-100 text-blue-700'
+                          'bg-red-100 text-red-700'
                         }`}>
                           {o.status}
                         </span>
@@ -3092,7 +3079,6 @@ const AdminDashboard = () => {
                           className="text-[10px] font-bold uppercase tracking-widest bg-gray-50 border border-gray-100 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                         >
                           <option value="pending">Pending</option>
-                          <option value="paid">Paid</option>
                           <option value="fulfilled">Fulfilled</option>
                           <option value="cancelled">Cancelled</option>
                         </select>

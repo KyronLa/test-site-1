@@ -26,15 +26,14 @@ export const createBankfulSession = onRequest(
 
       // 1. Save pending order to Firestore
       await db.collection("orders").doc(orderId).set({
-        orderId,
+        orderId: orderId,
         customerName: `${shippingInfo?.firstName || ""} ${shippingInfo?.lastName || ""}`.trim(),
         customerEmail: customerEmail || "",
         shippingAddress: `${shippingInfo?.address || ""}, ${shippingInfo?.city || ""}, ${shippingInfo?.state || ""} ${shippingInfo?.zip || ""}`,
         items: cart || [],
         total: Number(total),
         status: "pending",
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
       });
 
       // 2. Construct initial payload
@@ -152,50 +151,20 @@ export const bankfulWebhook = onRequest(
     console.log("Bankful Webhook Received:", JSON.stringify(req.body, null, 2));
 
     try {
-      const { 
-        xtl_order_id, 
-        response_code, 
-        response_text,
-        cust_fname,
-        cust_lname,
-        cust_email,
-        bill_addr,
-        bill_addr_city,
-        bill_addr_state,
-        bill_addr_zip,
-        amount
-      } = req.body;
+      const { xtl_order_id, response_code } = req.body;
 
       if (!xtl_order_id) {
         res.status(400).send("Missing xtl_order_id");
         return;
       }
 
-      // response_code "100" usually means approved in Bankful
-      const isApproved = response_code === "100" || response_text?.toLowerCase().includes("approved");
-      
-      if (isApproved) {
-        // Save/Update order with requested fields and 'paid' status
-        await db.collection("orders").doc(xtl_order_id).set({
-          orderId: xtl_order_id,
-          customerName: `${cust_fname || ""} ${cust_lname || ""}`.trim(),
-          customerEmail: cust_email || "",
-          shippingAddress: `${bill_addr || ""}, ${bill_addr_city || ""}, ${bill_addr_state || ""} ${bill_addr_zip || ""}`,
-          total: Number(amount) || 0,
-          status: "paid",
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-          bankfulResponse: req.body,
-          updatedAt: admin.firestore.FieldValue.serverTimestamp()
-        }, { merge: true });
-        
-        console.log(`Order ${xtl_order_id} updated to paid`);
-      } else {
+      // response_code "100" means approved in Bankful
+      if (response_code === "100") {
         await db.collection("orders").doc(xtl_order_id).update({
-          status: "failed",
-          bankfulResponse: req.body,
-          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+          status: "paid",
+          paidAt: admin.firestore.FieldValue.serverTimestamp()
         });
-        console.log(`Order ${xtl_order_id} updated to failed`);
+        console.log(`Order ${xtl_order_id} updated to paid via webhook`);
       }
 
       res.status(200).send("OK");
