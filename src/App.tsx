@@ -320,7 +320,7 @@ const Navbar = ({ cartCount, onOpenCart, onOpenAuth, onNavigate, currentView }: 
   }, []);
 
   return (
-    <nav className="w-full transition-all duration-200 relative overflow-hidden">
+    <nav className="w-full transition-all duration-200 relative">
       <motion.div
         initial={false}
         animate={{ 
@@ -330,12 +330,12 @@ const Navbar = ({ cartCount, onOpenCart, onOpenAuth, onNavigate, currentView }: 
         transition={{ duration: 0.2, ease: "easeOut" }}
         className="absolute inset-0 bg-white shadow-md -z-10"
       />
-      <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center transition-all duration-200 ${showSolidNav ? 'py-3' : 'py-5'}`}>
+      <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center transition-all duration-200 ${showSolidNav ? 'py-3' : 'py-5'} min-h-[70px] sm:min-h-[80px]`}>
         <button 
           onClick={() => onNavigate('home')}
-          className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+          className="flex items-center gap-2 hover:opacity-80 transition-opacity min-w-0 flex-shrink"
         >
-          <div className="relative h-10 sm:h-14 w-auto flex items-center justify-center">
+          <div className="relative h-10 sm:h-14 w-auto flex-shrink-0 flex items-center justify-center">
             <motion.img 
               key={showSolidNav ? 'black' : 'white'}
               initial={{ scale: 0.8, opacity: 0, rotate: -10 }}
@@ -360,12 +360,12 @@ const Navbar = ({ cartCount, onOpenCart, onOpenAuth, onNavigate, currentView }: 
           )}
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-1 sm:gap-4 flex-none">
           <button 
             onClick={onOpenCart}
-            className={`${showSolidNav ? 'text-black' : 'text-white'} relative p-2 hover:bg-black/5 rounded-full`}
+            className={`${showSolidNav ? 'text-black' : 'text-white'} relative p-2 hover:bg-black/5 rounded-full flex-shrink-0`}
           >
-            <ShoppingCart className="w-5 h-5" />
+            <ShoppingCart className="w-6 h-6" />
             {cartCount > 0 && (
               <span className="absolute top-0 right-0 bg-emerald-500 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
                 {cartCount}
@@ -374,24 +374,32 @@ const Navbar = ({ cartCount, onOpenCart, onOpenAuth, onNavigate, currentView }: 
           </button>
 
           {user ? (
-            <div className="flex items-center gap-3">
-              <button onClick={() => onNavigate('account')} className="flex items-center gap-2">
-                <img src={user.photoURL || `https://ui-avatars.com/api/?name=${user.displayName || user.email}&background=random`} alt="" className="w-8 h-8 rounded-full border border-gray-200" />
+            <div className="flex items-center gap-2 flex-none">
+              <button 
+                onClick={() => onNavigate('account')} 
+                className="w-10 h-10 min-w-[40px] min-h-[40px] rounded-full overflow-hidden border border-gray-200 p-0 flex-none bg-gray-100"
+              >
+                <img 
+                  src={user.photoURL || `https://ui-avatars.com/api/?name=${user.displayName || user.email}&background=random`} 
+                  alt="" 
+                  className="w-full h-full object-cover block rounded-full"
+                  style={{ width: '40px', height: '40px', minWidth: '40px', minHeight: '40px', borderRadius: '50%' }}
+                />
               </button>
-              <button onClick={logout} className={`${showSolidNav ? 'text-black' : 'text-white'} hover:opacity-70`}>
-                <LogOut className="w-5 h-5" />
+              <button onClick={logout} className={`${showSolidNav ? 'text-black' : 'text-white'} hover:opacity-70 p-2 flex-none`}>
+                <LogOut className="w-6 h-6" />
               </button>
             </div>
           ) : (
             <button 
               onClick={onOpenAuth}
-              className={`${showSolidNav ? 'text-black' : 'text-white'} p-2 hover:bg-black/5 rounded-full`}
+              className={`${showSolidNav ? 'text-black' : 'text-white'} p-2 hover:bg-black/5 rounded-full flex-shrink-0`}
             >
-              <UserIcon className="w-5 h-5" />
+              <UserIcon className="w-6 h-6" />
             </button>
           )}
 
-          <button className="md:hidden" onClick={() => setIsMobileMenuOpen(true)}>
+          <button className="md:hidden p-2 flex-shrink-0" onClick={() => setIsMobileMenuOpen(true)}>
             <Menu className={`w-6 h-6 ${showSolidNav ? 'text-black' : 'text-white'}`} />
           </button>
         </div>
@@ -591,7 +599,7 @@ const CartDrawer = ({
 
             {items.length > 0 && !isRecommendedInCart && (
               <div className="p-4 bg-gray-50 border-t border-gray-100">
-                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-2">Recommended for your research</p>
+                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-2">Required for reconstitution</p>
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-white rounded-lg overflow-hidden border border-gray-100 flex-shrink-0">
                     <img src={recommendedProduct.image} alt="" className="w-full h-full object-cover" />
