@@ -360,6 +360,23 @@
     if (typeof goaffproTrackConversion === 'function') {
       goaffproTrackConversion(goaffproOrder);
     }
+
+    // Update order status to paid
+    if (orderId) {
+      fetch('https://us-central1-gen-lang-client-0437247227.cloudfunctions.net/updateOrderStatus', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          orderId: orderId,
+          status: 'paid'
+        })
+      })
+      .then(response => response.json())
+      .then(data => console.log('Order status updated:', data))
+      .catch(error => console.error('Error updating order status:', error));
+    }
   };
   </script>
 </body>

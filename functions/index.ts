@@ -210,3 +210,32 @@ export const saveOrder = onRequest(
     }
   }
 );
+
+/**
+ * updateOrderStatus function
+ * Updates the status of an existing order
+ */
+export const updateOrderStatus = onRequest(
+  { cors: true, invoker: "public" },
+  async (req, res) => {
+    console.log("updateOrderStatus called with:", JSON.stringify(req.body, null, 2));
+    try {
+      const { orderId, status } = req.body;
+
+      if (!orderId || !status) {
+        res.status(400).json({ error: "Missing orderId or status" });
+        return;
+      }
+
+      await db.collection("orders").doc(orderId).update({
+        status: status,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+
+      res.status(200).json({ success: true, orderId, status });
+    } catch (error: any) {
+      console.error("Error in updateOrderStatus:", error);
+      res.status(500).json({ error: "Internal Server Error", message: error.message });
+    }
+  }
+);

@@ -4504,6 +4504,7 @@ const CheckoutView = ({
   const [promoCode, setPromoCode] = useState('');
   const [promoError, setPromoError] = useState('');
   const [isApplying, setIsApplying] = useState(false);
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
 
   const handleApplyPromo = async () => {
     if (!promoCode.trim()) return;
@@ -4583,6 +4584,9 @@ const CheckoutView = ({
   const total = totalAfterPromo - cryptoDiscount;
 
   const handlePlaceOrder = async () => {
+    if (isPlacingOrder) return;
+    setIsPlacingOrder(true);
+
     // Generate a readable Order ID: VR-YYYYMMDD-RANDOM
     const date = new Date();
     const dateStr = date.toISOString().split('T')[0].replace(/-/g, '');
@@ -4617,6 +4621,7 @@ const CheckoutView = ({
           throw new Error('Failed to get redirect URL');
         }
       } catch (error: any) {
+        setIsPlacingOrder(false);
         console.error('Bankful Error:', error);
         const errorMessage = error.message || 'There was an error initializing the payment. Please try again.';
         alert(`Bankful Error: ${errorMessage}`);
@@ -5116,11 +5121,18 @@ const CheckoutView = ({
               </div>
               
               <button 
-                disabled={step < 3 || !acknowledgements.age || !acknowledgements.research || !acknowledgements.terms}
+                disabled={step < 3 || !acknowledgements.age || !acknowledgements.research || !acknowledgements.terms || isPlacingOrder}
                 onClick={handlePlaceOrder}
                 className="w-full py-5 bg-black text-white font-bold rounded-2xl hover:bg-emerald-600 disabled:opacity-30 disabled:hover:bg-black transition-all shadow-xl shadow-black/10 flex items-center justify-center gap-3 mt-8 group"
               >
-                {initialOrder ? 'Complete Order' : (paymentMethod === 'card' ? 'Pay with Credit Card' : 'Complete Purchase')} <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                {isPlacingOrder ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <>
+                    {initialOrder ? 'Complete Order' : (paymentMethod === 'card' ? 'Pay with Credit Card' : 'Complete Purchase')} 
+                    <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                  </>
+                )}
               </button>
               
               <p className="text-[10px] text-gray-400 text-center mt-6 leading-relaxed">
