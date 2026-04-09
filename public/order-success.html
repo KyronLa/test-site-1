@@ -306,41 +306,61 @@
 
   <script src="https://api.goaffpro.com/loader.js?shop=oygbbfkclc"></script>
   <script>
-  var params = new URLSearchParams(window.location.search);
-  var orderId = params.get('xtl_order_id') || params.get('TRANS_REQUEST_ID');
-  var orderValue = params.get('TRANS_VALUE');
-  
-  // Extract all requested parameters
-  var requestAction = params.get('REQUEST_ACTION');
-  var transStatusName = params.get('TRANS_STATUS_NAME');
-  var transRequestId = params.get('TRANS_REQUEST_ID');
-  
-  // Call saveOrder function
-  if (orderId) {
-    fetch('https://us-central1-gen-lang-client-0437247227.cloudfunctions.net/saveOrder', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        orderId: orderId,
-        transactionId: transRequestId,
-        total: orderValue,
-        status: 'paid',
-        requestAction: requestAction,
-        transStatusName: transStatusName
-      })
-    }).then(response => response.json())
-      .then(data => console.log('Order saved:', data))
-      .catch(error => console.error('Error saving order:', error));
-  }
+  window.onload = function() {
+    var params = new URLSearchParams(window.location.search);
+    var orderId = params.get('xtl_order_id') || params.get('TRANS_REQUEST_ID');
+    var orderValue = params.get('TRANS_VALUE');
+    
+    // Extract all requested parameters
+    var requestAction = params.get('REQUEST_ACTION');
+    var transStatusName = params.get('TRANS_STATUS_NAME');
+    var transRequestId = params.get('TRANS_REQUEST_ID');
+    
+    console.log('Attempting to save order:', orderId, orderValue);
 
-  var goaffproOrder = {
-    number: orderId,
-    total: parseFloat(orderValue),
-    forceSDK: true
+    // Call saveOrder function
+    if (orderId) {
+      fetch('https://us-central1-gen-lang-client-0437247227.cloudfunctions.net/saveOrder', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          orderId: orderId,
+          transactionId: transRequestId,
+          total: orderValue,
+          status: 'paid',
+          requestAction: requestAction,
+          transStatusName: transStatusName
+        })
+      })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Network response was not ok: ' + response.statusText);
+        }
+        return response.json();
+      })
+      .then(data => {
+        console.log('Order saved successfully:', data);
+      })
+      .catch(error => {
+        console.error('Critical error saving order to database:', error);
+        // Log more details for debugging
+        console.log('Failed payload details:', { orderId, transRequestId, orderValue });
+      });
+    } else {
+      console.warn('No order ID found in URL parameters. Skipping database save.');
+    }
+
+    var goaffproOrder = {
+      number: orderId,
+      total: parseFloat(orderValue),
+      forceSDK: true
+    };
+    if (typeof goaffproTrackConversion === 'function') {
+      goaffproTrackConversion(goaffproOrder);
+    }
   };
-  goaffproTrackConversion(goaffproOrder);
   </script>
 </body>
 </html>
