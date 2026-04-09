@@ -4461,7 +4461,31 @@ const COARequestView = () => {
   );
 };
 
-const CheckoutView = ({ cart, onBack, onComplete, initialOrder, userProfile, appliedPromo, onApplyPromo }: { cart: CartItem[], onBack: () => void, onComplete: (info: any) => void, initialOrder?: any, userProfile?: any, appliedPromo: { code: string, discount: number } | null, onApplyPromo: (promo: { code: string, discount: number } | null) => void }) => {
+const CheckoutView = ({ 
+  cart, 
+  onBack, 
+  onComplete, 
+  initialOrder, 
+  userProfile, 
+  appliedPromo, 
+  onApplyPromo,
+  onUpdateQuantity,
+  onRemoveFromCart,
+  onAddToCart,
+  products
+}: { 
+  cart: CartItem[], 
+  onBack: () => void, 
+  onComplete: (info: any) => void, 
+  initialOrder?: any, 
+  userProfile?: any, 
+  appliedPromo: { code: string, discount: number } | null, 
+  onApplyPromo: (promo: { code: string, discount: number } | null) => void,
+  onUpdateQuantity: (id: string, delta: number) => void,
+  onRemoveFromCart: (id: string) => void,
+  onAddToCart: (product: Product, quantity?: number) => void,
+  products: Product[]
+}) => {
   const { isFreeShippingEnabled } = useAuth();
   const [step, setStep] = useState(1);
   const [shippingInfo, setShippingInfo] = useState(() => {
@@ -4971,12 +4995,62 @@ const CheckoutView = ({ cart, onBack, onComplete, initialOrder, userProfile, app
                   </div>
                   <div className="flex-1">
                     <h3 className="font-bold text-sm text-gray-900 mb-1">{item.name}</h3>
-                    <p className="text-xs text-gray-500 mb-2">Qty: {item.quantity}</p>
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="flex items-center bg-gray-50 rounded-lg border border-gray-100">
+                        <button 
+                          onClick={() => onUpdateQuantity(item.id, -1)}
+                          className="p-1 hover:text-emerald-600 transition-colors"
+                        >
+                          <Minus className="w-3 h-3" />
+                        </button>
+                        <span className="text-xs font-bold w-6 text-center">{item.quantity}</span>
+                        <button 
+                          onClick={() => onUpdateQuantity(item.id, 1)}
+                          className="p-1 hover:text-emerald-600 transition-colors"
+                        >
+                          <Plus className="w-3 h-3" />
+                        </button>
+                      </div>
+                      <button 
+                        onClick={() => onRemoveFromCart(item.id)}
+                        className="text-[10px] font-bold text-red-400 hover:text-red-600 uppercase tracking-widest"
+                      >
+                        Remove
+                      </button>
+                    </div>
                     <p className="text-emerald-600 font-bold">${(item.price * item.quantity).toFixed(2)}</p>
                   </div>
                 </div>
               ))}
             </div>
+
+            {/* Bacteriostatic Water Recommendation */}
+            {!cart.some(item => item.name.toLowerCase().includes('bacteriostatic water')) && (
+              <div className="mb-8 p-4 bg-emerald-50 rounded-2xl border border-emerald-100">
+                <div className="flex gap-4">
+                  <div className="w-16 h-16 bg-white rounded-xl overflow-hidden flex-shrink-0 border border-emerald-100">
+                    <img 
+                      src={products.find(p => p.name.toLowerCase().includes('bacteriostatic water'))?.image || "https://picsum.photos/seed/water/200/200"} 
+                      alt="Bacteriostatic Water" 
+                      className="w-full h-full object-cover" 
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest mb-1">Recommended</p>
+                    <h4 className="text-xs font-bold text-gray-900 mb-2">Bacteriostatic Water (10ml)</h4>
+                    <button 
+                      onClick={() => {
+                        const bacProduct = products.find(p => p.name.toLowerCase().includes('bacteriostatic water'));
+                        if (bacProduct) onAddToCart(bacProduct, 1);
+                      }}
+                      className="mt-2 px-4 py-2 bg-emerald-600 text-white text-[10px] font-bold uppercase tracking-widest rounded-full hover:bg-emerald-700 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-sm shadow-emerald-500/20 flex items-center gap-2 group"
+                    >
+                      <Plus className="w-3 h-3 group-hover:scale-110 transition-transform" /> Add to Order — $15.00
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="space-y-4 pt-8 border-t border-gray-100">
               <div className="flex justify-between text-gray-500">
@@ -5729,7 +5803,9 @@ const AppContent = () => {
   const updateQuantity = (id: string, delta: number) => {
     setCart(prev => prev.map(item => {
       if (item.id === id) {
-        const newQty = Math.max(1, item.quantity + delta);
+        const newQty = item.quantity + delta;
+        if (newQty <= 0) return null;
+        
         // Recalculate price based on new quantity
         const baseProduct = productsList.find(p => p.id === id);
         let unitPrice = baseProduct ? baseProduct.price : item.price;
@@ -5739,7 +5815,7 @@ const AppContent = () => {
         return { ...item, quantity: newQty, price: unitPrice };
       }
       return item;
-    }));
+    }).filter((item): item is CartItem => item !== null));
   };
 
   const removeFromCart = (id: string) => {
@@ -5952,6 +6028,10 @@ const AppContent = () => {
                 userProfile={userProfile}
                 appliedPromo={appliedPromo}
                 onApplyPromo={setAppliedPromo}
+                onUpdateQuantity={updateQuantity}
+                onRemoveFromCart={removeFromCart}
+                onAddToCart={addToCart}
+                products={productsList}
                 onBack={() => {
                   if (editingOrder) {
                     setEditingOrder(null);
