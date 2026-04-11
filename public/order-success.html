@@ -7,264 +7,44 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
-  <script type="text/javascript" src="https://api.goaffpro.com/loader.js?shop=oygbbfkclc"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    :root {
-      --bg:         #07090a;
-      --surface:    #0c0f11;
-      --border:     #181e22;
-      --accent:     #a8c4b8;
-      --accent-dim: #5a8070;
-      --text:       #dde4e0;
-      --muted:      #4e5c56;
-      --mono:       'DM Mono', monospace;
-      --display:    'Syne', sans-serif;
-    }
-
-    html, body {
-      height: 100%;
-      background: var(--bg);
-      color: var(--text);
-      font-family: var(--display);
-      overflow-x: hidden;
-    }
-
-    body::before {
-      content: '';
-      position: fixed;
-      inset: 0;
-      background-image:
-        radial-gradient(ellipse 70% 50% at 50% -5%, rgba(168,196,184,0.05) 0%, transparent 70%),
-        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60'%3E%3Cpath d='M60 0v60M0 60h60' stroke='%23181e22' stroke-width='.35' opacity='.5'/%3E%3C/svg%3E");
-      pointer-events: none;
-      z-index: 0;
-    }
-
-    .page {
-      position: relative;
-      z-index: 1;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 80px 24px 48px;
-    }
-
-    .logo-bar {
-      position: fixed;
-      top: 0; left: 0; right: 0;
-      padding: 16px 36px;
-      display: flex;
-      align-items: center;
-      border-bottom: 1px solid var(--border);
-      background: rgba(7,9,10,0.88);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
-      z-index: 10;
-    }
-
-    .logo-bar img {
-      height: 30px;
-      width: auto;
-      filter: brightness(0) invert(1);
-      opacity: 0.88;
-    }
-
-    .card {
-      width: 100%;
-      max-width: 480px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 3px;
-      padding: 52px 44px 44px;
-      position: relative;
-      overflow: hidden;
-      animation: cardIn 0.65s cubic-bezier(0.16,1,0.3,1) both;
-    }
-
-    .card::before {
-      content: '';
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      height: 1px;
-      background: linear-gradient(90deg, transparent, var(--accent), transparent);
-      opacity: 0.4;
-    }
-
-    @keyframes cardIn {
-      from { opacity: 0; transform: translateY(22px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-
-    .check-wrap {
-      display: flex;
-      justify-content: center;
-      margin-bottom: 32px;
-    }
-
-    .check-ring {
-      width: 62px; height: 62px;
-      border-radius: 50%;
-      border: 1px solid var(--border);
-      display: flex; align-items: center; justify-content: center;
-      background: rgba(168,196,184,0.03);
-    }
-
-    .check-svg {
-      width: 22px; height: 22px;
-      stroke: var(--accent);
-      stroke-width: 2;
-      fill: none;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-    }
-
-    .check-path {
-      stroke-dasharray: 34;
-      stroke-dashoffset: 34;
-      animation: drawCheck 0.5s 0.45s cubic-bezier(0.16,1,0.3,1) forwards;
-    }
-
+    :root { --bg: #07090a; --surface: #0c0f11; --border: #181e22; --accent: #a8c4b8; --accent-dim: #5a8070; --text: #dde4e0; --muted: #4e5c56; --mono: 'DM Mono', monospace; --display: 'Syne', sans-serif; }
+    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--display); overflow-x: hidden; }
+    body::before { content: ''; position: fixed; inset: 0; background-image: radial-gradient(ellipse 70% 50% at 50% -5%, rgba(168,196,184,0.05) 0%, transparent 70%); pointer-events: none; z-index: 0; }
+    .page { position: relative; z-index: 1; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 24px 48px; }
+    .logo-bar { position: fixed; top: 0; left: 0; right: 0; padding: 16px 36px; display: flex; align-items: center; border-bottom: 1px solid var(--border); background: rgba(7,9,10,0.88); backdrop-filter: blur(14px); z-index: 10; }
+    .logo-bar img { height: 30px; width: auto; filter: brightness(0) invert(1); opacity: 0.88; }
+    .card { width: 100%; max-width: 480px; background: var(--surface); border: 1px solid var(--border); border-radius: 3px; padding: 52px 44px 44px; position: relative; overflow: hidden; animation: cardIn 0.65s cubic-bezier(0.16,1,0.3,1) both; }
+    .card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, transparent, var(--accent), transparent); opacity: 0.4; }
+    @keyframes cardIn { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: translateY(0); } }
+    .check-wrap { display: flex; justify-content: center; margin-bottom: 32px; }
+    .check-ring { width: 62px; height: 62px; border-radius: 50%; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; background: rgba(168,196,184,0.03); }
+    .check-svg { width: 22px; height: 22px; stroke: var(--accent); stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .check-path { stroke-dasharray: 34; stroke-dashoffset: 34; animation: drawCheck 0.5s 0.45s cubic-bezier(0.16,1,0.3,1) forwards; }
     @keyframes drawCheck { to { stroke-dashoffset: 0; } }
-
-    .eyebrow {
-      font-family: var(--mono);
-      font-size: 10px;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: var(--accent-dim);
-      text-align: center;
-      margin-bottom: 10px;
-      opacity: 0;
-      animation: fadeUp 0.45s 0.5s ease forwards;
-    }
-
-    .headline {
-      font-size: clamp(26px, 5vw, 33px);
-      font-weight: 800;
-      line-height: 1.1;
-      letter-spacing: -0.025em;
-      text-align: center;
-      color: var(--text);
-      margin-bottom: 14px;
-      opacity: 0;
-      animation: fadeUp 0.45s 0.58s ease forwards;
-    }
-
-    .subline {
-      font-family: var(--mono);
-      font-size: 12px;
-      font-weight: 300;
-      color: var(--muted);
-      text-align: center;
-      line-height: 1.75;
-      margin-bottom: 36px;
-      opacity: 0;
-      animation: fadeUp 0.45s 0.65s ease forwards;
-    }
-
-    @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(8px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-
-    .divider {
-      width: 100%;
-      height: 1px;
-      background: var(--border);
-      margin-bottom: 28px;
-      opacity: 0;
-      animation: fadeUp 0.45s 0.72s ease forwards;
-    }
-
-    .details {
-      display: flex;
-      flex-direction: column;
-      gap: 13px;
-      margin-bottom: 36px;
-      opacity: 0;
-      animation: fadeUp 0.45s 0.78s ease forwards;
-    }
-
-    .detail-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .detail-label {
-      font-family: var(--mono);
-      font-size: 11px;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
-
-    .detail-value {
-      font-family: var(--mono);
-      font-size: 12px;
-      color: var(--text);
-      font-weight: 500;
-    }
-
+    .eyebrow { font-family: var(--mono); font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--accent-dim); text-align: center; margin-bottom: 10px; opacity: 0; animation: fadeUp 0.45s 0.5s ease forwards; }
+    .headline { font-size: clamp(26px, 5vw, 33px); font-weight: 800; line-height: 1.1; letter-spacing: -0.025em; text-align: center; color: var(--text); margin-bottom: 14px; opacity: 0; animation: fadeUp 0.45s 0.58s ease forwards; }
+    .subline { font-family: var(--mono); font-size: 12px; font-weight: 300; color: var(--muted); text-align: center; line-height: 1.75; margin-bottom: 36px; opacity: 0; animation: fadeUp 0.45s 0.65s ease forwards; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .divider { width: 100%; height: 1px; background: var(--border); margin-bottom: 28px; opacity: 0; animation: fadeUp 0.45s 0.72s ease forwards; }
+    .details { display: flex; flex-direction: column; gap: 13px; margin-bottom: 36px; opacity: 0; animation: fadeUp 0.45s 0.78s ease forwards; }
+    .detail-row { display: flex; justify-content: space-between; align-items: center; }
+    .detail-label { font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+    .detail-value { font-family: var(--mono); font-size: 12px; color: var(--text); font-weight: 500; }
     .detail-value.confirmed { color: var(--accent); }
-
-    .btn {
-      display: block;
-      width: 100%;
-      padding: 15px 24px;
-      background: transparent;
-      color: var(--text);
-      font-family: var(--display);
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      text-align: center;
-      text-decoration: none;
-      border: 1px solid var(--border);
-      border-radius: 2px;
-      cursor: pointer;
-      transition: border-color 0.2s, color 0.2s, background 0.2s;
-      opacity: 0;
-      animation: fadeUp 0.45s 0.86s ease forwards;
-    }
-
-    .btn:hover {
-      border-color: var(--accent-dim);
-      color: var(--accent);
-      background: rgba(168,196,184,0.04);
-    }
-
-    .footnote {
-      margin-top: 20px;
-      font-family: var(--mono);
-      font-size: 11px;
-      color: var(--muted);
-      text-align: center;
-      line-height: 1.65;
-      opacity: 0;
-      animation: fadeUp 0.45s 0.92s ease forwards;
-    }
-
-    @media (max-width: 520px) {
-      .card { padding: 40px 24px 32px; }
-      .logo-bar { padding: 14px 20px; }
-    }
+    .btn { display: block; width: 100%; padding: 15px 24px; background: transparent; color: var(--text); font-family: var(--display); font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; text-align: center; text-decoration: none; border: 1px solid var(--border); border-radius: 2px; cursor: pointer; transition: border-color 0.2s, color 0.2s, background 0.2s; opacity: 0; animation: fadeUp 0.45s 0.86s ease forwards; }
+    .btn:hover { border-color: var(--accent-dim); color: var(--accent); background: rgba(168,196,184,0.04); }
+    .footnote { margin-top: 20px; font-family: var(--mono); font-size: 11px; color: var(--muted); text-align: center; line-height: 1.65; opacity: 0; animation: fadeUp 0.45s 0.92s ease forwards; }
+    @media (max-width: 520px) { .card { padding: 40px 24px 32px; } .logo-bar { padding: 14px 20px; } }
   </style>
 </head>
 <body>
-
   <header class="logo-bar">
     <img src="https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969647/blacklogo_dbbepi.png" alt="Eclipse Research" />
   </header>
-
   <main class="page">
     <div class="card">
-
       <div class="check-wrap">
         <div class="check-ring">
           <svg class="check-svg" viewBox="0 0 24 24">
@@ -272,16 +52,10 @@
           </svg>
         </div>
       </div>
-
       <p class="eyebrow">Order Confirmed</p>
       <h1 class="headline">Your research<br>is on its way.</h1>
-      <p class="subline">
-        A confirmation has been sent to your email.<br>
-        Orders ship within 1–2 business days.
-      </p>
-
+      <p class="subline">A confirmation has been sent to your email.<br>Orders ship within 1–2 business days.</p>
       <div class="divider"></div>
-
       <div class="details">
         <div class="detail-row">
           <span class="detail-label">Status</span>
@@ -296,88 +70,38 @@
           <span class="detail-value">1–2 Business Days</span>
         </div>
       </div>
-
       <a href="/" class="btn">Continue Shopping</a>
-
       <p class="footnote">All compounds are sold for research purposes only.</p>
-
     </div>
   </main>
-
   <script src="https://api.goaffpro.com/loader.js?shop=oygbbfkclc"></script>
   <script>
-  window.onload = function() {
-    var params = new URLSearchParams(window.location.search);
-    var orderId = params.get('xtl_order_id') || params.get('TRANS_REQUEST_ID');
-    var orderValue = params.get('TRANS_VALUE');
-    
-    // Extract all requested parameters
-    var requestAction = params.get('REQUEST_ACTION');
-    var transStatusName = params.get('TRANS_STATUS_NAME');
-    var transRequestId = params.get('TRANS_REQUEST_ID');
-    
-    console.log('Attempting to save order:', orderId, orderValue);
+    window.addEventListener('load', function() {
+      var params = new URLSearchParams(window.location.search);
+      var orderId = params.get('XTL_ORDER_ID') || params.get('xtl_order_id');
+      var orderValue = params.get('TRANS_VALUE');
 
-    // Call saveOrder function
-    if (orderId) {
-      fetch('https://us-central1-gen-lang-client-0437247227.cloudfunctions.net/saveOrder', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          orderId: orderId,
-          transactionId: transRequestId,
-          total: orderValue,
-          status: 'paid',
-          requestAction: requestAction,
-          transStatusName: transStatusName
+      console.log('Order ID found:', orderId);
+      console.log('All params:', window.location.search);
+
+      if (orderId) {
+        fetch('https://us-central1-gen-lang-client-0437247227.cloudfunctions.net/updateOrderStatus', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderId: orderId, status: 'paid' })
         })
-      })
-      .then(response => {
-        if (!response.ok) {
-          throw new Error('Network response was not ok: ' + response.statusText);
+        .then(function(r) { return r.json(); })
+        .then(function(d) { console.log('Status updated:', d); })
+        .catch(function(e) { console.error('Update failed:', e); });
+
+        var goaffproOrder = { number: orderId, total: parseFloat(orderValue), forceSDK: true };
+        if (typeof goaffproTrackConversion === 'function') {
+          goaffproTrackConversion(goaffproOrder);
         }
-        return response.json();
-      })
-      .then(data => {
-        console.log('Order saved successfully:', data);
-      })
-      .catch(error => {
-        console.error('Critical error saving order to database:', error);
-        // Log more details for debugging
-        console.log('Failed payload details:', { orderId, transRequestId, orderValue });
-      });
-    } else {
-      console.warn('No order ID found in URL parameters. Skipping database save.');
-    }
-
-    var goaffproOrder = {
-      number: orderId,
-      total: parseFloat(orderValue),
-      forceSDK: true
-    };
-    if (typeof goaffproTrackConversion === 'function') {
-      goaffproTrackConversion(goaffproOrder);
-    }
-
-    // Update order status to paid
-    if (orderId) {
-      fetch('https://us-central1-gen-lang-client-0437247227.cloudfunctions.net/updateOrderStatus', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          orderId: orderId,
-          status: 'paid'
-        })
-      })
-      .then(response => response.json())
-      .then(data => console.log('Order status updated:', data))
-      .catch(error => console.error('Error updating order status:', error));
-    }
-  };
+      } else {
+        console.error('NO VR- ORDER ID FOUND IN URL');
+      }
+    });
   </script>
 </body>
 </html>

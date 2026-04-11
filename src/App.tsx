@@ -2078,9 +2078,13 @@ const AccountView = ({ onNavigate, onEditOrder }: { onNavigate: (view: any) => v
   useEffect(() => {
     if (!user) return;
 
-    const q = query(collection(db, 'orders'), where('userId', '==', user.uid));
+    const q = query(
+      collection(db, 'orders'), 
+      where('customerEmail', '==', user.email),
+      orderBy('createdAt', 'desc')
+    );
     const unsubscribeOrders = onSnapshot(q, (snapshot) => {
-      setOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a: any, b: any) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)));
+      setOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
     const unsubscribeProfile = onSnapshot(doc(db, 'users', user.uid), (snapshot) => {
@@ -2225,20 +2229,20 @@ const AccountView = ({ onNavigate, onEditOrder }: { onNavigate: (view: any) => v
               >
                 <h2 className="text-2xl font-bold text-gray-900 mb-8">Order History</h2>
                 {orders.length === 0 ? (
-                  <div className="bg-white rounded-3xl border border-dashed border-gray-200 p-12 text-center">
-                    <Package className="w-12 h-12 text-gray-200 mx-auto mb-4" />
-                    <p className="text-gray-500 font-medium">No orders found yet.</p>
-                    <button onClick={() => onNavigate('shop')} className="mt-4 text-emerald-600 font-bold text-sm">Start Researching</button>
-                  </div>
+                    <div className="bg-white rounded-3xl border border-dashed border-gray-200 p-12 text-center">
+                      <Package className="w-12 h-12 text-gray-200 mx-auto mb-4" />
+                      <p className="text-gray-500 font-medium">No orders yet.</p>
+                      <button onClick={() => onNavigate('shop')} className="mt-4 text-emerald-600 font-bold text-sm">Start Researching</button>
+                    </div>
                 ) : (
                   <div className="space-y-4">
                     {orders.map((order) => (
                       <div key={order.id} className="bg-white rounded-3xl border border-gray-100 p-6 hover:shadow-md transition-all">
                         <div className="flex flex-wrap justify-between items-start gap-4 mb-6">
-                          <div>
-                            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Order #{order.id.slice(-8).toUpperCase()}</p>
-                            <p className="text-sm font-medium text-gray-500">{order.createdAt?.toDate().toLocaleDateString()}</p>
-                          </div>
+                            <div>
+                              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Order ID: {order.orderId || order.id}</p>
+                              <p className="text-sm font-medium text-gray-500">Date: {order.createdAt?.toDate().toLocaleDateString()}</p>
+                            </div>
                           <div className="flex items-center gap-3">
                             <div className={`px-4 py-1 rounded-full text-xs font-bold uppercase tracking-widest ${
                               order.status === 'shipped' ? 'bg-emerald-50 text-emerald-600' : 
