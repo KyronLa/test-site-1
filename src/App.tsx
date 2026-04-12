@@ -2678,6 +2678,7 @@ const AdminDashboard = () => {
   const [promoCodes, setPromoCodes] = useState<any[]>([]);
   const [productsList, setProductsList] = useState<Product[]>([]);
   const [siteSettings, setSiteSettings] = useState<SiteSettings | null>(null);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -3428,44 +3429,52 @@ const AdminDashboard = () => {
               <Clock className="w-6 h-6 text-emerald-500" /> Countdown Timer Settings
             </h2>
             
-            <form onSubmit={async (e) => {
-              e.preventDefault();
-              const formData = new FormData(e.currentTarget);
-              const days = parseInt(formData.get('days') as string) || 0;
-              const hours = parseInt(formData.get('hours') as string) || 0;
-              const minutes = parseInt(formData.get('minutes') as string) || 0;
+            <form 
+              key={siteSettings ? 'loaded' : 'loading'}
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setIsSavingSettings(true);
+                const formData = new FormData(e.currentTarget);
+                
+                const days = parseInt(formData.get('days') as string) || 0;
+                const hours = parseInt(formData.get('hours') as string) || 0;
+                const minutes = parseInt(formData.get('minutes') as string) || 0;
 
-              const oldDays = siteSettings?.durationDays || 0;
-              const oldHours = siteSettings?.durationHours || 0;
-              const oldMinutes = siteSettings?.durationMinutes || 0;
-              
-              let countdownTarget = siteSettings?.countdownTarget;
-              
-              // Only reset the target if duration changed or target is missing
-              if (days !== oldDays || hours !== oldHours || minutes !== oldMinutes || !countdownTarget) {
-                const durationMs = (days * 24 * 60 * 60 * 1000) + (hours * 60 * 60 * 1000) + (minutes * 60 * 1000);
-                countdownTarget = new Date(Date.now() + durationMs).toISOString();
-              }
+                const oldDays = siteSettings?.durationDays || 0;
+                const oldHours = siteSettings?.durationHours || 0;
+                const oldMinutes = siteSettings?.durationMinutes || 0;
+                
+                let countdownTarget = siteSettings?.countdownTarget;
+                
+                // Only reset the target if duration changed or target is missing
+                if (days !== oldDays || hours !== oldHours || minutes !== oldMinutes || !countdownTarget) {
+                  const durationMs = (days * 24 * 60 * 60 * 1000) + (hours * 60 * 60 * 1000) + (minutes * 60 * 1000);
+                  countdownTarget = new Date(Date.now() + durationMs).toISOString();
+                }
 
-              const settingsData = {
-                countdownActive: formData.get('countdownActive') === 'on',
-                countdownText: formData.get('countdownText') as string,
-                countdownTarget,
-                durationDays: days,
-                durationHours: hours,
-                durationMinutes: minutes,
-                referralMinOrder: parseFloat(formData.get('referralMinOrder') as string) || 20,
-                referralCreditAmount: parseFloat(formData.get('referralCreditAmount') as string) || 10,
-              };
+                const settingsData = {
+                  countdownActive: formData.get('countdownActive') === 'on',
+                  countdownText: (formData.get('countdownText') as string) || 'Flash Sale Ending In:',
+                  countdownTarget,
+                  durationDays: days,
+                  durationHours: hours,
+                  durationMinutes: minutes,
+                  referralMinOrder: parseFloat(formData.get('referralMinOrder') as string) || 20,
+                  referralCreditAmount: parseFloat(formData.get('referralCreditAmount') as string) || 10,
+                };
 
-              try {
-                await setDoc(doc(db, 'settings', 'site'), settingsData, { merge: true });
-                alert('Settings saved successfully!');
-              } catch (error) {
-                console.error('Error saving settings:', error);
-                alert('Failed to save settings.');
-              }
-            }} className="space-y-6">
+                try {
+                  await setDoc(doc(db, 'settings', 'site'), settingsData, { merge: true });
+                  alert('Settings saved successfully!');
+                } catch (error) {
+                  console.error('Error saving settings:', error);
+                  alert('Failed to save settings. Check console for details.');
+                } finally {
+                  setIsSavingSettings(false);
+                }
+              }} 
+              className="space-y-6"
+            >
               <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-2xl border border-gray-100">
                 <input 
                   type="checkbox" 
@@ -3554,8 +3563,17 @@ const AdminDashboard = () => {
                 </div>
               </div>
 
-              <button type="submit" className="w-full py-4 bg-black text-white rounded-2xl font-bold hover:bg-emerald-600 transition-all flex items-center justify-center gap-2">
-                <Save className="w-5 h-5" /> Save Settings
+              <button 
+                type="submit" 
+                disabled={isSavingSettings}
+                className="w-full py-4 bg-black text-white rounded-2xl font-bold hover:bg-emerald-600 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSavingSettings ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <Save className="w-5 h-5" />
+                )}
+                {isSavingSettings ? 'Saving...' : 'Save Settings'}
               </button>
             </form>
           </div>
