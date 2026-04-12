@@ -2754,13 +2754,86 @@ const AdminDashboard = () => {
 
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
     try {
-      await updateDoc(doc(db, 'orders', orderId), {
+      const orderRef = doc(db, 'orders', orderId);
+      
+      if (newStatus === 'shipped') {
+        const orderSnap = await getDoc(orderRef);
+        if (orderSnap.exists()) {
+          await processReferralCredit(orderId, orderSnap.data());
+        }
+      }
+
+      await updateDoc(orderRef, {
         status: newStatus,
         updatedAt: serverTimestamp()
       });
     } catch (error) {
       console.error('Error updating order:', error);
       alert('Failed to update order status.');
+    }
+  };
+
+  const processReferralCredit = async (orderId: string, orderData: any) => {
+    if (!orderData.referralCode) return;
+
+    console.log('Referral Flow: Processing referral for order:', orderId);
+    const referrerId = orderData.referralCode;
+    const referrerRef = doc(db, 'users', referrerId);
+    const referrerSnap = await getDoc(referrerRef);
+
+    if (referrerSnap.exists()) {
+      const referrerData = referrerSnap.data();
+      const referredEmail = orderData.customerEmail;
+      
+      // Check if this specific order has already been processed in the referrals array
+      const currentReferrals = referrerData.referrals || [];
+      const referralEntry = currentReferrals.find((r: any) => r.orderId === orderId);
+      
+      // If no entry found or it's already processed (not pending), skip
+      if (!referralEntry || referralEntry.status !== 'pending') {
+        console.log('Referral Flow: Referral already processed or not found for this order.');
+        return;
+      }
+
+      console.log('Referral Flow: Referrer found:', referrerData.email);
+      
+      // 1. Check no self-referral
+      const isSelfReferral = referrerData.email === referredEmail;
+      
+      // 2. Check first order only (ignoring cancelled)
+      const ordersQuery = query(
+        collection(db, 'orders'),
+        where('customerEmail', '==', referredEmail)
+      );
+      const ordersSnapshot = await getDocs(ordersQuery);
+      const validOrders = ordersSnapshot.docs.filter(d => d.data().status !== 'cancelled');
+      const isFirstOrder = validOrders.length === 1; 
+      
+      // 3. Check order total > min order from settings
+      const minOrder = siteSettings?.referralMinOrder || 20;
+      const creditAmount = siteSettings?.referralCreditAmount || 10;
+      const isMinAmount = orderData.total >= minOrder;
+      
+      const updatedReferrals = currentReferrals.map((r: any) => {
+        if (r.orderId === orderId) {
+          const status = (isSelfReferral || !isFirstOrder || !isMinAmount) ? 'ineligible' : 'credited';
+          return { ...r, status };
+        }
+        return r;
+      });
+
+      if (!isSelfReferral && isFirstOrder && isMinAmount) {
+        console.log('Referral Flow: Applying credit of $', creditAmount, 'to referrer', referrerId);
+        await updateDoc(referrerRef, {
+          storeCredit: (referrerData.storeCredit || 0) + creditAmount,
+          referrals: updatedReferrals
+        });
+      } else {
+        console.log('Referral Flow: Conditions not met. Self:', isSelfReferral, 'First:', isFirstOrder, 'Min:', isMinAmount);
+        await updateDoc(referrerRef, {
+          referrals: updatedReferrals
+        });
+      }
     }
   };
 
@@ -2771,59 +2844,15 @@ const AdminDashboard = () => {
       return;
     }
     try {
+      console.log('Referral Flow: Starting markOrderShipped for order:', orderId);
       const orderRef = doc(db, 'orders', orderId);
       const orderSnap = await getDoc(orderRef);
       
       if (orderSnap.exists()) {
         const orderData = orderSnap.data();
         
-        // Referral Logic
-        if (orderData.referralCode && orderData.status === 'pending') {
-          const referrerId = orderData.referralCode;
-          const referrerRef = doc(db, 'users', referrerId);
-          const referrerSnap = await getDoc(referrerRef);
-          
-          if (referrerSnap.exists()) {
-            const referrerData = referrerSnap.data();
-            const referredEmail = orderData.customerEmail;
-            
-            // 1. Check no self-referral
-            const isSelfReferral = referrerData.email === referredEmail;
-            
-            // 2. Check first order only
-            const ordersQuery = query(
-              collection(db, 'orders'),
-              where('customerEmail', '==', referredEmail)
-            );
-            const ordersSnapshot = await getDocs(ordersQuery);
-            const isFirstOrder = ordersSnapshot.size === 1; // Only the current order
-            
-            // 3. Check order total > min order from settings
-            const minOrder = siteSettings?.referralMinOrder || 20;
-            const creditAmount = siteSettings?.referralCreditAmount || 10;
-            const isMinAmount = orderData.total >= minOrder;
-            
-            const currentReferrals = referrerData.referrals || [];
-            const updatedReferrals = currentReferrals.map((r: any) => {
-              if (r.orderId === orderId) {
-                return { ...r, status: (isSelfReferral || !isFirstOrder || !isMinAmount) ? 'ineligible' : 'credited' };
-              }
-              return r;
-            });
-
-            if (!isSelfReferral && isFirstOrder && isMinAmount) {
-              // Add store credit from settings
-              await updateDoc(referrerRef, {
-                storeCredit: (referrerData.storeCredit || 0) + creditAmount,
-                referrals: updatedReferrals
-              });
-            } else {
-              await updateDoc(referrerRef, {
-                referrals: updatedReferrals
-              });
-            }
-          }
-        }
+        // Process Referral Credit
+        await processReferralCredit(orderId, orderData);
       }
 
       await updateDoc(orderRef, {
@@ -5210,6 +5239,9 @@ const CheckoutView = ({
       }
     }
 
+    const refCode = localStorage.getItem('referralCode');
+    console.log('Referral Flow: Found referralCode in localStorage:', refCode);
+
     onComplete({
       shippingInfo,
       shippingMethod,
@@ -5218,7 +5250,7 @@ const CheckoutView = ({
       promoCode: appliedPromo?.code || null,
       promoDiscount,
       orderId, // Pass the pre-generated orderId
-      referralCode: localStorage.getItem('referralCode')
+      referralCode: refCode
     });
   };
 
@@ -6430,6 +6462,7 @@ const AppContent = () => {
     const path = window.location.pathname;
     
     if (referralCode) {
+      console.log('Referral Flow: Saving referral code to localStorage:', referralCode);
       localStorage.setItem('referralCode', referralCode);
     }
 
@@ -6689,6 +6722,7 @@ const AppContent = () => {
                         }
                       }
 
+                      console.log('Referral Flow: Attaching referralCode to order document:', referralCode);
                       await setDoc(doc(db, 'orders', orderId), {
                         userId: user?.uid || null,
                         customerEmail: shippingInfo.email,
