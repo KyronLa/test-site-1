@@ -464,6 +464,7 @@ const CartDrawer = ({
   appliedPromo: { code: string, discount: number } | null,
   onApplyPromo: (promo: { code: string, discount: number } | null) => void
 }) => {
+  const { user, isFreeShippingEnabled, isAdmin } = useAuth();
   const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const freeShippingThreshold = 250;
   const progress = Math.min((subtotal / freeShippingThreshold) * 100, 100);
@@ -494,6 +495,23 @@ const CartDrawer = ({
         onApplyPromo(null);
       } else {
         const promoData = querySnapshot.docs[0].data();
+        const code = promoData.code;
+
+        // Check for one-time use if not admin
+        if (!isAdmin && user) {
+          const ordersQuery = query(
+            collection(db, 'orders'),
+            where('customerEmail', '==', user.email),
+            where('promoCode', '==', code)
+          );
+          const ordersSnapshot = await getDocs(ordersQuery);
+          if (!ordersSnapshot.empty) {
+            setPromoError('This promo code has already been used by your account');
+            onApplyPromo(null);
+            return;
+          }
+        }
+
         onApplyPromo({
           code: promoData.code,
           discount: promoData.discount
@@ -1571,7 +1589,7 @@ const TrackOrderView = ({ onBack }: { onBack: () => void }) => {
                     <h3 className="text-[10px] font-bold text-emerald-500 uppercase tracking-[0.3em]">Delivery Destination</h3>
                     <div className="bg-black/40 border border-white/5 rounded-3xl p-8 space-y-2">
                       <p className="text-white font-bold text-lg tracking-tight">{order.shippingInfo.firstName} {order.shippingInfo.lastName}</p>
-                      <p className="text-gray-400 text-sm leading-relaxed">{order.shippingInfo.address}</p>
+                      <p className="text-gray-400 text-sm leading-relaxed">{order.shippingInfo.address}{order.shippingInfo.unitNumber ? `, ${order.shippingInfo.unitNumber}` : ''}</p>
                       <p className="text-gray-400 text-sm leading-relaxed">{order.shippingInfo.city}, {order.shippingInfo.state} {order.shippingInfo.zip}</p>
                     </div>
                     
@@ -2077,7 +2095,7 @@ const AccountView = ({ onNavigate, onEditOrder }: { onNavigate: (view: any) => v
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [editData, setEditData] = useState({ firstName: '', lastName: '', phone: '' });
   const [isAddingAddress, setIsAddingAddress] = useState(false);
-  const [newAddress, setNewAddress] = useState({ street: '', city: '', state: '', zip: '' });
+  const [newAddress, setNewAddress] = useState({ street: '', unitNumber: '', city: '', state: '', zip: '' });
   const [isDeletingOrder, setIsDeletingOrder] = useState<string | null>(null);
 
   useEffect(() => {
@@ -2132,7 +2150,7 @@ const AccountView = ({ onNavigate, onEditOrder }: { onNavigate: (view: any) => v
         addresses: updatedAddresses
       });
       setIsAddingAddress(false);
-      setNewAddress({ street: '', city: '', state: '', zip: '' });
+      setNewAddress({ street: '', unitNumber: '', city: '', state: '', zip: '' });
     } catch (error) {
       console.error(error);
       alert('Error adding address');
@@ -2434,6 +2452,12 @@ const AccountView = ({ onNavigate, onEditOrder }: { onNavigate: (view: any) => v
                         onChange={e => setNewAddress({...newAddress, street: e.target.value})}
                       />
                       <input 
+                        placeholder="Unit / Suite (Optional)" 
+                        className="md:col-span-2 px-4 py-3 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-black"
+                        value={newAddress.unitNumber}
+                        onChange={e => setNewAddress({...newAddress, unitNumber: e.target.value})}
+                      />
+                      <input 
                         placeholder="City" 
                         className="px-4 py-3 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-black"
                         value={newAddress.city}
@@ -2470,7 +2494,7 @@ const AccountView = ({ onNavigate, onEditOrder }: { onNavigate: (view: any) => v
                           <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md uppercase tracking-widest">Default</span>
                         )}
                       </div>
-                      <p className="text-gray-900 font-medium mb-1">{addr.street}</p>
+                      <p className="text-gray-900 font-medium mb-1">{addr.street}{addr.unitNumber ? `, ${addr.unitNumber}` : ''}</p>
                       <p className="text-gray-500 text-sm">{addr.city}, {addr.state} {addr.zip}</p>
                       <button 
                         onClick={() => removeAddress(i)}
@@ -3099,13 +3123,13 @@ const AdminDashboard = () => {
                         </p>
                       </td>
                       <td className="px-6 py-4 text-sm font-bold text-gray-900">
-                        {o.customerName}
+                        {o.customerName || `${o.shippingInfo?.firstName} ${o.shippingInfo?.lastName}`}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-500">
-                        {o.customerEmail}
+                        {o.customerEmail || o.shippingInfo?.email}
                       </td>
                       <td className="px-6 py-4 text-[10px] text-gray-500 max-w-[200px] leading-relaxed">
-                        {o.shippingAddress}
+                        {o.shippingAddress || `${o.shippingInfo?.address}${o.shippingInfo?.unitNumber ? `, ${o.shippingInfo.unitNumber}` : ''}, ${o.shippingInfo?.city}, ${o.shippingInfo?.state} ${o.shippingInfo?.zip}`}
                       </td>
                       <td className="px-6 py-4 text-sm font-bold text-gray-900">
                         ${(o.total || 0).toFixed(2)}
@@ -4662,7 +4686,7 @@ const CheckoutView = ({
   onAddToCart: (product: Product, quantity?: number) => void,
   products: Product[]
 }) => {
-  const { user, isFreeShippingEnabled } = useAuth();
+  const { user, isFreeShippingEnabled, isAdmin } = useAuth();
   const [step, setStep] = useState(1);
   const [shippingInfo, setShippingInfo] = useState(() => {
     if (initialOrder?.shippingInfo) return initialOrder.shippingInfo;
@@ -4676,6 +4700,7 @@ const CheckoutView = ({
       lastName: userProfile?.lastName || '',
       phone: userProfile?.phone || '',
       address: defaultAddress?.street || '',
+      unitNumber: defaultAddress?.unitNumber || '',
       city: defaultAddress?.city || '',
       state: defaultAddress?.state || '',
       zip: defaultAddress?.zip || '',
@@ -4720,6 +4745,26 @@ const CheckoutView = ({
         onApplyPromo(null);
       } else {
         const promoData = querySnapshot.docs[0].data();
+        const code = promoData.code;
+
+        // Check for one-time use if not admin
+        if (!isAdmin) {
+          const emailToCheck = user?.email || shippingInfo.email;
+          if (emailToCheck) {
+            const ordersQuery = query(
+              collection(db, 'orders'),
+              where('customerEmail', '==', emailToCheck),
+              where('promoCode', '==', code)
+            );
+            const ordersSnapshot = await getDocs(ordersQuery);
+            if (!ordersSnapshot.empty) {
+              setPromoError('This promo code has already been used with this email address');
+              onApplyPromo(null);
+              return;
+            }
+          }
+        }
+
         onApplyPromo({
           code: promoData.code,
           discount: promoData.discount
@@ -4743,6 +4788,7 @@ const CheckoutView = ({
         lastName: userProfile.lastName || '',
         phone: userProfile.phone || '',
         address: defaultAddress?.street || '',
+        unitNumber: defaultAddress?.unitNumber || '',
         city: userProfile.city || defaultAddress?.city || '',
         state: userProfile.state || defaultAddress?.state || '',
         zip: userProfile.zip || defaultAddress?.zip || '',
@@ -4913,6 +4959,15 @@ const CheckoutView = ({
                     onChange={e => setShippingInfo({...shippingInfo, address: e.target.value})}
                   />
                 </div>
+                <div>
+                  <label className="block text-[8px] md:text-xs font-bold text-gray-400 uppercase tracking-widest mb-1 md:mb-2">Unit / Suite (Optional)</label>
+                  <input 
+                    type="text" 
+                    className="w-full px-2 md:px-4 py-2 md:py-3 bg-gray-50 rounded-lg md:rounded-xl border-none focus:ring-2 focus:ring-black transition-all text-xs md:text-base"
+                    value={shippingInfo.unitNumber}
+                    onChange={e => setShippingInfo({...shippingInfo, unitNumber: e.target.value})}
+                  />
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
                   <div className="md:col-span-1">
                     <label className="block text-[8px] md:text-xs font-bold text-gray-400 uppercase tracking-widest mb-1 md:mb-2">City</label>
@@ -4981,7 +5036,7 @@ const CheckoutView = ({
             ) : (
               <div className="text-[10px] md:text-sm text-gray-500 font-medium">
                 {shippingInfo.firstName} {shippingInfo.lastName}<br />
-                {shippingInfo.address}, {shippingInfo.city}, {shippingInfo.state} {shippingInfo.zip}
+                {shippingInfo.address}{shippingInfo.unitNumber ? `, ${shippingInfo.unitNumber}` : ''}, {shippingInfo.city}, {shippingInfo.state} {shippingInfo.zip}
               </div>
             )}
           </section>
@@ -5253,7 +5308,7 @@ const CheckoutView = ({
                     />
                   </div>
                   <span className="text-[8px] md:text-[11px] text-gray-500 font-medium leading-tight group-hover:text-gray-700 transition-colors">
-                    I am 21+ years old.
+                    I confirm I am 21 years of age or older.
                   </span>
                 </label>
 
@@ -5267,7 +5322,7 @@ const CheckoutView = ({
                     />
                   </div>
                   <span className="text-[8px] md:text-[11px] text-gray-500 font-medium leading-tight group-hover:text-gray-700 transition-colors">
-                    Research use only.
+                    I understand these compounds are sold strictly for laboratory research purposes and are not intended for human consumption.
                   </span>
                 </label>
 
@@ -5281,7 +5336,7 @@ const CheckoutView = ({
                     />
                   </div>
                   <span className="text-[8px] md:text-[11px] text-gray-500 font-medium leading-tight group-hover:text-gray-700 transition-colors">
-                    I agree to Terms.
+                    I have read and agree to the Terms & Conditions.
                   </span>
                 </label>
               </div>
@@ -6277,6 +6332,8 @@ const AppContent = () => {
 
                       await setDoc(doc(db, 'orders', orderId), {
                         userId: user?.uid || null,
+                        customerEmail: shippingInfo.email,
+                        customerName: `${shippingInfo.firstName} ${shippingInfo.lastName}`,
                         items: cart,
                         total,
                         status: 'pending',
