@@ -69,7 +69,8 @@ import {
   getDoc,
   setDoc,
   updateDoc,
-  Timestamp
+  Timestamp,
+  increment
 } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import { INITIAL_PRODUCTS } from './constants';
@@ -2774,66 +2775,26 @@ const AdminDashboard = () => {
   };
 
   const processReferralCredit = async (orderId: string, orderData: any) => {
-    if (!orderData.referralCode) return;
+    if (!orderData.referralCode || orderData.referralCredited) return;
 
-    console.log('Referral Flow: Processing referral for order:', orderId);
-    const referrerId = orderData.referralCode;
-    const referrerRef = doc(db, 'users', referrerId);
-    const referrerSnap = await getDoc(referrerRef);
-
-    if (referrerSnap.exists()) {
-      const referrerData = referrerSnap.data();
-      const referredEmail = orderData.customerEmail;
+    try {
+      console.log('Referral Flow: Processing simplified referral for order:', orderId);
+      const referrerId = orderData.referralCode;
+      const referrerRef = doc(db, 'users', referrerId);
       
-      // Check if this specific order has already been processed in the referrals array
-      const currentReferrals = referrerData.referrals || [];
-      const referralEntry = currentReferrals.find((r: any) => r.orderId === orderId);
-      
-      // If no entry found or it's already processed (not pending), skip
-      if (!referralEntry || referralEntry.status !== 'pending') {
-        console.log('Referral Flow: Referral already processed or not found for this order.');
-        return;
-      }
-
-      console.log('Referral Flow: Referrer found:', referrerData.email);
-      
-      // 1. Check no self-referral
-      const isSelfReferral = referrerData.email === referredEmail;
-      
-      // 2. Check first order only (ignoring cancelled)
-      const ordersQuery = query(
-        collection(db, 'orders'),
-        where('customerEmail', '==', referredEmail)
-      );
-      const ordersSnapshot = await getDocs(ordersQuery);
-      const validOrders = ordersSnapshot.docs.filter(d => d.data().status !== 'cancelled');
-      const isFirstOrder = validOrders.length === 1; 
-      
-      // 3. Check order total > min order from settings
-      const minOrder = siteSettings?.referralMinOrder || 20;
-      const creditAmount = siteSettings?.referralCreditAmount || 10;
-      const isMinAmount = orderData.total >= minOrder;
-      
-      const updatedReferrals = currentReferrals.map((r: any) => {
-        if (r.orderId === orderId) {
-          const status = (isSelfReferral || !isFirstOrder || !isMinAmount) ? 'ineligible' : 'credited';
-          return { ...r, status };
-        }
-        return r;
+      // Add $10 to storeCredit
+      await updateDoc(referrerRef, {
+        storeCredit: increment(10)
       });
 
-      if (!isSelfReferral && isFirstOrder && isMinAmount) {
-        console.log('Referral Flow: Applying credit of $', creditAmount, 'to referrer', referrerId);
-        await updateDoc(referrerRef, {
-          storeCredit: (referrerData.storeCredit || 0) + creditAmount,
-          referrals: updatedReferrals
-        });
-      } else {
-        console.log('Referral Flow: Conditions not met. Self:', isSelfReferral, 'First:', isFirstOrder, 'Min:', isMinAmount);
-        await updateDoc(referrerRef, {
-          referrals: updatedReferrals
-        });
-      }
+      // Update order to mark as credited
+      await updateDoc(doc(db, 'orders', orderId), {
+        referralCredited: true
+      });
+
+      console.log('Referral Flow: $10 credit applied to user:', referrerId);
+    } catch (error) {
+      console.error('Referral Flow Error:', error);
     }
   };
 
@@ -3249,6 +3210,7 @@ const AdminDashboard = () => {
                   <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Shipping Address</th>
                   <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Total</th>
                   <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Status</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Referral</th>
                   <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Tracking</th>
                   <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Actions</th>
                 </tr>
@@ -3289,6 +3251,26 @@ const AdminDashboard = () => {
                         }`}>
                           {o.status}
                         </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        {o.referralCode ? (
+                          <div className="flex flex-col gap-1">
+                            <span className="text-[10px] text-gray-500 truncate max-w-[120px]">
+                              {users.find(u => u.id === o.referralCode)?.email || 'Unknown User'}
+                            </span>
+                            {o.referralCredited ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[8px] font-bold bg-emerald-100 text-emerald-700 uppercase tracking-wider w-fit">
+                                Credited
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[8px] font-bold bg-amber-100 text-amber-700 uppercase tracking-wider w-fit">
+                                Pending
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-gray-300">-</span>
+                        )}
                       </td>
                       <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center gap-2">
