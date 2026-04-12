@@ -3922,16 +3922,17 @@ const Hero = ({ onShopNow, onViewCOAs }: { onShopNow: () => void, onViewCOAs: ()
             <div className="h-[1px] w-12 bg-emerald-500" />
             <span className="text-emerald-500 font-bold tracking-[0.3em] text-xs uppercase">Precision Synthesis</span>
           </div>
-          <h1 className="text-5xl sm:text-7xl md:text-8xl font-bold text-white tracking-tight mb-8 leading-[0.9]">
+          <h1 className="text-4xl sm:text-6xl md:text-7xl font-bold text-white tracking-tight mb-8 leading-[0.9] uppercase">
             Purity <br />
-            <span className="text-emerald-500">Without</span> <br />
+            <span className="text-emerald-500">Peptides</span> <br />
+            Without <br />
             Compromise
           </h1>
           <p className="text-gray-400 text-lg md:text-xl mb-12 max-w-lg leading-relaxed">
             Synthesizing high-purity research compounds for the global scientific community. 
             HPLC tested, discreetly shipped, and laboratory verified.
           </p>
-          <div className="flex flex-wrap gap-4 md:gap-6 -mt-[45px] md:mt-0">
+          <div className="flex flex-wrap items-start gap-4 md:gap-6 -mt-[45px] md:mt-0">
             <motion.button 
               onClick={onShopNow}
               animate={{ 
@@ -3951,17 +3952,34 @@ const Hero = ({ onShopNow, onViewCOAs }: { onShopNow: () => void, onViewCOAs: ()
             >
               Explore Catalog <ChevronRight className="w-4 h-4 md:w-5 md:h-5" />
             </motion.button>
-            <button 
-              onClick={onViewCOAs}
-              className="px-6 py-3 md:px-10 md:py-5 border border-white/20 text-white text-sm md:text-base font-bold rounded-2xl hover:bg-white/10 transition-all"
-            >
-              Request COA's
-            </button>
+            
+            <div className="flex flex-col items-center gap-4">
+              <button 
+                onClick={onViewCOAs}
+                className="w-full px-6 py-3 md:px-10 md:py-5 border border-white/20 text-white text-sm md:text-base font-bold rounded-2xl hover:bg-white/10 transition-all"
+              >
+                Request COA's
+              </button>
+
+              {/* Trust Bubble */}
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 }}
+                className="inline-flex items-center gap-x-4 md:gap-x-8 px-5 py-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-xl"
+              >
+                <span className="text-[8px] md:text-[10px] font-bold text-white uppercase tracking-widest">99% Purity</span>
+                <div className="w-[1px] h-3 bg-white/10" />
+                <span className="text-[8px] md:text-[10px] font-bold text-white uppercase tracking-widest">COA Available</span>
+                <div className="w-[1px] h-3 bg-white/10" />
+                <span className="text-[8px] md:text-[10px] font-bold text-white uppercase tracking-widest">$250+ free shipping</span>
+              </motion.div>
+            </div>
           </div>
         </motion.div>
       </div>
 
-      <div className="absolute bottom-12 left-1/2 -translate-x-1/2 translate-y-[30px] flex flex-col items-center gap-4 text-white/30">
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 translate-y-[30px] flex flex-col items-center gap-4 text-white/30">
         <span className="text-[10px] font-bold uppercase tracking-[0.4em]">Scroll to Discover</span>
         <div className="w-[1px] h-12 bg-gradient-to-b from-white/30 to-transparent" />
       </div>
