@@ -39,7 +39,8 @@ import {
   Archive,
   ArchiveRestore,
   Clock,
-  Tag
+  Tag,
+  Copy
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { GoogleGenAI } from "@google/genai";
@@ -316,7 +317,7 @@ const Navbar = ({ cartCount, onOpenCart, onOpenAuth, onNavigate, currentView }: 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { user, logout, isAdmin } = useAuth();
 
-  const isDarkPage = currentView === 'home' || currentView === 'shop' || currentView === 'track';
+  const isDarkPage = currentView === 'home' || currentView === 'shop' || currentView === 'track' || currentView === 'refer';
   const showSolidNav = isScrolled || !isDarkPage;
 
   useEffect(() => {
@@ -361,6 +362,7 @@ const Navbar = ({ cartCount, onOpenCart, onOpenAuth, onNavigate, currentView }: 
           <button onClick={() => onNavigate('calculator')} className={`text-sm font-medium hover:opacity-70 transition-opacity ${showSolidNav ? 'text-black' : 'text-white'}`}>Calculator</button>
           <button onClick={() => onNavigate('about')} className={`text-sm font-medium hover:opacity-70 transition-opacity ${showSolidNav ? 'text-black' : 'text-white'}`}>About Us</button>
           <button onClick={() => onNavigate('affiliate')} className={`text-sm font-medium hover:opacity-70 transition-opacity ${showSolidNav ? 'text-black' : 'text-white'}`}>Research Affiliate</button>
+          <button onClick={() => onNavigate('refer')} className={`text-sm font-medium hover:opacity-70 transition-opacity ${showSolidNav ? 'text-black' : 'text-white'}`}>Refer & Earn</button>
           {isAdmin && (
             <button onClick={() => onNavigate('admin')} className={`text-sm font-bold text-emerald-500 hover:opacity-70 transition-opacity`}>Admin Panel</button>
           )}
@@ -426,6 +428,7 @@ const Navbar = ({ cartCount, onOpenCart, onOpenAuth, onNavigate, currentView }: 
               <button onClick={() => { onNavigate('shop'); setIsMobileMenuOpen(false); }} className="text-2xl font-bold text-black border-b border-gray-100 pb-4 text-left">Shop All</button>
               <button onClick={() => { onNavigate('about'); setIsMobileMenuOpen(false); }} className="text-2xl font-bold text-black border-b border-gray-100 pb-4 text-left">About Us</button>
               <button onClick={() => { onNavigate('affiliate'); setIsMobileMenuOpen(false); }} className="text-2xl font-bold text-black border-b border-gray-100 pb-4 text-left">Become a Research Affiliate</button>
+              <button onClick={() => { onNavigate('refer'); setIsMobileMenuOpen(false); }} className="text-2xl font-bold text-black border-b border-gray-100 pb-4 text-left">Refer & Earn</button>
               <button onClick={() => { onNavigate('track'); setIsMobileMenuOpen(false); }} className="text-2xl font-bold text-black border-b border-gray-100 pb-4 text-left">Track Order</button>
               <button onClick={() => { onNavigate('calculator'); setIsMobileMenuOpen(false); }} className="text-2xl font-bold text-black border-b border-gray-100 pb-4 text-left">Calculator</button>
               <button onClick={() => { onNavigate('coas'); setIsMobileMenuOpen(false); }} className="text-2xl font-bold text-black border-b border-gray-100 pb-4 text-left">Request COA's</button>
@@ -2521,24 +2524,88 @@ const AccountView = ({ onNavigate, onEditOrder }: { onNavigate: (view: any) => v
                 exit={{ opacity: 0, y: -10 }}
                 className="space-y-8"
               >
-                <div className="bg-black rounded-[2.5rem] p-12 text-white relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/20 blur-[100px] rounded-full -mr-32 -mt-32" />
-                  <div className="relative z-10">
-                    <div className="flex items-center gap-3 mb-8">
-                      <Star className="w-6 h-6 text-emerald-400 fill-emerald-400" />
-                      <span className="text-emerald-400 font-bold tracking-[0.3em] text-xs uppercase">Eclipse Rewards Program</span>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="bg-black rounded-[2.5rem] p-10 text-white relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/20 blur-[100px] rounded-full -mr-32 -mt-32" />
+                    <div className="relative z-10">
+                      <div className="flex items-center gap-3 mb-6">
+                        <Star className="w-6 h-6 text-emerald-400 fill-emerald-400" />
+                        <span className="text-emerald-400 font-bold tracking-[0.3em] text-xs uppercase">Research Points</span>
+                      </div>
+                      <div className="flex items-end gap-4">
+                        <span className="text-6xl font-bold tracking-tighter">{profile?.rewardPoints || 0}</span>
+                        <span className="text-lg font-bold text-gray-500 mb-2 uppercase tracking-widest">Points</span>
+                      </div>
                     </div>
-                    <h2 className="text-4xl font-bold mb-2">Research Points</h2>
-                    <p className="text-gray-400 mb-8">Earn points on every purchase to unlock exclusive discounts.</p>
-                    
-                    <div className="flex items-end gap-4">
-                      <span className="text-7xl font-bold tracking-tighter">{profile?.rewardPoints || 0}</span>
-                      <span className="text-xl font-bold text-gray-500 mb-3 uppercase tracking-widest">Points Balance</span>
+                  </div>
+
+                  <div className="bg-emerald-500 rounded-[2.5rem] p-10 text-white relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 blur-[100px] rounded-full -mr-32 -mt-32" />
+                    <div className="relative z-10">
+                      <div className="flex items-center gap-3 mb-6">
+                        <Gift className="w-6 h-6 text-white" />
+                        <span className="text-white/80 font-bold tracking-[0.3em] text-xs uppercase">Store Credit</span>
+                      </div>
+                      <div className="flex items-end gap-4">
+                        <span className="text-6xl font-bold tracking-tighter">${profile?.storeCredit || 0}</span>
+                        <span className="text-lg font-bold text-white/60 mb-2 uppercase tracking-widest">USD</span>
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-white rounded-[2.5rem] border border-gray-100 p-10">
+                  <div className="flex items-center justify-between mb-8">
+                    <h2 className="text-2xl font-bold text-gray-900">Referral History</h2>
+                    <button 
+                      onClick={() => onNavigate('refer')}
+                      className="text-emerald-600 font-bold text-sm hover:underline"
+                    >
+                      Get Referral Link
+                    </button>
+                  </div>
+                  
+                  {profile?.referrals && profile.referrals.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left">
+                        <thead>
+                          <tr className="text-gray-400 text-[10px] uppercase tracking-widest border-b border-gray-50">
+                            <th className="pb-4 font-bold">Friend</th>
+                            <th className="pb-4 font-bold">Date</th>
+                            <th className="pb-4 font-bold">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                          {profile.referrals.map((ref: any, i: number) => (
+                            <tr key={i} className="text-sm">
+                              <td className="py-4 text-gray-900 font-medium">
+                                {ref.email.substring(0, 3)}***@{ref.email.split('@')[1]}
+                              </td>
+                              <td className="py-4 text-gray-500">
+                                {ref.date ? new Date(ref.date.seconds * 1000).toLocaleDateString() : 'N/A'}
+                              </td>
+                              <td className="py-4">
+                                <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                  ref.status === 'credited' ? 'bg-emerald-50 text-emerald-600' :
+                                  ref.status === 'ineligible' ? 'bg-red-50 text-red-600' :
+                                  'bg-blue-50 text-blue-600'
+                                }`}>
+                                  {ref.status}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="text-center py-12 bg-gray-50 rounded-3xl border border-dashed border-gray-200">
+                      <p className="text-gray-400 font-medium">No referrals yet.</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="bg-white rounded-3xl border border-gray-100 p-6">
                     <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mb-6">
                       <ShoppingBag className="w-6 h-6" />
@@ -2552,13 +2619,6 @@ const AccountView = ({ onNavigate, onEditOrder }: { onNavigate: (view: any) => v
                     </div>
                     <h3 className="font-bold text-gray-900 mb-2">Redeem for discounts</h3>
                     <p className="text-sm text-gray-500">Every 100 points equals $5 off your next order.</p>
-                  </div>
-                  <div className="bg-white rounded-3xl border border-gray-100 p-6 opacity-50 grayscale">
-                    <div className="w-12 h-12 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center mb-6">
-                      <Gift className="w-6 h-6" />
-                    </div>
-                    <h3 className="font-bold text-gray-900 mb-2">Exclusive Perks</h3>
-                    <p className="text-sm text-gray-500 italic">Tiered rewards coming soon for high-volume labs.</p>
                   </div>
                 </div>
               </motion.div>
@@ -2708,7 +2768,60 @@ const AdminDashboard = () => {
       return;
     }
     try {
-      await updateDoc(doc(db, 'orders', orderId), {
+      const orderRef = doc(db, 'orders', orderId);
+      const orderSnap = await getDoc(orderRef);
+      
+      if (orderSnap.exists()) {
+        const orderData = orderSnap.data();
+        
+        // Referral Logic
+        if (orderData.referralCode && orderData.status === 'pending') {
+          const referrerId = orderData.referralCode;
+          const referrerRef = doc(db, 'users', referrerId);
+          const referrerSnap = await getDoc(referrerRef);
+          
+          if (referrerSnap.exists()) {
+            const referrerData = referrerSnap.data();
+            const referredEmail = orderData.customerEmail;
+            
+            // 1. Check no self-referral
+            const isSelfReferral = referrerData.email === referredEmail;
+            
+            // 2. Check first order only
+            const ordersQuery = query(
+              collection(db, 'orders'),
+              where('customerEmail', '==', referredEmail)
+            );
+            const ordersSnapshot = await getDocs(ordersQuery);
+            const isFirstOrder = ordersSnapshot.size === 1; // Only the current order
+            
+            // 3. Check order total > $20
+            const isMinAmount = orderData.total > 20;
+            
+            const currentReferrals = referrerData.referrals || [];
+            const updatedReferrals = currentReferrals.map((r: any) => {
+              if (r.orderId === orderId) {
+                return { ...r, status: (isSelfReferral || !isFirstOrder || !isMinAmount) ? 'ineligible' : 'credited' };
+              }
+              return r;
+            });
+
+            if (!isSelfReferral && isFirstOrder && isMinAmount) {
+              // Add $10 store credit
+              await updateDoc(referrerRef, {
+                storeCredit: (referrerData.storeCredit || 0) + 10,
+                referrals: updatedReferrals
+              });
+            } else {
+              await updateDoc(referrerRef, {
+                referrals: updatedReferrals
+              });
+            }
+          }
+        }
+      }
+
+      await updateDoc(orderRef, {
         status: 'shipped',
         trackingNumber: trackingNumber,
         updatedAt: serverTimestamp()
@@ -3942,11 +4055,7 @@ const Hero = ({ onShopNow, onViewCOAs }: { onShopNow: () => void, onViewCOAs: ()
           transition={{ duration: 0.8 }}
           className="max-w-2xl"
         >
-          <div className="flex items-center gap-3 mb-6">
-            <div className="h-[1px] w-12 bg-emerald-500" />
-            <span className="text-emerald-500 font-bold tracking-[0.3em] text-xs uppercase">Precision Synthesis</span>
-          </div>
-          <h1 className="text-4xl sm:text-6xl md:text-7xl font-bold text-white tracking-tight mb-8 leading-[0.9] uppercase">
+          <h1 className="text-4xl sm:text-6xl md:text-7xl font-bold text-white tracking-tight mt-12 mb-8 leading-[0.9] uppercase">
             Purity <br />
             <span className="text-emerald-500">Peptides</span> <br />
             Without <br />
@@ -4496,6 +4605,168 @@ const ResearchDisclaimer = () => (
   </section>
 );
 
+const ReferralView = ({ onNavigate, onOpenAuth }: { onNavigate: (view: any) => void, onOpenAuth: () => void }) => {
+  const { user } = useAuth();
+  const [profile, setProfile] = useState<any>(null);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    const unsubscribe = onSnapshot(doc(db, 'users', user.uid), (snapshot) => {
+      if (snapshot.exists()) {
+        setProfile(snapshot.data());
+      }
+    });
+    return () => unsubscribe();
+  }, [user]);
+
+  const referralLink = user ? `https://www.eclipseresearch.shop/?ref=${user.uid}` : '';
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(referralLink);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const maskEmail = (email: string) => {
+    if (!email) return '';
+    const [name, domain] = email.split('@');
+    return `${name.substring(0, 3)}***@${domain}`;
+  };
+
+  if (!user) {
+    return (
+      <div className="bg-black min-h-screen">
+        <section className="pt-32 pb-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-[60vh] flex flex-col items-center justify-center text-center">
+          <div className="mb-12">
+            <img 
+              src="https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969635/logo_gc8g0q.png" 
+              alt="Eclipse Research" 
+              className="h-20 w-auto mx-auto mb-8" 
+              referrerPolicy="no-referrer"
+            />
+            <h1 className="text-4xl font-bold text-white mb-4 uppercase tracking-tight">Refer & Earn</h1>
+            <p className="text-gray-400 text-lg mb-8 max-w-md mx-auto">
+              Please log in to your account to get your referral link and start earning store credit.
+            </p>
+            <button 
+              onClick={onOpenAuth}
+              className="px-10 py-5 bg-white text-black font-bold rounded-2xl hover:bg-emerald-500 hover:text-white transition-all active:scale-95"
+            >
+              Log In to Continue
+            </button>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-black min-h-screen">
+      <section className="pt-32 pb-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center mb-16">
+          <img 
+            src="https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969635/logo_gc8g0q.png" 
+            alt="Eclipse Research" 
+            className="h-16 w-auto mx-auto mb-8" 
+            referrerPolicy="no-referrer"
+          />
+          <h1 className="text-5xl font-bold text-white mb-4 uppercase tracking-tight">Earn Store Credit</h1>
+          <p className="text-gray-400 text-xl max-w-2xl mx-auto leading-relaxed">
+            Share Eclipse Research with your network. For every friend who places their first order over $20, you'll earn <span className="text-emerald-500 font-bold">$10 in store credit</span> toward your next purchase.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+          <div className="lg:col-span-7 space-y-8">
+            <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-[2.5rem] p-10">
+              <h2 className="text-2xl font-bold text-white mb-6">Your Referral Link</h2>
+              <div className="flex gap-4">
+                <div className="flex-1 bg-black/40 border border-white/10 rounded-2xl px-6 py-4 text-emerald-400 font-mono text-sm overflow-hidden text-ellipsis whitespace-nowrap">
+                  {referralLink}
+                </div>
+                <button 
+                  onClick={handleCopy}
+                  className="px-8 py-4 bg-emerald-500 text-white font-bold rounded-2xl hover:bg-emerald-600 transition-all active:scale-95 flex items-center gap-2"
+                >
+                  {copied ? <CheckCircle2 className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
+                  {copied ? 'Copied!' : 'Copy Link'}
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-[2.5rem] p-10">
+              <h2 className="text-2xl font-bold text-white mb-8">Referral History</h2>
+              <div className="space-y-4">
+                {profile?.referrals && profile.referrals.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                      <thead>
+                        <tr className="text-gray-500 text-xs uppercase tracking-widest border-b border-white/5">
+                          <th className="pb-4 font-bold">Friend</th>
+                          <th className="pb-4 font-bold">Date</th>
+                          <th className="pb-4 font-bold">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5">
+                        {profile.referrals.map((ref: any, i: number) => (
+                          <tr key={i} className="text-sm">
+                            <td className="py-4 text-white font-medium">{maskEmail(ref.email)}</td>
+                            <td className="py-4 text-gray-400">{ref.date ? new Date(ref.date.seconds * 1000).toLocaleDateString() : 'N/A'}</td>
+                            <td className="py-4">
+                              <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                ref.status === 'credited' ? 'bg-emerald-500/10 text-emerald-500' :
+                                ref.status === 'ineligible' ? 'bg-red-500/10 text-red-500' :
+                                'bg-blue-500/10 text-blue-500'
+                              }`}>
+                                {ref.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <UserIcon className="w-8 h-8 text-gray-600" />
+                    </div>
+                    <p className="text-gray-500 font-medium">No referrals yet. Start sharing!</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="lg:col-span-5">
+            <div className="bg-emerald-500 rounded-[2.5rem] p-12 text-white sticky top-32">
+              <div className="flex items-center gap-3 mb-8">
+                <Gift className="w-8 h-8 text-white" />
+                <span className="text-white/80 font-bold tracking-[0.3em] text-xs uppercase">Store Credit</span>
+              </div>
+              <h2 className="text-3xl font-bold mb-2">Current Balance</h2>
+              <div className="flex items-baseline gap-2 mb-8">
+                <span className="text-8xl font-bold tracking-tighter">${profile?.storeCredit || 0}</span>
+                <span className="text-xl font-bold text-white/60 uppercase tracking-widest">USD</span>
+              </div>
+              <p className="text-emerald-100 leading-relaxed mb-8">
+                Your store credit will be automatically applied to your next purchase during checkout.
+              </p>
+              <button 
+                onClick={() => onNavigate('shop')}
+                className="w-full py-5 bg-white text-black font-bold rounded-2xl hover:bg-black hover:text-white transition-all active:scale-95"
+              >
+                Shop Now
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+};
+
 const COARequestView = () => {
   const [email, setEmail] = useState('');
   const [product, setProduct] = useState('');
@@ -4879,7 +5150,8 @@ const CheckoutView = ({
       total,
       promoCode: appliedPromo?.code || null,
       promoDiscount,
-      orderId // Pass the pre-generated orderId
+      orderId, // Pass the pre-generated orderId
+      referralCode: localStorage.getItem('referralCode')
     });
   };
 
@@ -5949,7 +6221,7 @@ const OrderSuccessView = ({ onBackToHome }: { onBackToHome: () => void }) => {
 };
 
 const AppContent = () => {
-  const [view, setView] = useState<'home' | 'shop' | 'about' | 'track' | 'coas' | 'admin' | 'account' | 'checkout' | 'product' | 'terms' | 'shipping' | 'refund' | 'privacy' | 'calculator' | 'affiliate' | 'order-success'>('home');
+  const [view, setView] = useState<'home' | 'shop' | 'about' | 'track' | 'coas' | 'admin' | 'account' | 'checkout' | 'product' | 'terms' | 'shipping' | 'refund' | 'privacy' | 'calculator' | 'affiliate' | 'order-success' | 'refer'>('home');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -6087,8 +6359,17 @@ const AppContent = () => {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const paymentStatus = params.get('payment');
+    const referralCode = params.get('ref');
     const path = window.location.pathname;
     
+    if (referralCode) {
+      localStorage.setItem('referralCode', referralCode);
+    }
+
+    if (path === '/refer') {
+      setView('refer');
+    }
+
     if (paymentStatus === 'success') {
       // Redirect to the standalone success page if we get a success param on the root
       const search = window.location.search;
@@ -6110,7 +6391,7 @@ const AppContent = () => {
     }
   }, []);
 
-  const isDarkPage = ['home', 'shop', 'track'].includes(view);
+  const isDarkPage = ['home', 'shop', 'track', 'refer'].includes(view);
   const isBannerActive = settings?.countdownActive && ['home', 'shop', 'product', 'checkout'].includes(view);
 
   return (
@@ -6179,6 +6460,17 @@ const AppContent = () => {
               exit={{ opacity: 0 }}
             >
               <COARequestView />
+            </motion.div>
+          )}
+
+          {view === 'refer' && (
+            <motion.div
+              key="refer"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <ReferralView onNavigate={setView} onOpenAuth={() => setIsAuthOpen(true)} />
             </motion.div>
           )}
 
@@ -6295,7 +6587,7 @@ const AppContent = () => {
                   }
                 }} 
                 onComplete={async (data) => {
-                  const { shippingInfo, shippingMethod, paymentMethod, total, promoCode, promoDiscount, orderId: passedOrderId } = data;
+                  const { shippingInfo, shippingMethod, paymentMethod, total, promoCode, promoDiscount, orderId: passedOrderId, referralCode } = data;
                   try {
                     if (editingOrder) {
                       await updateDoc(doc(db, 'orders', editingOrder.id), {
@@ -6342,8 +6634,28 @@ const AppContent = () => {
                         paymentMethod,
                         promoCode: promoCode || null,
                         promoDiscount: promoDiscount || 0,
+                        referralCode: referralCode || null,
                         createdAt: serverTimestamp()
                       });
+
+                      // If there was a referral, add it to the referrer's referrals array as pending
+                      if (referralCode) {
+                        const referrerRef = doc(db, 'users', referralCode);
+                        const referrerSnap = await getDoc(referrerRef);
+                        if (referrerSnap.exists()) {
+                          const currentReferrals = referrerSnap.data().referrals || [];
+                          await updateDoc(referrerRef, {
+                            referrals: [...currentReferrals, {
+                              email: shippingInfo.email,
+                              orderId: orderId,
+                              status: 'pending',
+                              date: new Date()
+                            }]
+                          });
+                        }
+                      }
+
+                      localStorage.removeItem('referralCode');
                       alert(`Order placed successfully! Your Order ID is: ${orderId}`);
                       setCart([]);
                       setAppliedPromo(null);
