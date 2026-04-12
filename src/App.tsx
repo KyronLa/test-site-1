@@ -4256,6 +4256,23 @@ const ShopView: React.FC<{
             </div>
           </div>
         </div>
+
+        {/* Scroll Indicator */}
+        <div className="absolute bottom-6 md:bottom-10 left-1/2 -translate-x-1/2 z-20">
+          <motion.div
+            animate={{ y: [0, 8, 0] }}
+            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+            className="flex flex-col items-center gap-1 md:gap-2 cursor-pointer group"
+            onClick={() => {
+              document.getElementById('product-section')?.scrollIntoView({ behavior: 'smooth' });
+            }}
+          >
+            <span className="text-[8px] md:text-[10px] font-bold text-white/50 uppercase tracking-[0.3em] group-hover:text-emerald-500 transition-colors">Explore</span>
+            <div className="w-8 h-8 md:w-10 md:h-10 rounded-full border border-white/20 flex items-center justify-center group-hover:border-emerald-500 transition-colors">
+              <ChevronDown className="w-4 h-4 md:w-5 md:h-5 text-white/50 group-hover:text-emerald-500 transition-colors" />
+            </div>
+          </motion.div>
+        </div>
       </section>
 
       <div className="bg-amber-50 border-b border-amber-100 py-3 px-4">
@@ -4268,7 +4285,7 @@ const ShopView: React.FC<{
       </div>
       
       {/* Product Section */}
-      <section className="py-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section id="product-section" className="py-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col lg:flex-row gap-8 lg:gap-12">
           {/* Sidebar Filter */}
           <aside className="w-full lg:w-64 flex-shrink-0">
