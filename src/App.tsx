@@ -216,6 +216,8 @@ interface SiteSettings {
   durationDays?: number;
   durationHours?: number;
   durationMinutes?: number;
+  referralMinOrder?: number;
+  referralCreditAmount?: number;
 }
 
 interface AuthContextType {
@@ -2795,8 +2797,10 @@ const AdminDashboard = () => {
             const ordersSnapshot = await getDocs(ordersQuery);
             const isFirstOrder = ordersSnapshot.size === 1; // Only the current order
             
-            // 3. Check order total > $20
-            const isMinAmount = orderData.total > 20;
+            // 3. Check order total > min order from settings
+            const minOrder = siteSettings?.referralMinOrder || 20;
+            const creditAmount = siteSettings?.referralCreditAmount || 10;
+            const isMinAmount = orderData.total >= minOrder;
             
             const currentReferrals = referrerData.referrals || [];
             const updatedReferrals = currentReferrals.map((r: any) => {
@@ -2807,9 +2811,9 @@ const AdminDashboard = () => {
             });
 
             if (!isSelfReferral && isFirstOrder && isMinAmount) {
-              // Add $10 store credit
+              // Add store credit from settings
               await updateDoc(referrerRef, {
-                storeCredit: (referrerData.storeCredit || 0) + 10,
+                storeCredit: (referrerData.storeCredit || 0) + creditAmount,
                 referrals: updatedReferrals
               });
             } else {
@@ -3450,6 +3454,8 @@ const AdminDashboard = () => {
                 durationDays: days,
                 durationHours: hours,
                 durationMinutes: minutes,
+                referralMinOrder: parseFloat(formData.get('referralMinOrder') as string) || 20,
+                referralCreditAmount: parseFloat(formData.get('referralCreditAmount') as string) || 10,
               };
 
               try {
@@ -3518,6 +3524,34 @@ const AdminDashboard = () => {
                   </div>
                 </div>
                 <p className="text-[10px] text-gray-400 italic">Changing the duration will restart the countdown from the new time.</p>
+              </div>
+
+              <div className="pt-8 border-t border-gray-100">
+                <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
+                  <Gift className="w-6 h-6 text-emerald-500" /> Referral Settings
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Min Order Value ($)</label>
+                    <input 
+                      name="referralMinOrder" 
+                      type="number"
+                      step="0.01"
+                      defaultValue={siteSettings?.referralMinOrder || 20}
+                      className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-black outline-none" 
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Credit Amount ($)</label>
+                    <input 
+                      name="referralCreditAmount" 
+                      type="number"
+                      step="0.01"
+                      defaultValue={siteSettings?.referralCreditAmount || 10}
+                      className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-black outline-none" 
+                    />
+                  </div>
+                </div>
               </div>
 
               <button type="submit" className="w-full py-4 bg-black text-white rounded-2xl font-bold hover:bg-emerald-600 transition-all flex items-center justify-center gap-2">
@@ -4055,7 +4089,7 @@ const Hero = ({ onShopNow, onViewCOAs }: { onShopNow: () => void, onViewCOAs: ()
           transition={{ duration: 0.8 }}
           className="max-w-2xl"
         >
-          <h1 className="text-4xl sm:text-6xl md:text-7xl font-bold text-white tracking-tight mt-12 mb-8 leading-[0.9] uppercase">
+          <h1 className="text-4xl sm:text-6xl md:text-7xl font-bold text-white tracking-tight mt-32 mb-8 leading-[0.9] uppercase">
             Purity <br />
             <span className="text-emerald-500">Peptides</span> <br />
             Without <br />
@@ -4065,6 +4099,21 @@ const Hero = ({ onShopNow, onViewCOAs }: { onShopNow: () => void, onViewCOAs: ()
             Synthesizing high-purity research compounds for the global scientific community. 
             HPLC tested, discreetly shipped, and laboratory verified.
           </p>
+
+          {/* Desktop Trust Bubble */}
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+            className="hidden md:inline-flex items-center gap-x-4 md:gap-x-8 px-5 py-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-xl mb-12"
+          >
+            <span className="text-[8px] md:text-[10px] font-bold text-white uppercase tracking-widest">99% Purity</span>
+            <div className="w-[1px] h-3 bg-white/10" />
+            <span className="text-[8px] md:text-[10px] font-bold text-white uppercase tracking-widest">COA Available</span>
+            <div className="w-[1px] h-3 bg-white/10" />
+            <span className="text-[8px] md:text-[10px] font-bold text-white uppercase tracking-widest">$250+ free shipping</span>
+          </motion.div>
+
           <div className="flex flex-wrap items-start gap-4 md:gap-6 -mt-[45px] md:mt-0">
             <motion.button 
               onClick={onShopNow}
@@ -4094,12 +4143,12 @@ const Hero = ({ onShopNow, onViewCOAs }: { onShopNow: () => void, onViewCOAs: ()
                 Request COA's
               </button>
 
-              {/* Trust Bubble */}
+              {/* Mobile Trust Bubble */}
               <motion.div 
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.5 }}
-                className="inline-flex items-center gap-x-4 md:gap-x-8 px-5 py-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-xl"
+                className="md:hidden inline-flex items-center gap-x-4 md:gap-x-8 px-5 py-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-xl"
               >
                 <span className="text-[8px] md:text-[10px] font-bold text-white uppercase tracking-widest">99% Purity</span>
                 <div className="w-[1px] h-3 bg-white/10" />
