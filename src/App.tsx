@@ -5184,7 +5184,8 @@ const CheckoutView = ({
             total,
             customerEmail: shippingInfo.email,
             orderId,
-            shippingInfo
+            shippingInfo,
+            referralCode: localStorage.getItem('referralCode')
           })
         });
 

@@ -22,7 +22,7 @@ export const createBankfulSession = onRequest(
     }
 
     try {
-      const { total, customerEmail, orderId, shippingInfo, cart } = req.body;
+      const { total, customerEmail, orderId, shippingInfo, cart, referralCode } = req.body;
 
       // 1. Save pending order to Firestore
       await db.collection("orders").doc(orderId).set({
@@ -33,6 +33,7 @@ export const createBankfulSession = onRequest(
         items: cart || [],
         total: Number(total),
         status: "pending",
+        referralCode: referralCode || null,
         createdAt: admin.firestore.FieldValue.serverTimestamp()
       });
 
