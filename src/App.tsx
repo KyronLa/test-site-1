@@ -217,7 +217,6 @@ interface SiteSettings {
   durationDays?: number;
   durationHours?: number;
   durationMinutes?: number;
-  referralMinOrder?: number;
   referralCreditAmount?: number;
 }
 
@@ -2781,10 +2780,11 @@ const AdminDashboard = () => {
       console.log('Referral Flow: Processing simplified referral for order:', orderId);
       const referrerId = orderData.referralCode;
       const referrerRef = doc(db, 'users', referrerId);
+      const creditAmount = siteSettings?.referralCreditAmount || 10;
       
-      // Add $10 to storeCredit
+      // Add credit to storeCredit
       await updateDoc(referrerRef, {
-        storeCredit: increment(10)
+        storeCredit: increment(creditAmount)
       });
 
       // Update order to mark as credited
@@ -2792,7 +2792,7 @@ const AdminDashboard = () => {
         referralCredited: true
       });
 
-      console.log('Referral Flow: $10 credit applied to user:', referrerId);
+      console.log(`Referral Flow: $${creditAmount} credit applied to user:`, referrerId);
     } catch (error) {
       console.error('Referral Flow Error:', error);
     }
@@ -3470,7 +3470,6 @@ const AdminDashboard = () => {
                   durationDays: days,
                   durationHours: hours,
                   durationMinutes: minutes,
-                  referralMinOrder: parseFloat(formData.get('referralMinOrder') as string) || 20,
                   referralCreditAmount: parseFloat(formData.get('referralCreditAmount') as string) || 10,
                 };
 
@@ -3550,27 +3549,15 @@ const AdminDashboard = () => {
                 <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
                   <Gift className="w-6 h-6 text-emerald-500" /> Referral Settings
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Min Order Value ($)</label>
-                    <input 
-                      name="referralMinOrder" 
-                      type="number"
-                      step="0.01"
-                      defaultValue={siteSettings?.referralMinOrder || 20}
-                      className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-black outline-none" 
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Credit Amount ($)</label>
-                    <input 
-                      name="referralCreditAmount" 
-                      type="number"
-                      step="0.01"
-                      defaultValue={siteSettings?.referralCreditAmount || 10}
-                      className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-black outline-none" 
-                    />
-                  </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Credit Amount ($)</label>
+                  <input 
+                    name="referralCreditAmount" 
+                    type="number"
+                    step="0.01"
+                    defaultValue={siteSettings?.referralCreditAmount || 10}
+                    className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-black outline-none" 
+                  />
                 </div>
               </div>
 
