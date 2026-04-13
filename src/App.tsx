@@ -4076,7 +4076,7 @@ const Hero = ({ onShopNow, onViewCOAs }: { onShopNow: () => void, onViewCOAs: ()
   return (
     <>
       {/* Mobile Black Bar Sitting on Top */}
-      <div className="h-[75px] bg-black md:hidden" />
+      <div className="h-0 bg-black md:hidden" />
       
       <section className="relative h-screen flex items-center overflow-hidden bg-black">
         {/* Background Video Layer */}
@@ -4105,9 +4105,9 @@ const Hero = ({ onShopNow, onViewCOAs }: { onShopNow: () => void, onViewCOAs: ()
           transition={{ duration: 0.8 }}
           className="max-w-2xl"
         >
-          <h1 className="text-4xl sm:text-6xl md:text-7xl font-bold text-white tracking-tight mt-32 mb-8 leading-[0.9] uppercase">
+          <h1 className="text-4xl sm:text-6xl md:text-7xl font-bold text-white tracking-tight mt-0 md:mt-32 mb-8 leading-[0.9] uppercase">
             Purity <br />
-            <span className="text-emerald-500">Peptides</span> <br />
+            <span className="text-emerald-500 hidden md:inline">Peptides</span> <br className="hidden md:block" />
             Without <br />
             Compromise
           </h1>
@@ -4148,7 +4148,12 @@ const Hero = ({ onShopNow, onViewCOAs }: { onShopNow: () => void, onViewCOAs: ()
               }}
               className="px-6 py-3 md:px-10 md:py-5 bg-white text-black text-sm md:text-base font-bold rounded-2xl hover:bg-emerald-500 hover:text-white transition-all active:scale-95 flex items-center gap-2 md:gap-3"
             >
-              Explore Catalog <ChevronRight className="w-4 h-4 md:w-5 md:h-5" />
+              <div className="relative flex items-center gap-2 md:gap-3">
+                Explore Catalog <ChevronRight className="w-4 h-4 md:w-5 md:h-5" />
+                <span className="absolute -top-6 -right-4 md:-top-8 md:-right-6 bg-emerald-500 text-white text-[8px] md:text-[10px] font-black px-2 py-0.5 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.5)] animate-bounce uppercase tracking-tighter">
+                  Sale
+                </span>
+              </div>
             </motion.button>
             
             <div className="flex flex-col items-center gap-4">
@@ -5174,6 +5179,7 @@ const CheckoutView = ({
 
     if (paymentMethod === 'card') {
       try {
+        const referralCode = localStorage.getItem('referralCode');
         const response = await fetch('https://us-central1-gen-lang-client-0437247227.cloudfunctions.net/createBankfulSession', {
           method: 'POST',
           headers: {
@@ -5185,7 +5191,7 @@ const CheckoutView = ({
             customerEmail: shippingInfo.email,
             orderId,
             shippingInfo,
-            referralCode: localStorage.getItem('referralCode')
+            referralCode: referralCode || null
           })
         });
 
