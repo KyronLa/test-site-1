@@ -6800,8 +6800,8 @@ const AppContent = () => {
 
   const addToCart = (product: Product, quantity: number = 1) => {
     // Klaviyo Added to Cart tracking
-    const _learnq = (window as any)._learnq || [];
-    _learnq.push(['track', 'Added to Cart', {
+    const klaviyo = (window as any).klaviyo || [];
+    klaviyo.push(['track', 'Added to Cart', {
       'ProductName': product.name,
       'ProductID': product.id,
       'Price': product.price,
@@ -6827,6 +6827,20 @@ const AppContent = () => {
   };
 
   const updateQuantity = (id: string, delta: number) => {
+    if (delta > 0) {
+      const item = cart.find(i => i.id === id);
+      if (item) {
+        const klaviyo = (window as any).klaviyo || [];
+        klaviyo.push(['track', 'Added to Cart', {
+          'ProductName': item.name,
+          'ProductID': item.id,
+          'Price': item.price,
+          'ItemURL': window.location.origin + '/?product=' + item.id,
+          'ImageURL': item.image
+        }]);
+      }
+    }
+
     setCart(prev => prev.map(item => {
       if (item.id === id) {
         const newQty = item.quantity + delta;
