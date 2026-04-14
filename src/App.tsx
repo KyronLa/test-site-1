@@ -2798,10 +2798,13 @@ const AdminDashboard = () => {
     try {
       const orderRef = doc(db, 'orders', orderId);
       
-      if (newStatus === 'shipped') {
+      if (newStatus === 'shipped' || newStatus === 'delivered') {
         const orderSnap = await getDoc(orderRef);
         if (orderSnap.exists()) {
-          await processReferralCredit(orderId, orderSnap.data());
+          const orderData = orderSnap.data();
+          if (!orderData.referralCredited) {
+            await processReferralCredit(orderId, orderData);
+          }
         }
       }
 
@@ -3372,7 +3375,8 @@ const AdminDashboard = () => {
                       </td>
                       <td className="px-6 py-4">
                         <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                          o.status === 'paid' || o.status === 'fulfilled' || o.status === 'shipped' ? 'bg-emerald-100 text-emerald-700' : 
+                          o.status === 'shipped' || o.status === 'delivered' ? 'bg-emerald-100 text-emerald-700' : 
+                          o.status === 'awaiting tracking' ? 'bg-blue-100 text-blue-700' :
                           o.status === 'pending' ? 'bg-amber-100 text-amber-700' : 
                           'bg-red-100 text-red-700'
                         }`}>
@@ -3468,7 +3472,9 @@ const AdminDashboard = () => {
                           className="text-[10px] font-bold uppercase tracking-widest bg-gray-50 border border-gray-100 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                         >
                           <option value="pending">Pending</option>
-                          <option value="fulfilled">Fulfilled</option>
+                          <option value="awaiting tracking">Awaiting Tracking</option>
+                          <option value="shipped">Shipped</option>
+                          <option value="delivered">Delivered</option>
                           <option value="cancelled">Cancelled</option>
                         </select>
                       </td>
@@ -5299,6 +5305,7 @@ const CheckoutView = ({
   onUpdateQuantity,
   onRemoveFromCart,
   onAddToCart,
+  onClearCart,
   products
 }: { 
   cart: CartItem[], 
@@ -5311,6 +5318,7 @@ const CheckoutView = ({
   onUpdateQuantity: (id: string, delta: number) => void,
   onRemoveFromCart: (id: string) => void,
   onAddToCart: (product: Product, quantity?: number) => void,
+  onClearCart: () => void,
   products: Product[]
 }) => {
   const { user, isFreeShippingEnabled, isAdmin } = useAuth();
@@ -5500,6 +5508,15 @@ const CheckoutView = ({
 
         const data = await response.json() as { redirect_url: string };
         if (data.redirect_url) {
+          // Clear cart before redirecting to ensure it's empty on return
+          const cartId = user ? user.uid : getGuestId();
+          try {
+            await deleteDoc(doc(db, 'carts', cartId));
+            onClearCart();
+          } catch (err) {
+            console.error('Error clearing cart before redirect:', err);
+          }
+          
           window.location.href = data.redirect_url;
           return;
         } else {
@@ -7046,6 +7063,7 @@ const AppContent = () => {
                 onUpdateQuantity={updateQuantity}
                 onRemoveFromCart={removeFromCart}
                 onAddToCart={addToCart}
+                onClearCart={() => setCart([])}
                 products={productsList}
                 onBack={() => {
                   if (editingOrder) {
@@ -7148,6 +7166,15 @@ const AppContent = () => {
                       }
 
                       localStorage.removeItem('referralCode');
+                      
+                      // Explicitly clear cart from Firestore
+                      const cartId = user ? user.uid : getGuestId();
+                      try {
+                        await deleteDoc(doc(db, 'carts', cartId));
+                      } catch (err) {
+                        console.error('Error clearing cart from Firestore:', err);
+                      }
+                      
                       alert(`Order placed successfully! Your Order ID is: ${orderId}`);
                       setCart([]);
                       setAppliedPromo(null);

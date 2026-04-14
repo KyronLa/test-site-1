@@ -65,7 +65,8 @@
         "userId": { "type": "string" },
         "items": { "type": "array", "items": { "type": "object" } },
         "total": { "type": "number" },
-        "status": { "type": "string", "enum": ["pending", "paid", "shipped"] },
+        "status": { "type": "string", "enum": ["pending", "awaiting tracking", "shipped", "delivered", "cancelled"] },
+        "trackingNumber": { "type": "string", "description": "The shipping tracking number." },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["userId", "items", "total", "status", "createdAt"]

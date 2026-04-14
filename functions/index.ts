@@ -306,14 +306,22 @@ export const bankfulCallback = onRequest(
     console.log("Bankful Callback Received:", JSON.stringify(req.body || req.query, null, 2));
 
     try {
-      const orderId = req.body?.xtl_order_id || req.query?.xtl_order_id || req.body?.TRANS_REQUEST_ID || req.query?.TRANS_REQUEST_ID;
+      // Bankful returns parameters in the query string for redirects
+      // xtl_order_id is our custom field, TRANS_REQUEST_ID is Bankful's ID
+      const orderId = req.query?.xtl_order_id || req.body?.xtl_order_id || 
+                      req.query?.TRANS_REQUEST_ID || req.body?.TRANS_REQUEST_ID;
+
+      console.log("Extracted Order ID for update:", orderId);
 
       if (orderId) {
+        // Update the order status to awaiting tracking
         await db.collection("orders").doc(orderId as string).update({
-          status: "paid",
+          status: "awaiting tracking",
           updatedAt: admin.firestore.FieldValue.serverTimestamp()
         });
-        console.log(`Order ${orderId} updated to paid via callback`);
+        console.log(`Order ${orderId} successfully updated to awaiting tracking via callback`);
+      } else {
+        console.warn("No orderId found in callback parameters");
       }
 
       res.redirect("https://eclipseresearch.shop/order-success.html");
@@ -350,10 +358,10 @@ export const bankfulWebhook = onRequest(
       // response_code "100" means approved in Bankful
       if (response_code === "100") {
         await db.collection("orders").doc(xtl_order_id).update({
-          status: "paid",
+          status: "awaiting tracking",
           paidAt: admin.firestore.FieldValue.serverTimestamp()
         });
-        console.log(`Order ${xtl_order_id} updated to paid via webhook`);
+        console.log(`Order ${xtl_order_id} updated to awaiting tracking via webhook`);
       }
 
       res.status(200).send("OK");
