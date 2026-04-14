@@ -779,6 +779,7 @@ const AuthModal = ({ isOpen, onClose, onNavigate }: { isOpen: boolean, onClose: 
         await register(sanitizedEmail, password, sanitizedFirstName, sanitizedLastName, sanitizedPhone);
       }
     } catch (err: any) {
+      console.error('Auth Error:', err);
       setError(err.message || 'An error occurred');
     } finally {
       setIsLoading(false);
