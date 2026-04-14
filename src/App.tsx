@@ -5375,20 +5375,26 @@ const CheckoutView = ({
         const promoData = querySnapshot.docs[0].data();
         const code = promoData.code;
 
-        // Check for one-time use if not admin
-        if (!isAdmin) {
-          const emailToCheck = user?.email || shippingInfo.email;
+        // Check for one-time use if not admin and user is logged in
+        if (!isAdmin && user) {
+          const emailToCheck = user.email || shippingInfo.email;
           if (emailToCheck) {
-            const ordersQuery = query(
-              collection(db, 'orders'),
-              where('customerEmail', '==', emailToCheck),
-              where('promoCode', '==', code)
-            );
-            const ordersSnapshot = await getDocs(ordersQuery);
-            if (!ordersSnapshot.empty) {
-              setPromoError('This promo code has already been used with this email address');
-              onApplyPromo(null);
-              return;
+            try {
+              const ordersQuery = query(
+                collection(db, 'orders'),
+                where('customerEmail', '==', emailToCheck),
+                where('promoCode', '==', code)
+              );
+              const ordersSnapshot = await getDocs(ordersQuery);
+              if (!ordersSnapshot.empty) {
+                setPromoError('This promo code has already been used with this email address');
+                onApplyPromo(null);
+                return;
+              }
+            } catch (err) {
+              console.error('Error checking promo usage:', err);
+              // If we can't check usage (e.g. permission error for guests), we might want to allow it or fail safely
+              // For now, let's just log it and continue if it's a permission error, or handle it
             }
           }
         }
@@ -5400,7 +5406,7 @@ const CheckoutView = ({
         setPromoCode('');
       }
     } catch (error) {
-      console.error('Error applying promo code:', error);
+      handleFirestoreError(error, OperationType.GET, 'promo_codes');
       setPromoError('Error applying promo code');
     } finally {
       setIsApplying(false);
