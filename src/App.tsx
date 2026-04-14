@@ -4404,7 +4404,7 @@ const Hero = ({ onShopNow, onViewCOAs }: { onShopNow: () => void, onViewCOAs: ()
           <div className="flex flex-wrap items-start gap-4 md:gap-6 -mt-[30px] md:-mt-10">
             <motion.button 
               onClick={onShopNow}
-              animate={{ 
+              whileHover={{ 
                 scale: [1, 1.05, 1],
                 boxShadow: [
                   "0 0 0 0px rgba(16, 185, 129, 0)",
