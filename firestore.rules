@@ -14,6 +14,9 @@ service cloud.firestore {
     // Collection: orders
     // Fields: userId, items, total, status, createdAt
     //
+    // Collection: rate_limits
+    // Fields: count, expiresAt
+    //
     // ===============================================================
 
     // Helper Functions
@@ -30,11 +33,28 @@ service cloud.firestore {
         (request.auth.token.email in ["info@eclipseresearch.shop", "kyron.laskosky2@gmail.com"] && request.auth.token.email_verified == true);
     }
 
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidUrl(url) {
+      return url is string && (url.matches("^https://.*") || url.matches("^http://.*"));
+    }
+
+    function isValidDateString(dateStr) {
+      return dateStr is string && dateStr.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z?$");
+    }
+
+    function hasOnlyAllowedFields(data, allowedFields) {
+      return data.keys().hasOnly(allowedFields);
+    }
+
     function isValidProduct(data) {
-      return data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+      return hasOnlyAllowedFields(data, ['name', 'price', 'category', 'image', 'description', 'purity', 'size', 'quantityImages', 'stock', 'inStock', 'lowStockThreshold', 'isArchived']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
              data.price is number && data.price >= 0 &&
              data.category is string &&
-             data.image is string &&
+             isValidUrl(data.image) &&
              (!('stock' in data) || data.stock is int) &&
              (!('inStock' in data) || data.inStock is bool) &&
              (!('lowStockThreshold' in data) || data.lowStockThreshold is int) &&
@@ -42,24 +62,27 @@ service cloud.firestore {
     }
 
     function isValidUser(data) {
-      return data.email is string &&
-             data.firstName is string && data.firstName.size() > 0 &&
-             data.lastName is string && data.lastName.size() > 0 &&
-             (!('phone' in data) || data.phone == null || data.phone is string) &&
+      return hasOnlyAllowedFields(data, ['email', 'firstName', 'lastName', 'phone', 'displayName', 'role', 'createdAt', 'lastLogin', 'addresses', 'rewardPoints']) &&
+             isValidEmail(data.email) &&
+             data.firstName is string && data.firstName.size() > 0 && data.firstName.size() < 50 &&
+             data.lastName is string && data.lastName.size() > 0 && data.lastName.size() < 50 &&
+             (!('phone' in data) || data.phone == null || (data.phone is string && data.phone.size() < 20)) &&
              (!('addresses' in data) || data.addresses is list) &&
              (!('rewardPoints' in data) || data.rewardPoints is number);
     }
 
     function isValidSettings(data) {
-      return (!('countdownActive' in data) || data.countdownActive is bool) &&
-             (!('countdownText' in data) || data.countdownText is string) &&
-             (!('countdownTarget' in data) || data.countdownTarget is string);
+      return hasOnlyAllowedFields(data, ['countdownActive', 'countdownText', 'countdownTarget']) &&
+             (!('countdownActive' in data) || data.countdownActive is bool) &&
+             (!('countdownText' in data) || (data.countdownText is string && data.countdownText.size() < 200)) &&
+             (!('countdownTarget' in data) || isValidDateString(data.countdownTarget));
     }
 
     function isValidAffiliateApplication(data) {
-      return data.email is string &&
-             data.fullName is string && data.fullName.size() > 0 &&
-             data.socialHandle is string && data.socialHandle.size() > 0 &&
+      return hasOnlyAllowedFields(data, ['userId', 'fullName', 'email', 'socialHandle', 'followerCount', 'niche', 'avgViews', 'usesPeptides', 'whyPartner', 'status', 'createdAt']) &&
+             isValidEmail(data.email) &&
+             data.fullName is string && data.fullName.size() > 0 && data.fullName.size() < 100 &&
+             data.socialHandle is string && data.socialHandle.size() > 0 && data.socialHandle.size() < 100 &&
              data.followerCount in ["Under 1K", "1K–10K", "10K–50K", "50K+"] &&
              data.niche in ["Fitness", "Bodybuilding", "Biohacking", "General Wellness", "Other"] &&
              data.avgViews is string &&
@@ -69,61 +92,59 @@ service cloud.firestore {
     }
 
     function isValidPromoCode(data) {
-      return data.code is string && data.code.size() > 0 &&
+      return hasOnlyAllowedFields(data, ['code', 'discount', 'isActive', 'createdAt']) &&
+             data.code is string && data.code.size() > 0 && data.code.size() < 50 &&
              data.discount is number && data.discount >= 0 && data.discount <= 100 &&
              data.isActive is bool;
     }
 
     // Rules
     match /products/{productId} {
-      allow read: if true; // Products are publicly viewable
+      allow read: if isAuthenticated(); // No longer public
       allow create, update: if isAdmin() && isValidProduct(request.resource.data);
       allow delete: if isAdmin();
     }
 
     match /settings/{settingId} {
-      allow read: if true; // Settings are publicly readable
+      allow read: if isAuthenticated(); // No longer public
       allow create, update: if isAdmin() && isValidSettings(request.resource.data);
       allow delete: if isAdmin();
     }
 
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
-      allow create: if isAuthenticated() && request.auth.uid == userId && isValidUser(request.resource.data);
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
       allow update: if isOwner(userId) && isValidUser(request.resource.data) &&
                     (!('role' in request.resource.data) || request.resource.data.role == resource.data.role);
       allow delete: if isAdmin();
     }
 
     match /orders/{orderId} {
-      // Allow read if user is owner, admin, or if they are tracking a guest order (checked via ID)
-      // Note: In a production app, you'd ideally use a query with email filter to restrict this further.
-      allow read: if (isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin())) || 
-                     (resource.data.shippingInfo.email == request.auth.token.email) ||
-                     (!isAuthenticated()); // Allow guest tracking via ID (Security by Obscurity)
+      // Only readable by owner or admin
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
       
-      allow create: if (isAuthenticated() && request.resource.data.userId == request.auth.uid) || 
-                       (!isAuthenticated()); // Allow guest checkout
-      
-      allow update: if isAdmin();
-      
-      allow delete: if (isAuthenticated() && resource.data.userId == request.auth.uid && resource.data.status == 'pending') || isAdmin();
+      // Orders are ONLY writable via Cloud Functions (Admin SDK)
+      allow write: if false;
     }
 
     match /coa_requests/{requestId} {
-      allow create: if true; // Anyone can request a COA
+      allow create: if isAuthenticated();
       allow read, update, delete: if isAdmin();
     }
 
     match /affiliate_applications/{applicationId} {
-      allow create: if isValidAffiliateApplication(request.resource.data);
+      allow create: if isOwner(request.resource.data.userId) && isValidAffiliateApplication(request.resource.data);
       allow read, update, delete: if isAdmin();
     }
 
     match /promo_codes/{promoId} {
-      allow read: if true; // Publicly readable for validation during checkout
+      allow read: if isAuthenticated(); // No longer public
       allow create, update: if isAdmin() && isValidPromoCode(request.resource.data);
       allow delete: if isAdmin();
+    }
+
+    match /rate_limits/{limitId} {
+      allow read, write: if false; // Internal only
     }
   }
 }

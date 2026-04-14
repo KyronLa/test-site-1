@@ -123,6 +123,16 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["code", "discount", "isActive", "createdAt"]
+    },
+    "RateLimit": {
+      "title": "RateLimit",
+      "description": "A record of request counts for rate limiting.",
+      "type": "object",
+      "properties": {
+        "count": { "type": "integer", "description": "Number of requests in the current window." },
+        "expiresAt": { "type": "string", "format": "date-time", "description": "When this record should be deleted." }
+      },
+      "required": ["count", "expiresAt"]
     }
   },
   "firestore": {
@@ -132,6 +142,7 @@
     "/coa_requests": { "schema": "COARequest", "description": "Requests for Certificates of Analysis." },
     "/settings": { "schema": "SiteSettings", "description": "Global site configuration." },
     "/affiliate_applications": { "schema": "AffiliateApplication", "description": "Applications for the affiliate program." },
-    "/promo_codes": { "schema": "PromoCode", "description": "Active and inactive promotional codes." }
+    "/promo_codes": { "schema": "PromoCode", "description": "Active and inactive promotional codes." },
+    "/rate_limits": { "schema": "RateLimit", "description": "Internal rate limiting counters." }
   }
 }

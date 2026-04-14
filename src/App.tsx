@@ -44,7 +44,6 @@ import {
   Check
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { GoogleGenAI } from "@google/genai";
 import { 
   signInWithPopup, 
   GoogleAuthProvider, 
@@ -75,6 +74,7 @@ import {
 } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import { INITIAL_PRODUCTS } from './constants';
+import { sanitizeData, sanitizeInput } from './lib/sanitization';
 
 // --- Firestore Error Handling ---
 
@@ -486,13 +486,14 @@ const CartDrawer = ({
   const finalTotal = totalBeforePromo - discountAmount;
 
   const handleApplyPromo = async () => {
-    if (!promoCode.trim()) return;
+    const sanitizedPromoCode = sanitizeInput(promoCode).toUpperCase().trim();
+    if (!sanitizedPromoCode) return;
     setIsApplying(true);
     setPromoError('');
     try {
       const q = query(
         collection(db, 'promo_codes'), 
-        where('code', '==', promoCode.toUpperCase().trim()),
+        where('code', '==', sanitizedPromoCode),
         where('isActive', '==', true)
       );
       const querySnapshot = await getDocs(q);
@@ -753,24 +754,20 @@ const AuthModal = ({ isOpen, onClose, onNavigate }: { isOpen: boolean, onClose: 
     setIsLoading(true);
 
     try {
+      const sanitizedEmail = sanitizeInput(email);
+      const sanitizedFirstName = sanitizeInput(firstName);
+      const sanitizedLastName = sanitizeInput(lastName);
+      const sanitizedPhone = sanitizeInput(phone);
+
       if (mode === 'reset') {
-        if (!email) throw new Error('Please enter your email address.');
-        await sendPasswordResetEmail(auth, email);
+        if (!sanitizedEmail) throw new Error('Please enter your email address.');
+        await sendPasswordResetEmail(auth, sanitizedEmail);
         setSuccessMessage('Password reset email sent! Please check your inbox.');
         return;
       }
 
       if (mode === 'login') {
-        try {
-          await login(email, password);
-        } catch (err: any) {
-          // Special case: If admin login fails and it's the requested credentials, try to register
-          if (email === 'info@eclipseresearch.shop' && password === 'KyronMakesMunyun1028' && (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential')) {
-            await register(email, password, 'Super', 'Admin');
-          } else {
-            throw err;
-          }
-        }
+        await login(sanitizedEmail, password);
       } else {
         if (!is21) {
           throw new Error('You must be 21 years or older to register.');
@@ -779,7 +776,7 @@ const AuthModal = ({ isOpen, onClose, onNavigate }: { isOpen: boolean, onClose: 
           throw new Error('Password must be at least 6 characters');
         }
 
-        await register(email, password, firstName, lastName, phone);
+        await register(sanitizedEmail, password, sanitizedFirstName, sanitizedLastName, sanitizedPhone);
       }
     } catch (err: any) {
       setError(err.message || 'An error occurred');
@@ -1386,8 +1383,8 @@ const TrackOrderView = ({ onBack }: { onBack: () => void }) => {
     setError(null);
     setOrder(null);
 
-    const cleanOrderNumber = orderNumber.trim();
-    const cleanEmail = email.trim().toLowerCase();
+    const cleanOrderNumber = sanitizeInput(orderNumber).trim();
+    const cleanEmail = sanitizeInput(email).trim().toLowerCase();
 
     try {
       // Use getDoc for direct ID lookup
@@ -1711,6 +1708,7 @@ const PrivacyPolicyView = ({ onBack }: { onBack: () => void }) => {
 };
 
 const AffiliateApplicationModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -1723,12 +1721,27 @@ const AffiliateApplicationModal = ({ isOpen, onClose }: { isOpen: boolean; onClo
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  useEffect(() => {
+    if (user) {
+      setFormData(prev => ({
+        ...prev,
+        fullName: user.displayName || '',
+        email: user.email || ''
+      }));
+    }
+  }, [user, isOpen]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) {
+      alert("Please sign in to submit an affiliate application.");
+      return;
+    }
     setIsSubmitting(true);
     try {
+      const sanitizedData = sanitizeData(formData);
       await addDoc(collection(db, 'affiliate_applications'), {
-        ...formData,
+        ...sanitizedData,
         status: 'pending',
         createdAt: serverTimestamp(),
         userId: auth.currentUser?.uid || null
@@ -2140,9 +2153,10 @@ const AccountView = ({ onNavigate, onEditOrder }: { onNavigate: (view: any) => v
   const handleUpdateProfile = async () => {
     if (!user) return;
     try {
+      const sanitizedData = sanitizeData(editData);
       await updateDoc(doc(db, 'users', user.uid), {
-        ...editData,
-        displayName: `${editData.firstName} ${editData.lastName}`
+        ...sanitizedData,
+        displayName: `${sanitizedData.firstName} ${sanitizedData.lastName}`
       });
       setIsEditingProfile(false);
     } catch (error) {
@@ -2154,7 +2168,8 @@ const AccountView = ({ onNavigate, onEditOrder }: { onNavigate: (view: any) => v
   const handleAddAddress = async () => {
     if (!user || !profile) return;
     try {
-      const updatedAddresses = [...(profile.addresses || []), { ...newAddress, isDefault: (profile.addresses || []).length === 0 }];
+      const sanitizedAddress = sanitizeData(newAddress);
+      const updatedAddresses = [...(profile.addresses || []), { ...sanitizedAddress, isDefault: (profile.addresses || []).length === 0 }];
       await updateDoc(doc(db, 'users', user.uid), {
         addresses: updatedAddresses
       });
@@ -2867,10 +2882,11 @@ const AdminDashboard = () => {
 
   const addPromoCode = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newPromo.code || newPromo.discount <= 0) return;
+    const sanitizedCode = sanitizeInput(newPromo.code).toUpperCase().trim();
+    if (!sanitizedCode || newPromo.discount <= 0) return;
     try {
       await addDoc(collection(db, 'promo_codes'), {
-        code: newPromo.code.toUpperCase().trim(),
+        code: sanitizedCode,
         discount: Number(newPromo.discount),
         isActive: true,
         createdAt: serverTimestamp()
@@ -3516,7 +3532,7 @@ const AdminDashboard = () => {
                   countdownTarget = new Date(Date.now() + durationMs).toISOString();
                 }
 
-                const settingsData = {
+                const settingsData = sanitizeData({
                   countdownActive: formData.get('countdownActive') === 'on',
                   countdownText: (formData.get('countdownText') as string) || 'Flash Sale Ending In:',
                   countdownTarget,
@@ -3524,7 +3540,7 @@ const AdminDashboard = () => {
                   durationHours: hours,
                   durationMinutes: minutes,
                   referralCreditAmount: parseFloat(formData.get('referralCreditAmount') as string) || 10,
-                };
+                });
 
                 try {
                   await setDoc(doc(db, 'settings', 'site'), settingsData, { merge: true });
@@ -3825,7 +3841,7 @@ const AdminDashboard = () => {
                 if (q2) quantityImages['2'] = q2;
                 if (q3) quantityImages['3'] = q3;
 
-                const productData = {
+                const productData = sanitizeData({
                   name: formData.get('name') as string,
                   price: parseFloat(formData.get('price') as string),
                   originalPrice: formData.get('originalPrice') ? parseFloat(formData.get('originalPrice') as string) : null,
@@ -3840,7 +3856,7 @@ const AdminDashboard = () => {
                   isArchived: formData.get('isArchived') === 'on',
                   quantityImages,
                   updatedAt: serverTimestamp()
-                };
+                });
 
                 try {
                   if (editingProduct) {
@@ -4223,7 +4239,7 @@ const Hero = ({ onShopNow, onViewCOAs }: { onShopNow: () => void, onViewCOAs: ()
         >
           <h1 className="text-4xl sm:text-6xl md:text-7xl font-bold text-white tracking-tight mt-0 md:mt-32 mb-6 md:mb-8 leading-[0.9] uppercase">
             Purity <br />
-            <span className="text-emerald-500 hidden md:inline">Peptides</span> <br className="hidden md:block" />
+            <span className="text-emerald-500">Peptides</span> <br />
             Without <br />
             Compromise
           </h1>
@@ -4246,7 +4262,7 @@ const Hero = ({ onShopNow, onViewCOAs }: { onShopNow: () => void, onViewCOAs: ()
             <span className="text-[8px] md:text-[10px] font-bold text-white uppercase tracking-widest">$250+ free shipping</span>
           </motion.div>
 
-          <div className="flex flex-wrap items-start gap-4 md:gap-6 -mt-[75px] md:mt-0">
+          <div className="flex flex-wrap items-start gap-4 md:gap-6 -mt-[30px] md:mt-0">
             <motion.button 
               onClick={onShopNow}
               animate={{ 
@@ -4954,21 +4970,36 @@ const ReferralView = ({ onNavigate, onOpenAuth }: { onNavigate: (view: any) => v
 };
 
 const COARequestView = () => {
+  const { user } = useAuth();
   const [email, setEmail] = useState('');
   const [product, setProduct] = useState('');
   const [message, setMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
 
+  useEffect(() => {
+    if (user?.email) {
+      setEmail(user.email);
+    }
+  }, [user]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) {
+      alert("Please sign in to request a COA.");
+      return;
+    }
     setIsSubmitting(true);
     
     try {
+      const sanitizedEmail = sanitizeInput(email);
+      const sanitizedProduct = sanitizeInput(product);
+      const sanitizedMessage = sanitizeInput(message);
+
       await addDoc(collection(db, 'coa_requests'), {
-        email,
-        product,
-        message,
+        email: sanitizedEmail,
+        product: sanitizedProduct,
+        message: sanitizedMessage,
         status: 'pending',
         createdAt: serverTimestamp()
       });
@@ -5186,13 +5217,14 @@ const CheckoutView = ({
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
 
   const handleApplyPromo = async () => {
-    if (!promoCode.trim()) return;
+    const sanitizedPromoCode = sanitizeInput(promoCode).toUpperCase().trim();
+    if (!sanitizedPromoCode) return;
     setIsApplying(true);
     setPromoError('');
     try {
       const q = query(
         collection(db, 'promo_codes'), 
-        where('code', '==', promoCode.toUpperCase().trim()),
+        where('code', '==', sanitizedPromoCode),
         where('isActive', '==', true)
       );
       const querySnapshot = await getDocs(q);
@@ -5296,17 +5328,23 @@ const CheckoutView = ({
     if (paymentMethod === 'card') {
       try {
         const referralCode = localStorage.getItem('referralCode');
+        const sanitizedShippingInfo = sanitizeData(shippingInfo);
+        
+        // Get Firebase ID token
+        const idToken = await user?.getIdToken();
+        
         const response = await fetch('https://us-central1-gen-lang-client-0437247227.cloudfunctions.net/createBankfulSession', {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`
           },
           body: JSON.stringify({
             cart,
             total,
-            customerEmail: shippingInfo.email,
+            customerEmail: sanitizedShippingInfo.email,
             orderId,
-            shippingInfo,
+            shippingInfo: sanitizedShippingInfo,
             referralCode: referralCode || null
           })
         });
@@ -5334,8 +5372,10 @@ const CheckoutView = ({
     const refCode = localStorage.getItem('referralCode');
     console.log('Referral Flow: Found referralCode in localStorage:', refCode);
 
+    const sanitizedShippingInfo = sanitizeData(shippingInfo);
+
     onComplete({
-      shippingInfo,
+      shippingInfo: sanitizedShippingInfo,
       shippingMethod,
       paymentMethod,
       total,

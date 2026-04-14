@@ -85,14 +85,8 @@
       console.log('All params:', window.location.search);
 
       if (orderId) {
-        fetch('https://us-central1-gen-lang-client-0437247227.cloudfunctions.net/updateOrderStatus', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ orderId: orderId, status: 'paid' })
-        })
-        .then(function(r) { return r.json(); })
-        .then(function(d) { console.log('Status updated:', d); })
-        .catch(function(e) { console.error('Update failed:', e); });
+        // Status updates are handled securely via Bankful Webhooks/Callbacks
+        console.log('Order confirmed, awaiting webhook update for:', orderId);
 
         var goaffproOrder = { number: orderId, total: parseFloat(orderValue), forceSDK: true };
         if (typeof goaffproTrackConversion === 'function') {
