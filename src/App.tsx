@@ -70,7 +70,9 @@ import {
   setDoc,
   updateDoc,
   Timestamp,
-  increment
+  increment,
+  or,
+  and
 } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import { INITIAL_PRODUCTS } from './constants';
@@ -521,8 +523,13 @@ const CartDrawer = ({
         if (!isAdmin && user) {
           const ordersQuery = query(
             collection(db, 'orders'),
-            where('customerEmail', '==', user.email),
-            where('promoCode', '==', code)
+            and(
+              or(
+                where('userId', '==', user.uid),
+                where('customerEmail', '==', user.email)
+              ),
+              where('promoCode', '==', code)
+            )
           );
           const ordersSnapshot = await getDocs(ordersQuery);
           if (!ordersSnapshot.empty) {
@@ -2142,7 +2149,10 @@ const AccountView = ({ onNavigate, onEditOrder }: { onNavigate: (view: any) => v
 
     const q = query(
       collection(db, 'orders'), 
-      where('customerEmail', '==', user.email),
+      or(
+        where('userId', '==', user.uid),
+        where('customerEmail', '==', user.email)
+      ),
       orderBy('createdAt', 'desc')
     );
     const unsubscribeOrders = onSnapshot(q, (snapshot) => {
@@ -5390,8 +5400,13 @@ const CheckoutView = ({
             try {
               const ordersQuery = query(
                 collection(db, 'orders'),
-                where('customerEmail', '==', emailToCheck),
-                where('promoCode', '==', code)
+                and(
+                  or(
+                    where('userId', '==', user.uid),
+                    where('customerEmail', '==', emailToCheck)
+                  ),
+                  where('promoCode', '==', code)
+                )
               );
               const ordersSnapshot = await getDocs(ordersQuery);
               if (!ordersSnapshot.empty) {

@@ -107,6 +107,17 @@ service cloud.firestore {
              (data.updatedAt is timestamp || isValidDateString(data.updatedAt));
     }
 
+    function isValidOrder(data) {
+      return hasOnlyAllowedFields(data, ['userId', 'customerEmail', 'customerName', 'items', 'total', 'status', 'shippingInfo', 'shippingMethod', 'paymentMethod', 'promoCode', 'promoDiscount', 'referralCode', 'createdAt', 'updatedAt', 'paidAt', 'trackingNumber', 'referralCredited', 'orderId']) &&
+             (data.userId == null || data.userId is string) &&
+             isValidEmail(data.customerEmail) &&
+             data.customerName is string &&
+             data.items is list &&
+             data.total is number &&
+             data.status in ["pending", "awaiting tracking", "shipped", "delivered", "cancelled"] &&
+             (data.createdAt is timestamp || isValidDateString(data.createdAt));
+    }
+
     // Rules
     match /products/{productId} {
       allow read: if true; // Publicly readable for storefront
@@ -135,10 +146,10 @@ service cloud.firestore {
       allow read: if (isAuthenticated() && (resource.data.userId == request.auth.uid || resource.data.customerEmail == request.auth.token.email)) || isAdmin();
       
       // Allow creation by anyone (guests or users)
-      allow create: if true; 
+      allow create: if isValidOrder(request.resource.data); 
       
       // Allow updates by admin
-      allow update: if isAdmin();
+      allow update: if isAdmin() && isValidOrder(request.resource.data);
       
       allow delete: if isAdmin();
     }

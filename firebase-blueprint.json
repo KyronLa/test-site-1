@@ -63,6 +63,7 @@
       "type": "object",
       "properties": {
         "userId": { "type": "string" },
+        "customerEmail": { "type": "string", "format": "email" },
         "items": { "type": "array", "items": { "type": "object" } },
         "total": { "type": "number" },
         "status": { "type": "string", "enum": ["pending", "awaiting tracking", "shipped", "delivered", "cancelled"] },
