@@ -133,6 +133,16 @@
         "expiresAt": { "type": "string", "format": "date-time", "description": "When this record should be deleted." }
       },
       "required": ["count", "expiresAt"]
+    },
+    "Cart": {
+      "title": "Cart",
+      "description": "A user's persistent shopping cart.",
+      "type": "object",
+      "properties": {
+        "items": { "type": "array", "items": { "type": "object" } },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["items", "updatedAt"]
     }
   },
   "firestore": {
@@ -143,6 +153,7 @@
     "/settings": { "schema": "SiteSettings", "description": "Global site configuration." },
     "/affiliate_applications": { "schema": "AffiliateApplication", "description": "Applications for the affiliate program." },
     "/promo_codes": { "schema": "PromoCode", "description": "Active and inactive promotional codes." },
-    "/rate_limits": { "schema": "RateLimit", "description": "Internal rate limiting counters." }
+    "/rate_limits": { "schema": "RateLimit", "description": "Internal rate limiting counters." },
+    "/carts": { "schema": "Cart", "description": "Persistent shopping carts for users and guests." }
   }
 }

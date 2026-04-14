@@ -9,17 +9,14 @@ import DOMPurify from 'dompurify';
 export function sanitizeInput(input: string): string {
   if (typeof input !== 'string') return input;
 
-  // 1. Check for rejected patterns
+  // 1. Check for rejected patterns (only extremely dangerous ones)
   const rejectedPatterns = [
     /<script\b[^>]*>([\s\S]*?)<\/script>/gim, // Script tags
-    /\b(SELECT|DROP|INSERT|UPDATE|DELETE|UNION|TRUNCATE)\b/gim, // SQL-like
-    /--|;|--\s*$/g, // SQL comments/separators
-    /\b(==|!=|<|<=|>|>=|array-contains|in|not-in|array-contains-any)\b/g // Firestore operators
   ];
 
   for (const pattern of rejectedPatterns) {
     if (pattern.test(input)) {
-      throw new Error('Invalid input detected: Malicious patterns are not allowed.');
+      throw new Error('Invalid input detected: Script tags are not allowed.');
     }
   }
 

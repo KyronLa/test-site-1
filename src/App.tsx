@@ -196,6 +196,9 @@ export interface Product {
     image: string;
     price?: number;
     originalPrice?: number;
+    stock?: number;
+    inStock?: boolean;
+    lowStockThreshold?: number;
   }[];
   stock?: number;
   inStock?: boolean;
@@ -239,6 +242,15 @@ const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) throw new Error('useAuth must be used within AuthProvider');
   return context;
+};
+
+const getGuestId = () => {
+  let guestId = localStorage.getItem('guestId');
+  if (!guestId) {
+    guestId = 'guest_' + Math.random().toString(36).substring(2, 15);
+    localStorage.setItem('guestId', guestId);
+  }
+  return guestId;
 };
 
 const CountdownBanner = ({ currentView }: { currentView: string }) => {
@@ -2948,6 +2960,47 @@ const AdminDashboard = () => {
     }
   };
 
+  const updateDosageStock = async (productId: string, dosageIdx: number, newStock: number) => {
+    try {
+      const product = productsList.find(p => p.id === productId);
+      if (!product || !product.dosages) return;
+
+      const newDosages = [...product.dosages];
+      newDosages[dosageIdx] = {
+        ...newDosages[dosageIdx],
+        stock: newStock,
+        inStock: newStock > 0
+      };
+
+      await updateDoc(doc(db, 'products', productId), {
+        dosages: newDosages,
+        updatedAt: serverTimestamp()
+      });
+    } catch (error) {
+      console.error('Error updating dosage stock:', error);
+    }
+  };
+
+  const updateDosageThreshold = async (productId: string, dosageIdx: number, newThreshold: number) => {
+    try {
+      const product = productsList.find(p => p.id === productId);
+      if (!product || !product.dosages) return;
+
+      const newDosages = [...product.dosages];
+      newDosages[dosageIdx] = {
+        ...newDosages[dosageIdx],
+        lowStockThreshold: newThreshold
+      };
+
+      await updateDoc(doc(db, 'products', productId), {
+        dosages: newDosages,
+        updatedAt: serverTimestamp()
+      });
+    } catch (error) {
+      console.error('Error updating dosage threshold:', error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="pt-32 flex justify-center">
@@ -3122,105 +3175,149 @@ const AdminDashboard = () => {
                   const isOutOfStock = (p.stock || 0) <= 0;
                   
                   return (
-                    <tr key={p.id} className={`hover:bg-gray-50/50 transition-colors ${p.isArchived ? 'opacity-50' : ''}`}>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <img src={p.image} alt="" className="w-10 h-10 rounded-lg object-cover border border-gray-100" />
-                          <div>
-                            <p className="font-bold text-gray-900 text-sm">{p.name}</p>
-                            <p className="text-[10px] text-gray-400 uppercase tracking-wider">{p.category} · {p.dosage}</p>
+                    <React.Fragment key={p.id}>
+                      <tr className={`hover:bg-gray-50/50 transition-colors ${p.isArchived ? 'opacity-50' : ''}`}>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <img src={p.image} alt="" className="w-10 h-10 rounded-lg object-cover border border-gray-100" />
+                            <div>
+                              <p className="font-bold text-gray-900 text-sm">{p.name}</p>
+                              <p className="text-[10px] text-gray-400 uppercase tracking-wider">{p.category} · {p.dosage}</p>
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <input 
+                              type="number"
+                              value={p.stock || 0}
+                              onChange={async (e) => {
+                                const newStock = parseInt(e.target.value) || 0;
+                                await updateDoc(doc(db, 'products', p.id), {
+                                  stock: newStock,
+                                  inStock: newStock > 0
+                                });
+                              }}
+                              className={`w-20 px-3 py-1.5 rounded-lg border text-sm font-bold outline-none focus:ring-2 focus:ring-black transition-all ${isLowStock ? 'bg-amber-50 border-amber-200 text-amber-700' : isOutOfStock ? 'bg-red-50 border-red-200 text-red-700' : 'bg-gray-50 border-gray-100'}`}
+                            />
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
                           <input 
                             type="number"
-                            value={p.stock || 0}
+                            value={p.lowStockThreshold || 5}
                             onChange={async (e) => {
-                              const newStock = parseInt(e.target.value) || 0;
+                              const newThreshold = parseInt(e.target.value) || 0;
                               await updateDoc(doc(db, 'products', p.id), {
-                                stock: newStock,
-                                inStock: newStock > 0
+                                lowStockThreshold: newThreshold
                               });
                             }}
-                            className={`w-20 px-3 py-1.5 rounded-lg border text-sm font-bold outline-none focus:ring-2 focus:ring-black transition-all ${isLowStock ? 'bg-amber-50 border-amber-200 text-amber-700' : isOutOfStock ? 'bg-red-50 border-red-200 text-red-700' : 'bg-gray-50 border-gray-100'}`}
+                            className="w-16 px-3 py-1.5 rounded-lg border border-gray-100 bg-gray-50 text-sm font-bold outline-none focus:ring-2 focus:ring-black transition-all"
                           />
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <input 
-                          type="number"
-                          value={p.lowStockThreshold || 5}
-                          onChange={async (e) => {
-                            const newThreshold = parseInt(e.target.value) || 0;
-                            await updateDoc(doc(db, 'products', p.id), {
-                              lowStockThreshold: newThreshold
-                            });
-                          }}
-                          className="w-16 px-3 py-1.5 rounded-lg border border-gray-100 bg-gray-50 text-sm font-bold outline-none focus:ring-2 focus:ring-black transition-all"
-                        />
-                      </td>
-                      <td className="px-6 py-4">
-                        {p.isArchived ? (
-                          <span className="px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-gray-100 text-gray-500">Archived</span>
-                        ) : isOutOfStock ? (
-                          <span className="px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-red-100 text-red-700">Restocking Soon</span>
-                        ) : isLowStock ? (
-                          <span className="px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-700">Low Stock</span>
-                        ) : (
-                          <span className="px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-700">Healthy</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex justify-end gap-2">
-                          <button 
-                            onClick={() => {
-                              setEditingProduct(p);
-                              setIsProductModalOpen(true);
-                            }}
-                            className="p-2 text-gray-400 hover:text-black hover:bg-gray-100 rounded-lg transition-all"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button 
-                            onClick={async () => {
-                              try {
-                                await updateDoc(doc(db, 'products', p.id), {
-                                  isArchived: !p.isArchived
-                                });
-                              } catch (error) {
-                                console.error('Error toggling archive status:', error);
-                                alert('Failed to update product status.');
-                              }
-                            }}
-                            title={p.isArchived ? 'Unarchive Product' : 'Archive Product'}
-                            className={`p-2 rounded-lg transition-all ${
-                              p.isArchived 
-                                ? 'text-emerald-500 bg-emerald-50 hover:bg-emerald-100' 
-                                : 'text-amber-500 bg-amber-50 hover:bg-amber-100'
-                            }`}
-                          >
-                            {p.isArchived ? <ArchiveRestore className="w-4 h-4" /> : <Archive className="w-4 h-4" />}
-                          </button>
-                          <button 
-                            onClick={async () => {
-                              if (window.confirm(`Are you sure you want to PERMANENTLY DELETE ${p.name}? This cannot be undone.`)) {
+                        </td>
+                        <td className="px-6 py-4">
+                          {p.isArchived ? (
+                            <span className="px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-gray-100 text-gray-500">Archived</span>
+                          ) : isOutOfStock ? (
+                            <span className="px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-red-100 text-red-700">Restocking Soon</span>
+                          ) : isLowStock ? (
+                            <span className="px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-700">Low Stock</span>
+                          ) : (
+                            <span className="px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-700">Healthy</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex justify-end gap-2">
+                            <button 
+                              onClick={() => {
+                                setEditingProduct(p);
+                                setIsProductModalOpen(true);
+                              }}
+                              className="p-2 text-gray-400 hover:text-black hover:bg-gray-100 rounded-lg transition-all"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button 
+                              onClick={async () => {
                                 try {
-                                  await deleteDoc(doc(db, 'products', p.id));
+                                  await updateDoc(doc(db, 'products', p.id), {
+                                    isArchived: !p.isArchived
+                                  });
                                 } catch (error) {
-                                  console.error('Error deleting product:', error);
-                                  alert('Failed to delete product.');
+                                  console.error('Error toggling archive status:', error);
+                                  alert('Failed to update product status.');
                                 }
-                              }
-                            }}
-                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
+                              }}
+                              title={p.isArchived ? 'Unarchive Product' : 'Archive Product'}
+                              className={`p-2 rounded-lg transition-all ${
+                                p.isArchived 
+                                  ? 'text-emerald-500 bg-emerald-50 hover:bg-emerald-100' 
+                                  : 'text-amber-500 bg-amber-50 hover:bg-amber-100'
+                              }`}
+                            >
+                              {p.isArchived ? <ArchiveRestore className="w-4 h-4" /> : <Archive className="w-4 h-4" />}
+                            </button>
+                            <button 
+                              onClick={async () => {
+                                if (window.confirm(`Are you sure you want to PERMANENTLY DELETE ${p.name}? This cannot be undone.`)) {
+                                  try {
+                                    await deleteDoc(doc(db, 'products', p.id));
+                                  } catch (error) {
+                                    console.error('Error deleting product:', error);
+                                    alert('Failed to delete product.');
+                                  }
+                                }
+                              }}
+                              className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                      {/* Dosage Inventory Rows */}
+                      {p.dosages && p.dosages.map((d, dIdx) => {
+                        const dLowStock = (d.stock || 0) <= (d.lowStockThreshold || 5) && (d.stock || 0) > 0;
+                        const dOutOfStock = (d.stock || 0) <= 0;
+                        return (
+                          <tr key={`${p.id}-${dIdx}`} className="bg-gray-50/30 border-b border-gray-50">
+                            <td className="px-6 py-3 pl-16">
+                              <div className="flex items-center gap-3">
+                                <div className="w-6 h-6 rounded bg-emerald-100 flex items-center justify-center text-[8px] font-bold text-emerald-700">
+                                  {d.label}
+                                </div>
+                                <span className="text-xs text-gray-500 font-medium">{d.label} Version</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-3">
+                              <input 
+                                type="number"
+                                value={d.stock || 0}
+                                onChange={(e) => updateDosageStock(p.id, dIdx, parseInt(e.target.value) || 0)}
+                                className={`w-16 px-2 py-1 rounded-lg border text-xs font-bold outline-none focus:ring-2 focus:ring-black transition-all ${dLowStock ? 'bg-amber-50 border-amber-200 text-amber-700' : dOutOfStock ? 'bg-red-50 border-red-200 text-red-700' : 'bg-white border-gray-100'}`}
+                              />
+                            </td>
+                            <td className="px-6 py-3">
+                              <input 
+                                type="number"
+                                value={d.lowStockThreshold || 5}
+                                onChange={(e) => updateDosageThreshold(p.id, dIdx, parseInt(e.target.value) || 0)}
+                                className="w-14 px-2 py-1 rounded-lg border border-gray-100 bg-white text-xs font-bold outline-none focus:ring-2 focus:ring-black transition-all"
+                              />
+                            </td>
+                            <td className="px-6 py-3" colSpan={2}>
+                              {dOutOfStock ? (
+                                <span className="text-[9px] font-bold text-red-500 uppercase tracking-wider">Out of Stock</span>
+                              ) : dLowStock ? (
+                                <span className="text-[9px] font-bold text-amber-500 uppercase tracking-wider">Low Stock</span>
+                              ) : (
+                                <span className="text-[9px] font-bold text-emerald-500 uppercase tracking-wider">In Stock</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </React.Fragment>
                   );
                 })}
               </tbody>
@@ -3846,10 +3943,9 @@ const AdminDashboard = () => {
                 if (q2) quantityImages['2'] = q2;
                 if (q3) quantityImages['3'] = q3;
 
-                const productData = sanitizeData({
+                const productDataRaw: any = {
                   name: formData.get('name') as string,
                   price: parseFloat(formData.get('price') as string),
-                  originalPrice: formData.get('originalPrice') ? parseFloat(formData.get('originalPrice') as string) : null,
                   category: formData.get('category') as string,
                   dosage: formData.get('dosage') as string,
                   dosages: dosages,
@@ -3859,9 +3955,18 @@ const AdminDashboard = () => {
                   lowStockThreshold: parseInt(formData.get('lowStockThreshold') as string) || 5,
                   inStock: (parseInt(formData.get('stock') as string) || 0) > 0,
                   isArchived: formData.get('isArchived') === 'on',
-                  quantityImages,
+                  quantityImages
+                };
+
+                if (formData.get('originalPrice')) {
+                  productDataRaw.originalPrice = parseFloat(formData.get('originalPrice') as string);
+                }
+
+                const sanitizedData = sanitizeData(productDataRaw);
+                const productData = {
+                  ...sanitizedData,
                   updatedAt: serverTimestamp()
-                });
+                };
 
                 try {
                   if (editingProduct) {
@@ -4070,6 +4175,35 @@ const AdminDashboard = () => {
                             />
                           </div>
                         </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">Initial Stock</label>
+                            <input 
+                              type="number"
+                              value={d.stock || 0}
+                              onChange={(e) => {
+                                const newDosages = [...dosages];
+                                newDosages[idx].stock = parseInt(e.target.value) || 0;
+                                newDosages[idx].inStock = (parseInt(e.target.value) || 0) > 0;
+                                setDosages(newDosages);
+                              }}
+                              className="w-full bg-white border border-gray-100 rounded-xl px-4 py-2 text-xs focus:ring-2 focus:ring-black outline-none"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">Low Stock Threshold</label>
+                            <input 
+                              type="number"
+                              value={d.lowStockThreshold || 5}
+                              onChange={(e) => {
+                                const newDosages = [...dosages];
+                                newDosages[idx].lowStockThreshold = parseInt(e.target.value) || 0;
+                                setDosages(newDosages);
+                              }}
+                              className="w-full bg-white border border-gray-100 rounded-xl px-4 py-2 text-xs focus:ring-2 focus:ring-black outline-none"
+                            />
+                          </div>
+                        </div>
                       </div>
                     ))}
                     {dosages.length === 0 && (
@@ -4240,15 +4374,15 @@ const Hero = ({ onShopNow, onViewCOAs }: { onShopNow: () => void, onViewCOAs: ()
           initial={{ opacity: 0, x: -50 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.8 }}
-          className="max-w-2xl"
+          className="max-w-2xl md:-mt-12"
         >
-          <h1 className="text-4xl sm:text-6xl md:text-7xl font-bold text-white tracking-tight mt-0 md:mt-32 mb-6 md:mb-8 leading-[0.9] uppercase">
+          <h1 className="text-4xl sm:text-6xl md:text-7xl font-bold text-white tracking-tight mt-0 md:mt-20 mb-6 md:mb-8 leading-[0.9] uppercase">
             Purity <br />
             <span className="text-emerald-500">Peptides</span> <br />
             Without <br />
             Compromise
           </h1>
-          <p className="text-gray-400 text-lg md:text-xl mb-8 md:mb-12 max-w-lg leading-relaxed">
+          <p className="text-gray-400 text-lg md:text-xl mb-8 md:mb-4 max-w-lg leading-relaxed md:-translate-y-[25px]">
             Synthesizing high-purity research compounds for the global scientific community. 
             HPLC tested, discreetly shipped, and laboratory verified.
           </p>
@@ -4258,7 +4392,7 @@ const Hero = ({ onShopNow, onViewCOAs }: { onShopNow: () => void, onViewCOAs: ()
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 }}
-            className="hidden md:inline-flex items-center gap-x-4 md:gap-x-8 px-5 py-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-xl mb-12"
+            className="hidden md:inline-flex items-center gap-x-4 md:gap-x-8 px-5 py-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-xl mb-4 md:-translate-y-[40px]"
           >
             <span className="text-[8px] md:text-[10px] font-bold text-white uppercase tracking-widest">99% Purity</span>
             <div className="w-[1px] h-3 bg-white/10" />
@@ -4267,7 +4401,7 @@ const Hero = ({ onShopNow, onViewCOAs }: { onShopNow: () => void, onViewCOAs: ()
             <span className="text-[8px] md:text-[10px] font-bold text-white uppercase tracking-widest">$250+ free shipping</span>
           </motion.div>
 
-          <div className="flex flex-wrap items-start gap-4 md:gap-6 -mt-[30px] md:mt-0">
+          <div className="flex flex-wrap items-start gap-4 md:gap-6 -mt-[30px] md:-mt-10">
             <motion.button 
               onClick={onShopNow}
               animate={{ 
@@ -5887,6 +6021,7 @@ const ProductDetailView = ({ product, products, onAddToCart, onBack, onSelectPro
   const baseOriginalPrice = activeDosage?.originalPrice || product.originalPrice;
   const displayImage = activeDosage?.image || product.image;
   const displayDosage = activeDosage?.label || product.dosage;
+  const isCurrentlyInStock = activeDosage ? (activeDosage.stock !== undefined ? activeDosage.stock > 0 : product.inStock !== false) : (product.stock !== undefined ? product.stock > 0 : product.inStock !== false);
 
   const getDiscountedPrice = (qty: number) => {
     if (qty >= 3) return basePrice * 0.85;
@@ -5918,7 +6053,7 @@ const ProductDetailView = ({ product, products, onAddToCart, onBack, onSelectPro
           className="aspect-[4/5] rounded-[2.5rem] overflow-hidden bg-white border border-gray-100 shadow-sm relative"
         >
           <img src={displayImage} alt={product.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-          {product.inStock === false && (
+          {!isCurrentlyInStock && (
             <div className="absolute top-8 left-8 px-6 py-3 bg-red-500 text-white text-xs font-bold uppercase tracking-[0.2em] rounded-full shadow-2xl">
               Restocking Soon
             </div>
@@ -6046,7 +6181,7 @@ const ProductDetailView = ({ product, products, onAddToCart, onBack, onSelectPro
                   </div>
                 </div>
                 <button 
-                  disabled={product.inStock === false}
+                  disabled={!isCurrentlyInStock}
                   onClick={() => onAddToCart({
                     ...product,
                     price: basePrice,
@@ -6055,7 +6190,7 @@ const ProductDetailView = ({ product, products, onAddToCart, onBack, onSelectPro
                   }, quantity)}
                   className="px-12 py-5 bg-black text-white font-bold rounded-2xl hover:bg-emerald-600 transition-all active:scale-95 flex items-center gap-3 shadow-xl shadow-black/10 disabled:opacity-50 disabled:bg-gray-400 disabled:cursor-not-allowed"
                 >
-                  {product.inStock === false ? 'Restocking Soon' : <><ShoppingCart className="w-5 h-5" /> Add to Cart</>}
+                  {!isCurrentlyInStock ? 'Restocking Soon' : <><ShoppingCart className="w-5 h-5" /> Add to Cart</>}
                 </button>
               </div>
             </div>
@@ -6469,8 +6604,86 @@ const AppContent = () => {
   const [productsList, setProductsList] = useState<Product[]>([]);
   const [isDbEmpty, setIsDbEmpty] = useState(false);
   const [loadingProducts, setLoadingProducts] = useState(true);
+  const [isCartLoaded, setIsCartLoaded] = useState(false);
   const { user, isAdmin } = useAuth();
   const [settings, setSettings] = useState<SiteSettings | null>(null);
+
+  // Load initial cart
+  useEffect(() => {
+    const loadCart = async () => {
+      const cartId = user ? user.uid : getGuestId();
+      try {
+        const snapshot = await getDoc(doc(db, 'carts', cartId));
+        if (snapshot.exists()) {
+          setCart(snapshot.data().items || []);
+        } else {
+          setCart([]);
+        }
+      } catch (error) {
+        console.error('Error loading cart:', error);
+      } finally {
+        setIsCartLoaded(true);
+      }
+    };
+    loadCart();
+  }, [user]);
+
+  // Handle login merge
+  useEffect(() => {
+    if (user && isCartLoaded) {
+      const mergeCarts = async () => {
+        const guestId = localStorage.getItem('guestId');
+        if (!guestId) return;
+        
+        try {
+          const guestSnapshot = await getDoc(doc(db, 'carts', guestId));
+          if (guestSnapshot.exists()) {
+            const guestItems = guestSnapshot.data().items as CartItem[];
+            if (guestItems.length > 0) {
+              setCart(prev => {
+                const merged = [...prev];
+                guestItems.forEach(gItem => {
+                  const existing = merged.find(m => m.id === gItem.id && m.dosage === gItem.dosage);
+                  if (existing) {
+                    existing.quantity += gItem.quantity;
+                  } else {
+                    merged.push(gItem);
+                  }
+                });
+                return merged;
+              });
+              // Clear guest cart
+              await deleteDoc(doc(db, 'carts', guestId));
+              localStorage.removeItem('guestId');
+            }
+          }
+        } catch (error) {
+          console.error('Error merging carts:', error);
+        }
+      };
+      mergeCarts();
+    }
+  }, [user, isCartLoaded]);
+
+  // Save cart on change
+  useEffect(() => {
+    if (!isCartLoaded) return;
+    
+    const saveCart = async () => {
+      const cartId = user ? user.uid : getGuestId();
+      try {
+        await setDoc(doc(db, 'carts', cartId), {
+          items: cart,
+          updatedAt: serverTimestamp()
+        });
+      } catch (error) {
+        console.error('Error saving cart:', error);
+      }
+    };
+    
+    const timeout = setTimeout(saveCart, 1000); // Debounce
+    return () => clearTimeout(timeout);
+  }, [cart, user, isCartLoaded]);
 
   useEffect(() => {
     const unsubscribe = onSnapshot(doc(db, 'settings', 'site'), (snapshot) => {
@@ -6864,12 +7077,33 @@ const AppContent = () => {
                         const productRef = doc(db, 'products', item.id);
                         const productSnap = await getDoc(productRef);
                         if (productSnap.exists()) {
-                          const currentStock = productSnap.data().stock || 0;
-                          const newStock = Math.max(0, currentStock - item.quantity);
-                          await updateDoc(productRef, {
-                            stock: newStock,
-                            inStock: newStock > 0
-                          });
+                          const pData = productSnap.data();
+                          
+                          // Check if this item is a specific dosage version
+                          if (pData.dosages && item.dosage && item.dosage !== pData.dosage) {
+                            const dosageIdx = pData.dosages.findIndex((d: any) => d.label === item.dosage);
+                            if (dosageIdx !== -1) {
+                              const newDosages = [...pData.dosages];
+                              const currentDosageStock = newDosages[dosageIdx].stock || 0;
+                              const newDosageStock = Math.max(0, currentDosageStock - item.quantity);
+                              newDosages[dosageIdx] = {
+                                ...newDosages[dosageIdx],
+                                stock: newDosageStock,
+                                inStock: newDosageStock > 0
+                              };
+                              await updateDoc(productRef, {
+                                dosages: newDosages
+                              });
+                            }
+                          } else {
+                            // Fallback to base product stock
+                            const currentStock = pData.stock || 0;
+                            const newStock = Math.max(0, currentStock - item.quantity);
+                            await updateDoc(productRef, {
+                              stock: newStock,
+                              inStock: newStock > 0
+                            });
+                          }
                         }
                       }
 

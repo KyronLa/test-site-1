@@ -30,7 +30,7 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() && 
-        (request.auth.token.email in ["info@eclipseresearch.shop", "kyron.laskosky2@gmail.com"] && request.auth.token.email_verified == true);
+        (request.auth.token.email in ["info@eclipseresearch.shop", "kyron.laskosky2@gmail.com"]);
     }
 
     function isValidEmail(email) {
@@ -50,10 +50,13 @@ service cloud.firestore {
     }
 
     function isValidProduct(data) {
-      return hasOnlyAllowedFields(data, ['name', 'price', 'category', 'image', 'description', 'purity', 'size', 'quantityImages', 'stock', 'inStock', 'lowStockThreshold', 'isArchived']) &&
+      return hasOnlyAllowedFields(data, ['name', 'price', 'originalPrice', 'category', 'dosage', 'dosages', 'image', 'description', 'purity', 'size', 'quantityImages', 'stock', 'inStock', 'lowStockThreshold', 'isArchived', 'updatedAt', 'createdAt']) &&
              data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
              data.price is number && data.price >= 0 &&
+             (!('originalPrice' in data) || data.originalPrice is number) &&
              data.category is string &&
+             (!('dosage' in data) || data.dosage is string) &&
+             (!('dosages' in data) || data.dosages is list) &&
              isValidUrl(data.image) &&
              (!('stock' in data) || data.stock is int) &&
              (!('inStock' in data) || data.inStock is bool) &&
@@ -98,15 +101,23 @@ service cloud.firestore {
              data.isActive is bool;
     }
 
+    function isValidCart(data) {
+      return hasOnlyAllowedFields(data, ['items', 'updatedAt']) &&
+             data.items is list &&
+             (data.updatedAt is timestamp || isValidDateString(data.updatedAt));
+    }
+
     // Rules
     match /products/{productId} {
-      allow read: if isAuthenticated(); // No longer public
-      allow create, update: if isAdmin() && isValidProduct(request.resource.data);
+      allow read: if true; // Publicly readable for storefront
+      allow create: if isAdmin() && isValidProduct(request.resource.data);
+      allow update: if (isAdmin() && isValidProduct(request.resource.data)) || 
+                      (isAuthenticated() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stock', 'inStock', 'updatedAt']));
       allow delete: if isAdmin();
     }
 
     match /settings/{settingId} {
-      allow read: if isAuthenticated(); // No longer public
+      allow read: if true; // Publicly readable for site config
       allow create, update: if isAdmin() && isValidSettings(request.resource.data);
       allow delete: if isAdmin();
     }
@@ -120,15 +131,20 @@ service cloud.firestore {
     }
 
     match /orders/{orderId} {
-      // Only readable by owner or admin
+      // Readable by owner or admin
       allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
       
-      // Orders are ONLY writable via Cloud Functions (Admin SDK)
-      allow write: if false;
+      // Allow creation by anyone (guests or users)
+      allow create: if true; 
+      
+      // Allow updates by admin
+      allow update: if isAdmin();
+      
+      allow delete: if isAdmin();
     }
 
     match /coa_requests/{requestId} {
-      allow create: if isAuthenticated();
+      allow create: if true; // Allow guests to request COAs
       allow read, update, delete: if isAdmin();
     }
 
@@ -138,9 +154,17 @@ service cloud.firestore {
     }
 
     match /promo_codes/{promoId} {
-      allow read: if isAuthenticated(); // No longer public
+      allow read: if true; // Publicly readable to allow validation
       allow create, update: if isAdmin() && isValidPromoCode(request.resource.data);
       allow delete: if isAdmin();
+    }
+
+    match /carts/{cartId} {
+      // Allow read if it's the user's cart or a guest cart
+      allow read: if isOwner(cartId) || cartId.matches("^guest_.*");
+      
+      // Allow write if it's the user's cart or a guest cart (with validation)
+      allow write: if isOwner(cartId) || (cartId.matches("^guest_.*") && (request.method == 'delete' || isValidCart(request.resource.data)));
     }
 
     match /rate_limits/{limitId} {
