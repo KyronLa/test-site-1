@@ -40,7 +40,8 @@ import {
   ArchiveRestore,
   Clock,
   Tag,
-  Copy
+  Copy,
+  Check
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { GoogleGenAI } from "@google/genai";
@@ -194,6 +195,7 @@ export interface Product {
     label: string;
     image: string;
     price?: number;
+    originalPrice?: number;
   }[];
   stock?: number;
   inStock?: boolean;
@@ -1424,15 +1426,15 @@ const TrackOrderView = ({ onBack }: { onBack: () => void }) => {
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-emerald-500/5 blur-[120px] rounded-full" />
       </div>
 
-      <div className="relative pt-32 pb-24 px-4 sm:px-6 lg:px-8">
+      <div className="relative pt-24 md:pt-32 pb-24 px-4 sm:px-6 lg:px-8">
         <div className="max-w-3xl mx-auto">
           <motion.button 
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
             onClick={onBack}
-            className="flex items-center gap-2 text-[10px] font-bold text-gray-500 hover:text-emerald-500 mb-12 transition-all uppercase tracking-widest group"
+            className="flex items-center gap-2 text-[10px] md:text-xs font-bold text-gray-500 hover:text-emerald-500 mb-12 transition-all uppercase tracking-widest group p-2 -ml-2"
           >
-            <ChevronLeft className="w-3 h-3 group-hover:-translate-x-1 transition-transform" /> 
+            <ChevronLeft className="w-3 h-3 md:w-4 md:h-4 group-hover:-translate-x-1 transition-transform" /> 
             Back to Home
           </motion.button>
 
@@ -1448,7 +1450,7 @@ const TrackOrderView = ({ onBack }: { onBack: () => void }) => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
-              className="text-6xl md:text-8xl font-bold tracking-tighter leading-none"
+              className="text-5xl md:text-8xl font-bold tracking-tighter leading-none"
             >
               TRACK YOUR <br />
               <span className="text-emerald-500">ORDER</span>
@@ -1473,7 +1475,7 @@ const TrackOrderView = ({ onBack }: { onBack: () => void }) => {
             >
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-emerald-500/20 to-transparent" />
               
-              <form onSubmit={handleTrack} className="space-y-10">
+              <form onSubmit={handleTrack} className="space-y-8 md:space-y-10">
                 <div className="space-y-3">
                   <label className="text-xs font-bold text-gray-300 uppercase tracking-[0.2em] ml-1">Order Number</label>
                   <div className="relative">
@@ -1484,7 +1486,9 @@ const TrackOrderView = ({ onBack }: { onBack: () => void }) => {
                       placeholder="e.g. VR-20250220-0001"
                       value={orderNumber}
                       onChange={e => setOrderNumber(e.target.value)}
-                      className="w-full bg-black border border-white/20 rounded-2xl px-14 py-5 focus:outline-none focus:border-emerald-500 transition-all text-white placeholder:text-gray-600 font-medium"
+                      autoComplete="off"
+                      spellCheck="false"
+                      className="w-full bg-black border border-white/20 rounded-2xl px-12 py-5 focus:outline-none focus:border-emerald-500 transition-all text-white placeholder:text-gray-600 font-medium"
                     />
                   </div>
                 </div>
@@ -1517,13 +1521,13 @@ const TrackOrderView = ({ onBack }: { onBack: () => void }) => {
                 <button 
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-white hover:bg-emerald-500 text-black hover:text-white font-bold py-6 rounded-2xl transition-all flex items-center justify-center gap-3 disabled:opacity-50 group shadow-xl shadow-white/5 hover:shadow-emerald-500/20"
+                  className="w-full bg-white md:hover:bg-emerald-500 text-black md:hover:text-white active:scale-[0.98] font-bold py-5 md:py-6 rounded-2xl transition-all flex items-center justify-center gap-3 disabled:opacity-50 group shadow-xl shadow-white/5 md:hover:shadow-emerald-500/20 touch-manipulation"
                 >
                   {loading ? (
                     <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
                   ) : (
                     <>
-                      <Search className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                      <Search className="w-5 h-5 md:group-hover:scale-110 transition-transform" />
                       <span className="tracking-widest">TRACK RESEARCH ORDER</span>
                     </>
                   )}
@@ -2682,13 +2686,19 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [dosages, setDosages] = useState<{ label: string; image: string; price?: number }[]>([]);
+  const [dosages, setDosages] = useState<{ label: string; image: string; price?: number; originalPrice?: number }[]>([]);
+  const [mainPrice, setMainPrice] = useState<number>(0);
+  const [mainOriginalPrice, setMainOriginalPrice] = useState<number | undefined>(undefined);
 
   useEffect(() => {
     if (editingProduct) {
       setDosages(editingProduct.dosages || []);
+      setMainPrice(editingProduct.price || 0);
+      setMainOriginalPrice(editingProduct.originalPrice);
     } else {
       setDosages([]);
+      setMainPrice(0);
+      setMainOriginalPrice(undefined);
     }
   }, [editingProduct]);
 
@@ -2799,35 +2809,34 @@ const AdminDashboard = () => {
   };
 
   const markOrderShipped = async (orderId: string) => {
-    const trackingNumber = trackingInputs[orderId];
-    if (!trackingNumber) {
-      alert('Please enter a tracking number.');
-      return;
-    }
+    const currentOrder = orders.find(o => o.id === orderId);
+    const trackingNumber = trackingInputs[orderId] !== undefined 
+      ? trackingInputs[orderId] 
+      : currentOrder?.trackingNumber || '';
+
     try {
-      console.log('Referral Flow: Starting markOrderShipped for order:', orderId);
+      console.log('Admin: Updating tracking for order:', orderId);
       const orderRef = doc(db, 'orders', orderId);
-      const orderSnap = await getDoc(orderRef);
       
-      if (orderSnap.exists()) {
-        const orderData = orderSnap.data();
-        
-        // Process Referral Credit
-        await processReferralCredit(orderId, orderData);
+      // Only process referral if moving to 'shipped' for the first time
+      if (currentOrder && currentOrder.status !== 'shipped') {
+        await processReferralCredit(orderId, currentOrder);
       }
 
       await updateDoc(orderRef, {
         status: 'shipped',
-        trackingNumber: trackingNumber,
+        trackingNumber: trackingNumber.trim(),
         updatedAt: serverTimestamp()
       });
+
+      // Clear local input state so it reverts to showing the DB value
       setTrackingInputs(prev => {
         const next = { ...prev };
         delete next[orderId];
         return next;
       });
     } catch (error) {
-      console.error('Error marking order as shipped:', error);
+      console.error('Error updating order:', error);
       alert('Failed to update order.');
     }
   };
@@ -3272,22 +3281,66 @@ const AdminDashboard = () => {
                           <span className="text-gray-300">-</span>
                         )}
                       </td>
-                      <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center gap-2">
-                          <input 
-                            type="text"
-                            placeholder="Tracking #"
-                            value={trackingInputs[o.id] || o.trackingNumber || ''}
-                            onChange={(e) => setTrackingInputs({ ...trackingInputs, [o.id]: e.target.value })}
-                            className="text-[10px] w-24 px-2 py-1 bg-gray-50 border border-gray-100 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
-                          />
-                          <button 
-                            onClick={() => markOrderShipped(o.id)}
-                            className="p-1.5 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors"
-                            title="Mark Shipped"
-                          >
-                            <Truck className="w-3 h-3" />
-                          </button>
+                      <td className="px-6 py-4" onClick={(e) => e.stopPropagation()} onContextMenu={(e) => e.stopPropagation()}>
+                        <div className="flex items-center gap-2 min-w-[200px]">
+                          <div className="relative flex-1">
+                            <input 
+                              type="text"
+                              placeholder="Tracking #"
+                              value={o.id in trackingInputs ? trackingInputs[o.id] : (o.trackingNumber || '')}
+                              onChange={(e) => setTrackingInputs({ ...trackingInputs, [o.id]: e.target.value })}
+                              onClick={(e) => e.stopPropagation()}
+                              onFocus={(e) => e.stopPropagation()}
+                              className="text-[10px] w-full pl-3 pr-8 py-2 bg-gray-50 border border-gray-100 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none font-mono"
+                            />
+                            {(trackingInputs[o.id] || o.trackingNumber) && (
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (trackingInputs[o.id] === '') {
+                                    setTrackingInputs(prev => {
+                                      const next = { ...prev };
+                                      delete next[o.id];
+                                      return next;
+                                    });
+                                  } else {
+                                    setTrackingInputs({ ...trackingInputs, [o.id]: '' });
+                                  }
+                                }}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 transition-colors"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                markOrderShipped(o.id);
+                              }}
+                              className={`p-2 rounded-lg transition-all flex-shrink-0 ${
+                                o.id in trackingInputs 
+                                  ? 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-lg shadow-emerald-100' 
+                                  : 'bg-gray-100 text-gray-400 hover:text-black'
+                              }`}
+                              title={o.status === 'shipped' ? 'Update Tracking' : 'Mark Shipped'}
+                            >
+                              {o.status === 'shipped' && !(o.id in trackingInputs) ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Truck className="w-3.5 h-3.5" />}
+                            </button>
+                            {o.trackingNumber && (
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigator.clipboard.writeText(o.trackingNumber);
+                                }}
+                                className="p-2 bg-gray-50 text-gray-400 hover:text-emerald-500 rounded-lg transition-all"
+                                title="Copy Tracking"
+                              >
+                                <Copy className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </td>
                       <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
@@ -3804,14 +3857,43 @@ const AdminDashboard = () => {
                   alert('Failed to save product.');
                 }
               }} className="space-y-6">
-                <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-3 gap-6">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Original Price (Optional)</label>
-                    <input name="originalPrice" type="number" step="0.01" defaultValue={editingProduct?.originalPrice} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-black outline-none" />
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Original Price</label>
+                    <input 
+                      name="originalPrice" 
+                      type="number" 
+                      step="0.01" 
+                      value={mainOriginalPrice || ''} 
+                      onChange={(e) => setMainOriginalPrice(e.target.value ? parseFloat(e.target.value) : undefined)}
+                      className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-black outline-none" 
+                    />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Discounted Price (USD)</label>
-                    <input required name="price" type="number" step="0.01" defaultValue={editingProduct?.price} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-black outline-none" />
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Discount %</label>
+                    <input 
+                      type="number" 
+                      value={mainOriginalPrice && mainPrice ? Math.round(((mainOriginalPrice - mainPrice) / mainOriginalPrice) * 100) : ''} 
+                      onChange={(e) => {
+                        const discount = parseFloat(e.target.value);
+                        if (!isNaN(discount) && mainOriginalPrice) {
+                          setMainPrice(parseFloat((mainOriginalPrice * (1 - discount / 100)).toFixed(2)));
+                        }
+                      }}
+                      className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-black outline-none" 
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Final Price</label>
+                    <input 
+                      required 
+                      name="price" 
+                      type="number" 
+                      step="0.01" 
+                      value={mainPrice || ''} 
+                      onChange={(e) => setMainPrice(e.target.value ? parseFloat(e.target.value) : 0)}
+                      className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-black outline-none" 
+                    />
                   </div>
                 </div>
 
@@ -3890,6 +3972,55 @@ const AdminDashboard = () => {
                             <Trash2 className="w-3 h-3" />
                           </button>
                         </div>
+                        <div className="grid grid-cols-3 gap-4">
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">Original Price</label>
+                            <input 
+                              type="number"
+                              step="0.01"
+                              value={d.originalPrice || ''}
+                              onChange={(e) => {
+                                const newDosages = [...dosages];
+                                newDosages[idx].originalPrice = e.target.value ? parseFloat(e.target.value) : undefined;
+                                setDosages(newDosages);
+                              }}
+                              placeholder="Original"
+                              className="w-full bg-white border border-gray-100 rounded-xl px-4 py-2 text-xs focus:ring-2 focus:ring-black outline-none"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">Discount %</label>
+                            <input 
+                              type="number"
+                              value={d.originalPrice && d.price ? Math.round(((d.originalPrice - d.price) / d.originalPrice) * 100) : ''}
+                              onChange={(e) => {
+                                const discount = parseFloat(e.target.value);
+                                if (!isNaN(discount) && d.originalPrice) {
+                                  const newDosages = [...dosages];
+                                  newDosages[idx].price = parseFloat((d.originalPrice * (1 - discount / 100)).toFixed(2));
+                                  setDosages(newDosages);
+                                }
+                              }}
+                              placeholder="%"
+                              className="w-full bg-white border border-gray-100 rounded-xl px-4 py-2 text-xs focus:ring-2 focus:ring-black outline-none"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">Final Price</label>
+                            <input 
+                              type="number"
+                              step="0.01"
+                              value={d.price || ''}
+                              onChange={(e) => {
+                                const newDosages = [...dosages];
+                                newDosages[idx].price = e.target.value ? parseFloat(e.target.value) : undefined;
+                                setDosages(newDosages);
+                              }}
+                              placeholder="Price"
+                              className="w-full bg-white border border-gray-100 rounded-xl px-4 py-2 text-xs focus:ring-2 focus:ring-black outline-none"
+                            />
+                          </div>
+                        </div>
                         <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-1">
                             <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">Label (e.g. 5MG)</label>
@@ -3905,33 +4036,18 @@ const AdminDashboard = () => {
                             />
                           </div>
                           <div className="space-y-1">
-                            <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">Price (Optional)</label>
+                            <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">Dosage Image URL</label>
                             <input 
-                              type="number"
-                              step="0.01"
-                              value={d.price || ''}
+                              value={d.image}
                               onChange={(e) => {
                                 const newDosages = [...dosages];
-                                newDosages[idx].price = e.target.value ? parseFloat(e.target.value) : undefined;
+                                newDosages[idx].image = e.target.value;
                                 setDosages(newDosages);
                               }}
-                              placeholder="Price"
+                              placeholder="Image URL"
                               className="w-full bg-white border border-gray-100 rounded-xl px-4 py-2 text-xs focus:ring-2 focus:ring-black outline-none"
                             />
                           </div>
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">Dosage Image URL</label>
-                          <input 
-                            value={d.image}
-                            onChange={(e) => {
-                              const newDosages = [...dosages];
-                              newDosages[idx].image = e.target.value;
-                              setDosages(newDosages);
-                            }}
-                            placeholder="Image URL"
-                            className="w-full bg-white border border-gray-100 rounded-xl px-4 py-2 text-xs focus:ring-2 focus:ring-black outline-none"
-                          />
                         </div>
                       </div>
                     ))}
@@ -4105,13 +4221,13 @@ const Hero = ({ onShopNow, onViewCOAs }: { onShopNow: () => void, onViewCOAs: ()
           transition={{ duration: 0.8 }}
           className="max-w-2xl"
         >
-          <h1 className="text-4xl sm:text-6xl md:text-7xl font-bold text-white tracking-tight mt-0 md:mt-32 mb-8 leading-[0.9] uppercase">
+          <h1 className="text-4xl sm:text-6xl md:text-7xl font-bold text-white tracking-tight mt-0 md:mt-32 mb-6 md:mb-8 leading-[0.9] uppercase">
             Purity <br />
             <span className="text-emerald-500 hidden md:inline">Peptides</span> <br className="hidden md:block" />
             Without <br />
             Compromise
           </h1>
-          <p className="text-gray-400 text-lg md:text-xl mb-12 max-w-lg leading-relaxed">
+          <p className="text-gray-400 text-lg md:text-xl mb-8 md:mb-12 max-w-lg leading-relaxed">
             Synthesizing high-purity research compounds for the global scientific community. 
             HPLC tested, discreetly shipped, and laboratory verified.
           </p>
@@ -4130,7 +4246,7 @@ const Hero = ({ onShopNow, onViewCOAs }: { onShopNow: () => void, onViewCOAs: ()
             <span className="text-[8px] md:text-[10px] font-bold text-white uppercase tracking-widest">$250+ free shipping</span>
           </motion.div>
 
-          <div className="flex flex-wrap items-start gap-4 md:gap-6 -mt-[45px] md:mt-0">
+          <div className="flex flex-wrap items-start gap-4 md:gap-6 -mt-[75px] md:mt-0">
             <motion.button 
               onClick={onShopNow}
               animate={{ 
@@ -5723,6 +5839,7 @@ const ProductDetailView = ({ product, products, onAddToCart, onBack, onSelectPro
   
   const activeDosage = selectedDosageIdx !== null ? product.dosages?.[selectedDosageIdx] : null;
   const basePrice = activeDosage?.price || product.price;
+  const baseOriginalPrice = activeDosage?.originalPrice || product.originalPrice;
   const displayImage = activeDosage?.image || product.image;
   const displayDosage = activeDosage?.label || product.dosage;
 
@@ -5806,9 +5923,9 @@ const ProductDetailView = ({ product, products, onAddToCart, onBack, onSelectPro
 
               <div className="flex items-center gap-4">
                 <p className="text-2xl font-bold text-gray-900">{displayDosage}</p>
-                {product.originalPrice && product.originalPrice > basePrice && (
+                {baseOriginalPrice && baseOriginalPrice > basePrice && (
                   <div className="px-3 py-1 bg-emerald-500 text-white text-[10px] font-bold uppercase tracking-widest rounded-full">
-                    {Math.round(((product.originalPrice - basePrice) / product.originalPrice) * 100)}% OFF
+                    {Math.round(((baseOriginalPrice - basePrice) / baseOriginalPrice) * 100)}% OFF
                   </div>
                 )}
               </div>
@@ -5862,9 +5979,9 @@ const ProductDetailView = ({ product, products, onAddToCart, onBack, onSelectPro
                   <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Price Per Bottle</p>
                   <div className="flex flex-col items-end">
                     <p className="text-xl font-bold text-black">${currentPrice.toFixed(2)}</p>
-                    {product.originalPrice && product.originalPrice > product.price && (
+                    {baseOriginalPrice && baseOriginalPrice > basePrice && (
                       <span className="text-gray-400 line-through text-xs font-medium">
-                        ${(product.originalPrice * (currentPrice / product.price)).toFixed(2)}
+                        ${(baseOriginalPrice * (currentPrice / basePrice)).toFixed(2)}
                       </span>
                     )}
                   </div>
@@ -5876,9 +5993,9 @@ const ProductDetailView = ({ product, products, onAddToCart, onBack, onSelectPro
                   <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Total Amount</p>
                   <div className="flex flex-col">
                     <p className="text-3xl font-bold text-black">${total.toFixed(2)}</p>
-                    {product.originalPrice && product.originalPrice > product.price && (
+                    {baseOriginalPrice && baseOriginalPrice > basePrice && (
                       <span className="text-gray-400 line-through text-sm font-medium">
-                        ${(product.originalPrice * quantity * (currentPrice / product.price)).toFixed(2)}
+                        ${(baseOriginalPrice * quantity * (currentPrice / basePrice)).toFixed(2)}
                       </span>
                     )}
                   </div>
