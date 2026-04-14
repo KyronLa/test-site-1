@@ -761,7 +761,11 @@ const AuthModal = ({ isOpen, onClose, onNavigate }: { isOpen: boolean, onClose: 
 
       if (mode === 'reset') {
         if (!sanitizedEmail) throw new Error('Please enter your email address.');
-        await sendPasswordResetEmail(auth, sanitizedEmail);
+        const actionCodeSettings = {
+          url: 'https://eclipseresearch.shop',
+          handleCodeInApp: true,
+        };
+        await sendPasswordResetEmail(auth, sanitizedEmail, actionCodeSettings);
         setSuccessMessage('Password reset email sent! Please check your inbox.');
         return;
       }
