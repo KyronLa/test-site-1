@@ -6542,9 +6542,22 @@ const AppContent = () => {
 
   useEffect(() => {
     window.scrollTo(0, 0);
+    // Klaviyo Active on Site tracking
+    const _learnq = (window as any)._learnq || [];
+    _learnq.push(['track', 'Active on Site']);
   }, [view]);
 
   const addToCart = (product: Product, quantity: number = 1) => {
+    // Klaviyo Added to Cart tracking
+    const _learnq = (window as any)._learnq || [];
+    _learnq.push(['track', 'Added to Cart', {
+      'ProductName': product.name,
+      'ProductID': product.id,
+      'Price': product.price,
+      'ItemURL': window.location.origin + '/?product=' + product.id,
+      'ImageURL': product.image
+    }]);
+
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id && item.dosage === product.dosage);
       const newQuantity = existing ? existing.quantity + quantity : quantity;
