@@ -444,15 +444,25 @@ const CartDrawer = ({
 }) => {
   const { user, isFreeShippingEnabled, isAdmin } = useAuth();
   const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
+  
+  let quantityDiscountPercent = 0;
+  if (totalQuantity >= 4) quantityDiscountPercent = 10;
+  else if (totalQuantity === 3) quantityDiscountPercent = 7;
+  else if (totalQuantity === 2) quantityDiscountPercent = 4;
+
+  const quantityDiscountAmount = subtotal * (quantityDiscountPercent / 100);
+  const subtotalAfterQuantityDiscount = subtotal - quantityDiscountAmount;
+
   const freeShippingThreshold = 250;
-  const progress = Math.min((subtotal / freeShippingThreshold) * 100, 100);
-  const remaining = Math.max(freeShippingThreshold - subtotal, 0);
+  const progress = Math.min((subtotalAfterQuantityDiscount / freeShippingThreshold) * 100, 100);
+  const remaining = Math.max(freeShippingThreshold - subtotalAfterQuantityDiscount, 0);
   const [promoCode, setPromoCode] = useState('');
   const [promoError, setPromoError] = useState('');
   const [isApplying, setIsApplying] = useState(false);
 
-  const shipping = subtotal >= freeShippingThreshold ? 0 : 15;
-  const totalBeforePromo = subtotal + shipping;
+  const shipping = subtotalAfterQuantityDiscount >= freeShippingThreshold ? 0 : 15;
+  const totalBeforePromo = subtotalAfterQuantityDiscount + shipping;
   const discountAmount = appliedPromo ? (totalBeforePromo * (appliedPromo.discount / 100)) : 0;
   const finalTotal = totalBeforePromo - discountAmount;
 
@@ -560,6 +570,18 @@ const CartDrawer = ({
               </div>
             </div>
 
+            <div className="px-4 py-2.5 bg-emerald-50/50 border-b border-emerald-100 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5">
+                <Tag className="w-3.5 h-3.5 text-emerald-600" />
+                <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider">Bulk Savings</span>
+              </div>
+              <div className="flex gap-4">
+                <span className="text-[11px] font-medium text-emerald-700">2 Vials: <span className="font-bold text-emerald-800">4%</span></span>
+                <span className="text-[11px] font-medium text-emerald-700">3 Vials: <span className="font-bold text-emerald-800">7%</span></span>
+                <span className="text-[11px] font-medium text-emerald-700">4+ Vials: <span className="font-bold text-emerald-800">10%</span></span>
+              </div>
+            </div>
+
             <div className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
               {items.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-4">
@@ -664,6 +686,15 @@ const CartDrawer = ({
                     <span className="text-gray-500 text-xs">Subtotal</span>
                     <span className="text-xs font-bold">${subtotal.toFixed(2)}</span>
                   </div>
+                  {quantityDiscountPercent > 0 && (
+                    <div className="flex justify-between mb-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-emerald-600 text-xs font-bold">Quantity Discount</span>
+                        <span className="bg-emerald-100 text-emerald-700 text-[8px] px-1.5 py-0.5 rounded-full font-black uppercase">-{quantityDiscountPercent}%</span>
+                      </div>
+                      <span className="text-xs font-bold text-emerald-600">-${quantityDiscountAmount.toFixed(2)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between mb-1">
                     <span className="text-gray-500 text-xs">Shipping</span>
                     <span className="text-xs font-bold text-emerald-600">
@@ -1135,7 +1166,7 @@ const ShippingPolicyView = ({ onBack }: { onBack: () => void }) => {
             <p className="mb-4">We offer both Standard and Expedited shipping options at checkout.</p>
             <div className="p-6 rounded-3xl bg-gray-50 border border-gray-100">
               <h3 className="font-bold text-gray-900 mb-2 uppercase text-xs tracking-widest">Estimated Delivery Times</h3>
-              <p className="text-sm"><strong>Domestic Shipping:</strong> 2-4 business days (after dispatch)</p>
+              <p className="text-sm"><strong>Domestic Shipping:</strong> 1-3 business days (after dispatch)</p>
             </div>
           </section>
 
@@ -4827,15 +4858,15 @@ const Hero = ({ onShopNow, onViewCOAs }: { onShopNow: () => void, onViewCOAs: ()
           transition={{ duration: 0.8 }}
           className="max-w-2xl md:-mt-12"
         >
-          <h1 className="text-4xl sm:text-6xl md:text-7xl font-bold text-white tracking-tight mt-0 md:mt-20 mb-6 md:mb-8 leading-[0.9] uppercase">
+          <h1 className="text-4xl sm:text-6xl md:text-7xl font-bold text-white tracking-tight mt-0 md:mt-20 mb-6 md:mb-8 leading-[0.9] uppercase md:-translate-y-[15px]">
             Purity <br />
             <span className="text-emerald-500">Peptides</span> <br />
             Without <br />
             Compromise
           </h1>
-          <p className="text-gray-400 text-lg md:text-xl mb-8 md:mb-4 max-w-lg leading-relaxed md:-translate-y-[25px]">
+          <p className="text-gray-400 text-sm md:text-xl mb-8 md:mb-4 max-w-lg leading-relaxed -translate-y-4 md:-translate-y-[45px]">
             Synthesizing high-purity research compounds for the global scientific community. 
-            HPLC tested, discreetly shipped, and laboratory verified.
+            HPLC tested, 1-3 business days shipping, and laboratory verified.
           </p>
 
           {/* Desktop Trust Bubble */}
@@ -4910,6 +4941,64 @@ const Hero = ({ onShopNow, onViewCOAs }: { onShopNow: () => void, onViewCOAs: ()
       </div>
     </section>
     </>
+  );
+};
+
+const PeptideCarousel = ({ products, onSelectProduct }: { products: Product[], onSelectProduct: (p: Product) => void }) => {
+  // Filter for products with images and duplicate for infinite scroll
+  const carouselProducts = [...products, ...products, ...products].filter(p => p.image && !p.isArchived);
+
+  if (carouselProducts.length === 0) return null;
+
+  return (
+    <div className="hidden md:block bg-black py-12 overflow-hidden border-y border-white/5">
+      <div className="mb-8 text-center">
+        <h3 className="text-[10px] font-bold uppercase tracking-[0.4em] text-gray-500 mb-2">Research Catalog</h3>
+        <p className="text-white text-lg font-bold tracking-tight">Our Most Researched Compounds</p>
+      </div>
+      <div className="flex animate-marquee whitespace-nowrap">
+        {carouselProducts.map((product, idx) => {
+          const hasDiscount = product.originalPrice && product.originalPrice > product.price;
+          const discountPercentage = hasDiscount 
+            ? Math.round(((product.originalPrice! - product.price) / product.originalPrice!) * 100) 
+            : 0;
+
+          return (
+            <div 
+              key={`${product.id}-${idx}`} 
+              className="inline-block px-4 group cursor-pointer"
+              onClick={() => onSelectProduct(product)}
+            >
+              <div className="relative w-48 h-64 rounded-[1.5rem] overflow-hidden border border-white/10 bg-white/5 backdrop-blur-sm transition-all duration-700 group-hover:border-emerald-500/50 group-hover:scale-105 group-hover:shadow-[0_0_40px_rgba(16,185,129,0.1)]">
+                {hasDiscount && (
+                  <div className="absolute top-3 left-3 z-10 bg-emerald-500 text-white text-[8px] font-black px-2 py-0.5 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.5)] uppercase tracking-tighter">
+                    -{discountPercentage}%
+                  </div>
+                )}
+                <img 
+                  src={product.image} 
+                  alt={product.name} 
+                  className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-all duration-700 group-hover:scale-110"
+                  referrerPolicy="no-referrer"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-60 group-hover:opacity-90 transition-opacity flex flex-col justify-end p-5">
+                  <p className="text-white font-bold text-xs truncate mb-1">{product.name}</p>
+                  <div className="flex items-center justify-between">
+                    <div className="flex flex-col">
+                      <p className="text-emerald-400 font-bold text-[10px] uppercase tracking-widest">${product.price.toFixed(2)}</p>
+                      {hasDiscount && (
+                        <p className="text-white/30 line-through text-[8px] tracking-widest">${product.originalPrice?.toFixed(2)}</p>
+                      )}
+                    </div>
+                    <span className="text-[7px] font-bold text-white/40 uppercase tracking-tighter group-hover:text-white/100 transition-colors">View</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 };
 
@@ -5311,7 +5400,7 @@ const PremiumResearchSection = ({ onLearnMore }: { onLearnMore: () => void }) =>
                 Eclipse Research stands as a leading provider of high-grade laboratory compounds, committed to delivering exceptional quality at competitive prices.
               </p>
               <p className="text-gray-400 text-lg leading-relaxed">
-                Our focus on efficient logistics means most orders are fulfilled and dispatched within 1-2 days. Scientists nationwide rely on us for dependable access to research materials with purity levels consistently above 99%.
+                Our focus on efficient logistics means most orders are fulfilled and dispatched within 1-3 business days. Scientists nationwide rely on us for dependable access to research materials with purity levels consistently above 99%.
               </p>
             </div>
 
@@ -5322,8 +5411,8 @@ const PremiumResearchSection = ({ onLearnMore }: { onLearnMore: () => void }) =>
               </div>
               <div className="w-[1px] h-12 bg-white/10 hidden sm:block" />
               <div className="space-y-1">
-                <p className="text-4xl font-black text-white tracking-tighter">1-2 DAY</p>
-                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em]">Day Ship</p>
+                <p className="text-4xl font-black text-white tracking-tighter">1-3 DAY</p>
+                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em]">Business Day Ship</p>
               </div>
               <div className="w-[1px] h-12 bg-white/10 hidden sm:block" />
               <div className="space-y-1">
@@ -5911,8 +6000,18 @@ const CheckoutView = ({
   }, []);
 
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const shipping = (isFreeShippingEnabled || subtotal >= 250) ? 0 : 15.00;
-  const totalBeforePromo = subtotal + shipping;
+  const totalQuantity = cart.reduce((sum, item) => sum + item.quantity, 0);
+  
+  let quantityDiscountPercent = 0;
+  if (totalQuantity >= 4) quantityDiscountPercent = 10;
+  else if (totalQuantity === 3) quantityDiscountPercent = 7;
+  else if (totalQuantity === 2) quantityDiscountPercent = 4;
+
+  const quantityDiscountAmount = subtotal * (quantityDiscountPercent / 100);
+  const subtotalAfterQuantityDiscount = subtotal - quantityDiscountAmount;
+
+  const shipping = (isFreeShippingEnabled || subtotalAfterQuantityDiscount >= 250) ? 0 : 15.00;
+  const totalBeforePromo = subtotalAfterQuantityDiscount + shipping;
   const promoDiscount = appliedPromo ? (totalBeforePromo * (appliedPromo.discount / 100)) : 0;
   const totalAfterPromo = totalBeforePromo - promoDiscount;
   const cryptoDiscount = paymentMethod === 'crypto' ? totalAfterPromo * 0.05 : 0;
@@ -6182,7 +6281,7 @@ const CheckoutView = ({
                     />
                     <div>
                       <p className="font-bold text-gray-900 text-[10px] md:text-lg">Express Shipping</p>
-                      <p className="text-[8px] md:text-sm text-gray-500">2-4 business days</p>
+                      <p className="text-[8px] md:text-sm text-gray-500">1-3 business days</p>
                     </div>
                   </div>
                   <span className="font-bold text-gray-900 text-[10px] md:text-lg">{shipping === 0 ? 'FREE' : `$${shipping.toFixed(2)}`}</span>
@@ -6384,6 +6483,15 @@ const CheckoutView = ({
                 <span>Subtotal</span>
                 <span className="font-bold text-gray-900">${subtotal.toFixed(2)}</span>
               </div>
+              {quantityDiscountPercent > 0 && (
+                <div className="flex justify-between text-emerald-600 text-[10px] md:text-sm">
+                  <div className="flex items-center gap-1 md:gap-2">
+                    <Tag className="w-2 h-2 md:w-3 md:h-3" />
+                    <span>Quantity Discount ({quantityDiscountPercent}%)</span>
+                  </div>
+                  <span className="font-bold">-${quantityDiscountAmount.toFixed(2)}</span>
+                </div>
+              )}
               <div className="flex justify-between text-gray-500 text-[10px] md:text-sm">
                 <span>Shipping</span>
                 <span className="font-bold text-emerald-600">
@@ -6672,7 +6780,7 @@ const ProductDetailView = ({ product, products, onAddToCart, onBack, onSelectPro
           <div className="grid grid-cols-2 gap-4">
             <div className="p-4 rounded-2xl border border-gray-100 flex items-center gap-3">
               <Truck className="w-5 h-5 text-emerald-500" />
-              <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">Fast Shipping</span>
+              <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">1-3 Day Shipping</span>
             </div>
             <div className="p-4 rounded-2xl border border-gray-100 flex items-center gap-3">
               <ShieldCheck className="w-5 h-5 text-emerald-500" />
@@ -7041,7 +7149,7 @@ const OrderSuccessView = ({ onBackToHome }: { onBackToHome: () => void }) => {
             <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center mb-4 shadow-sm">
               <Package className="w-5 h-5 text-emerald-500" />
             </div>
-            <h3 className="font-bold text-gray-900 mb-1">Fast Shipping</h3>
+            <h3 className="font-bold text-gray-900 mb-1">1-3 Day Shipping</h3>
             <p className="text-xs text-gray-500">Orders typically ship within 24 hours via Express.</p>
           </div>
           <div className="p-6 bg-gray-50 rounded-3xl border border-gray-100 text-left">
@@ -7412,6 +7520,14 @@ const AppContent = () => {
               exit={{ opacity: 0 }}
             >
               <Hero onShopNow={() => setView('shop')} onViewCOAs={() => setView('coas')} />
+              <PeptideCarousel 
+                products={productsList} 
+                onSelectProduct={(p) => {
+                  setSelectedProduct(p);
+                  setView('product');
+                  window.scrollTo(0, 0);
+                }} 
+              />
               <FeaturedProducts 
                 products={productsList}
                 onAddToCart={addToCart} 
