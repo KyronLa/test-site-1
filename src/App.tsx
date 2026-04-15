@@ -3044,63 +3044,65 @@ const AdminDashboard = () => {
 
   return (
     <div className="pt-32 pb-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-12">
-        <div>
-          <h1 className="text-4xl font-bold tracking-tight text-gray-900 mb-2">Admin Control Panel</h1>
-          <p className="text-gray-500">Manage research accounts and track laboratory orders.</p>
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-6 mb-12">
+        <div className="w-full lg:w-auto">
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-gray-900 mb-2">Admin Control Panel</h1>
+          <p className="text-sm md:text-base text-gray-500">Manage research accounts and track laboratory orders.</p>
         </div>
-        <div className="flex bg-gray-100 p-1 rounded-2xl">
-          <button 
-            onClick={() => setActiveTab('users')}
-            className={`px-6 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'users' ? 'bg-white text-black shadow-sm' : 'text-gray-500 hover:text-black'}`}
-          >
-            Users
-          </button>
-          <button 
-            onClick={() => setActiveTab('orders')}
-            className={`px-6 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'orders' ? 'bg-white text-black shadow-sm' : 'text-gray-500 hover:text-black'}`}
-          >
-            Orders
-          </button>
-          <button 
-            onClick={() => setActiveTab('coas')}
-            className={`px-6 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'coas' ? 'bg-white text-black shadow-sm' : 'text-gray-500 hover:text-black'}`}
-          >
-            COA Requests
-          </button>
-          <button 
-            onClick={() => setActiveTab('inventory')}
-            className={`px-6 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'inventory' ? 'bg-white text-black shadow-sm' : 'text-gray-500 hover:text-black'}`}
-          >
-            Inventory
-          </button>
-          <button 
-            onClick={() => setActiveTab('settings')}
-            className={`px-6 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'settings' ? 'bg-white text-black shadow-sm' : 'text-gray-500 hover:text-black'}`}
-          >
-            Settings
-          </button>
-          <button 
-            onClick={() => setActiveTab('affiliates')}
-            className={`px-6 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'affiliates' ? 'bg-white text-black shadow-sm' : 'text-gray-500 hover:text-black'}`}
-          >
-            Research Affiliates
-          </button>
-          <button 
-            onClick={() => setActiveTab('promos')}
-            className={`px-6 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'promos' ? 'bg-white text-black shadow-sm' : 'text-gray-500 hover:text-black'}`}
-          >
-            Promo Codes
-          </button>
+        <div className="w-full lg:w-auto overflow-x-auto pb-2 scrollbar-hide">
+          <div className="flex bg-gray-100 p-1 rounded-2xl w-max min-w-full">
+            <button 
+              onClick={() => setActiveTab('users')}
+              className={`px-4 md:px-6 py-2 rounded-xl text-[10px] md:text-xs font-bold uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === 'users' ? 'bg-white text-black shadow-sm' : 'text-gray-500 hover:text-black'}`}
+            >
+              Users
+            </button>
+            <button 
+              onClick={() => setActiveTab('orders')}
+              className={`px-4 md:px-6 py-2 rounded-xl text-[10px] md:text-xs font-bold uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === 'orders' ? 'bg-white text-black shadow-sm' : 'text-gray-500 hover:text-black'}`}
+            >
+              Orders
+            </button>
+            <button 
+              onClick={() => setActiveTab('coas')}
+              className={`px-4 md:px-6 py-2 rounded-xl text-[10px] md:text-xs font-bold uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === 'coas' ? 'bg-white text-black shadow-sm' : 'text-gray-500 hover:text-black'}`}
+            >
+              COA Requests
+            </button>
+            <button 
+              onClick={() => setActiveTab('inventory')}
+              className={`px-4 md:px-6 py-2 rounded-xl text-[10px] md:text-xs font-bold uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === 'inventory' ? 'bg-white text-black shadow-sm' : 'text-gray-500 hover:text-black'}`}
+            >
+              Inventory
+            </button>
+            <button 
+              onClick={() => setActiveTab('settings')}
+              className={`px-4 md:px-6 py-2 rounded-xl text-[10px] md:text-xs font-bold uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === 'settings' ? 'bg-white text-black shadow-sm' : 'text-gray-500 hover:text-black'}`}
+            >
+              Settings
+            </button>
+            <button 
+              onClick={() => setActiveTab('affiliates')}
+              className={`px-4 md:px-6 py-2 rounded-xl text-[10px] md:text-xs font-bold uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === 'affiliates' ? 'bg-white text-black shadow-sm' : 'text-gray-500 hover:text-black'}`}
+            >
+              Affiliates
+            </button>
+            <button 
+              onClick={() => setActiveTab('promos')}
+              className={`px-4 md:px-6 py-2 rounded-xl text-[10px] md:text-xs font-bold uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === 'promos' ? 'bg-white text-black shadow-sm' : 'text-gray-500 hover:text-black'}`}
+            >
+              Promos
+            </button>
+          </div>
         </div>
       </div>
 
       {activeTab === 'inventory' && (
-        <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-          <div className="flex flex-wrap items-center gap-4">
+        <div className="mb-8 flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-6">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
             <button 
               onClick={() => setShowArchived(!showArchived)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 border ${
+              className={`px-4 py-3 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 border ${
                 showArchived 
                   ? 'bg-gray-900 text-white border-gray-900' 
                   : 'bg-white text-gray-400 border-gray-100 hover:border-gray-200'
@@ -3109,8 +3111,8 @@ const AdminDashboard = () => {
               <Archive className="w-4 h-4" /> {showArchived ? 'Showing All' : 'Show Archived'}
             </button>
 
-            <div className="px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-xl flex items-center gap-3">
-              <div className="w-8 h-8 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center">
+            <div className="px-4 py-3 bg-emerald-50 border border-emerald-100 rounded-xl flex items-center gap-3">
+              <div className="w-8 h-8 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center flex-shrink-0">
                 <ShoppingBag className="w-4 h-4" />
               </div>
               <div>
@@ -3126,25 +3128,25 @@ const AdminDashboard = () => {
               </div>
             </div>
           </div>
-          <div className="flex gap-4">
+          <div className="flex flex-col sm:flex-row gap-4">
             <button 
               onClick={seedProducts}
-              className={`px-6 py-3 font-bold rounded-xl transition-all flex items-center gap-2 ${
+              className={`px-6 py-3 font-bold rounded-xl transition-all flex items-center justify-center gap-2 text-sm ${
                 productsList.length === 0 
-                  ? 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-lg shadow-emerald-100 scale-105' 
+                  ? 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-lg shadow-emerald-100' 
                   : 'bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-100'
               }`}
             >
-              <Package className="w-4 h-4" /> {productsList.length === 0 ? 'Add All Shop Products to Inventory' : 'Restore Default Inventory'}
+              <Package className="w-4 h-4" /> {productsList.length === 0 ? 'Import Products' : 'Restore Default'}
             </button>
             <button 
               onClick={() => {
                 setEditingProduct(null);
                 setIsProductModalOpen(true);
               }}
-              className="px-6 py-3 bg-black text-white font-bold rounded-xl hover:bg-emerald-600 transition-all flex items-center gap-2"
+              className="px-6 py-3 bg-black text-white font-bold rounded-xl hover:bg-emerald-600 transition-all flex items-center justify-center gap-2 text-sm"
             >
-              <Plus className="w-4 h-4" /> Add New Product
+              <Plus className="w-4 h-4" /> Add Product
             </button>
           </div>
         </div>
@@ -3152,8 +3154,9 @@ const AdminDashboard = () => {
 
       {activeTab === 'users' ? (
         <div className="bg-white rounded-[2rem] border border-gray-100 overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+          {/* Desktop Table View */}
+          <div className="hidden md:block overflow-x-auto scrollbar-hide">
+            <table className="w-full text-left border-collapse min-w-[700px]">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
                   <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">User</th>
@@ -3189,11 +3192,39 @@ const AdminDashboard = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile Card View */}
+          <div className="md:hidden divide-y divide-gray-50">
+            {users.map((u) => (
+              <div key={u.id} className="p-6 space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-black/5 rounded-full flex items-center justify-center text-sm font-bold">
+                    {u.firstName?.[0]}{u.lastName?.[0]}
+                  </div>
+                  <div>
+                    <p className="font-bold text-gray-900">{u.displayName || `${u.firstName} ${u.lastName}`}</p>
+                    <p className="text-xs text-gray-500">{u.email}</p>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                    u.role === 'admin' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'
+                  }`}>
+                    {u.role || 'user'}
+                  </span>
+                  <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                    Joined: {u.createdAt?.toDate ? u.createdAt.toDate().toLocaleDateString() : 'N/A'}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       ) : activeTab === 'inventory' ? (
         <div className="bg-white rounded-[2rem] border border-gray-100 overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+          {/* Desktop Table View */}
+          <div className="hidden md:block overflow-x-auto scrollbar-hide">
+            <table className="w-full text-left border-collapse min-w-[900px]">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
                   <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Product</th>
@@ -3373,11 +3404,115 @@ const AdminDashboard = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile Card View */}
+          <div className="md:hidden divide-y divide-gray-50">
+            {productsList.filter(p => showArchived || !p.isArchived).length === 0 ? (
+              <div className="px-6 py-12 text-center">
+                <Package className="w-10 h-10 text-gray-200 mx-auto mb-3" />
+                <p className="text-sm text-gray-500 italic">Inventory is empty.</p>
+              </div>
+            ) : productsList
+                .filter(p => showArchived || !p.isArchived)
+                .map((p) => {
+              const isLowStock = (p.stock || 0) <= (p.lowStockThreshold || 5) && (p.stock || 0) > 0;
+              const isOutOfStock = (p.stock || 0) <= 0;
+              
+              return (
+                <div key={p.id} className={`p-6 space-y-4 ${p.isArchived ? 'opacity-50' : ''}`}>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <img src={p.image} alt="" className="w-12 h-12 rounded-xl object-cover border border-gray-100" />
+                      <div>
+                        <p className="font-bold text-gray-900 text-sm">{p.name}</p>
+                        <p className="text-[10px] text-gray-400 uppercase tracking-wider">{p.category} · {p.dosage}</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => {
+                          setEditingProduct(p);
+                          setIsProductModalOpen(true);
+                        }}
+                        className="p-2.5 bg-gray-50 text-gray-600 rounded-xl border border-gray-100"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button 
+                        onClick={async () => {
+                          try {
+                            await updateDoc(doc(db, 'products', p.id), { isArchived: !p.isArchived });
+                          } catch (error) {
+                            console.error('Error toggling archive status:', error);
+                          }
+                        }}
+                        className={`p-2.5 rounded-xl border ${p.isArchived ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100'}`}
+                      >
+                        {p.isArchived ? <ArchiveRestore className="w-4 h-4" /> : <Archive className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">Stock Level</label>
+                      <input 
+                        type="number"
+                        value={p.stock || 0}
+                        onChange={async (e) => {
+                          const newStock = parseInt(e.target.value) || 0;
+                          await updateDoc(doc(db, 'products', p.id), { stock: newStock, inStock: newStock > 0 });
+                        }}
+                        className={`w-full px-3 py-2 rounded-xl border text-sm font-bold outline-none focus:ring-2 focus:ring-black transition-all ${isLowStock ? 'bg-amber-50 border-amber-200 text-amber-700' : isOutOfStock ? 'bg-red-50 border-red-200 text-red-700' : 'bg-gray-50 border-gray-100'}`}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">Threshold</label>
+                      <input 
+                        type="number"
+                        value={p.lowStockThreshold || 5}
+                        onChange={async (e) => {
+                          const newThreshold = parseInt(e.target.value) || 0;
+                          await updateDoc(doc(db, 'products', p.id), { lowStockThreshold: newThreshold });
+                        }}
+                        className="w-full px-3 py-2 rounded-xl border border-gray-100 bg-gray-50 text-sm font-bold outline-none focus:ring-2 focus:ring-black transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  {p.dosages && p.dosages.length > 0 && (
+                    <div className="space-y-2 pt-2">
+                      <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">Dosage Versions</p>
+                      <div className="space-y-2">
+                        {p.dosages.map((d, dIdx) => (
+                          <div key={dIdx} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100">
+                            <span className="text-xs font-bold text-gray-700">{d.label}</span>
+                            <div className="flex items-center gap-3">
+                              <input 
+                                type="number"
+                                value={d.stock || 0}
+                                onChange={(e) => updateDosageStock(p.id, dIdx, parseInt(e.target.value) || 0)}
+                                className="w-14 px-2 py-1 bg-white border border-gray-200 rounded-lg text-xs font-bold text-center"
+                              />
+                              <span className={`text-[9px] font-bold uppercase tracking-wider ${d.stock > 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                                {d.stock > 0 ? 'In Stock' : 'Out'}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       ) : activeTab === 'orders' ? (
         <div className="bg-white rounded-[2rem] border border-gray-100 overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+          {/* Desktop Table View */}
+          <div className="hidden md:block overflow-x-auto scrollbar-hide">
+            <table className="w-full text-left border-collapse min-w-[1200px]">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
                   <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest w-10"></th>
@@ -3529,18 +3664,18 @@ const AdminDashboard = () => {
                     <AnimatePresence>
                       {expandedOrder === o.id && (
                         <tr>
-                          <td colSpan={7} className="px-0 py-0 bg-gray-50/30">
+                          <td colSpan={10} className="px-0 py-0 bg-gray-50/30">
                             <motion.div
                               initial={{ height: 0, opacity: 0 }}
                               animate={{ height: 'auto', opacity: 1 }}
                               exit={{ height: 0, opacity: 0 }}
                               className="overflow-hidden"
                             >
-                              <div className="p-8 border-t border-gray-100">
+                              <div className="p-4 md:p-8 border-t border-gray-100">
                                 <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-6">Order Items</h4>
                                 <div className="space-y-4">
                                   {(o.items || []).map((item: any, idx: number) => (
-                                    <div key={idx} className="flex items-center justify-between p-4 bg-white rounded-2xl border border-gray-100 shadow-sm">
+                                    <div key={idx} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-white rounded-2xl border border-gray-100 shadow-sm gap-4">
                                       <div className="flex items-center gap-4">
                                         <div className="w-12 h-12 bg-gray-50 rounded-xl flex items-center justify-center overflow-hidden border border-gray-100">
                                           <img src={item.image} alt="" className="w-full h-full object-cover" />
@@ -3550,7 +3685,7 @@ const AdminDashboard = () => {
                                           <p className="text-[10px] text-gray-400 uppercase tracking-wider">{item.dosage} · Qty: {item.quantity}</p>
                                         </div>
                                       </div>
-                                      <div className="text-right">
+                                      <div className="text-left sm:text-right">
                                         <p className="font-bold text-gray-900 text-sm">${(item.price * item.quantity).toFixed(2)}</p>
                                         <p className="text-[10px] text-gray-400">${item.price.toFixed(2)} each</p>
                                       </div>
@@ -3576,7 +3711,7 @@ const AdminDashboard = () => {
                 ))}
                 {orders.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-6 py-24 text-center text-gray-400 text-sm italic">
+                    <td colSpan={10} className="px-6 py-24 text-center text-gray-400 text-sm italic">
                       No orders found in the system.
                     </td>
                   </tr>
@@ -3584,11 +3719,117 @@ const AdminDashboard = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile Card View */}
+          <div className="md:hidden divide-y divide-gray-50">
+            {orders.length === 0 ? (
+              <div className="px-6 py-12 text-center">
+                <p className="text-sm text-gray-500 italic">No orders found.</p>
+              </div>
+            ) : orders.map((o) => (
+              <div key={o.id} className="p-6 space-y-4">
+                <div className="flex items-start justify-between">
+                  <div onClick={() => setExpandedOrder(expandedOrder === o.id ? null : o.id)} className="cursor-pointer">
+                    <span className="font-mono text-xs font-bold text-emerald-600 block mb-1">{o.orderId}</span>
+                    <p className="font-bold text-gray-900 text-sm">{o.customerName || `${o.shippingInfo?.firstName} ${o.shippingInfo?.lastName}`}</p>
+                    <p className="text-[10px] text-gray-400">
+                      {o.createdAt?.toDate ? o.createdAt.toDate().toLocaleString() : 'N/A'}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-gray-900">${(o.total || 0).toFixed(2)}</p>
+                    <span className={`inline-block px-2 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-wider mt-1 ${
+                      o.status === 'shipped' || o.status === 'delivered' ? 'bg-emerald-100 text-emerald-700' : 
+                      o.status === 'awaiting tracking' ? 'bg-blue-100 text-blue-700' :
+                      o.status === 'pending' ? 'bg-amber-100 text-amber-700' : 
+                      'bg-red-100 text-red-700'
+                    }`}>
+                      {o.status}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-3 pt-2">
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">Update Tracking</label>
+                    <div className="flex gap-2">
+                      <input 
+                        type="text"
+                        placeholder="Tracking #"
+                        value={o.id in trackingInputs ? trackingInputs[o.id] : (o.trackingNumber || '')}
+                        onChange={(e) => setTrackingInputs({ ...trackingInputs, [o.id]: e.target.value })}
+                        className="flex-1 text-xs px-3 py-2 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-mono"
+                      />
+                      <button 
+                        onClick={() => markOrderShipped(o.id)}
+                        className={`p-2.5 rounded-xl transition-all ${o.id in trackingInputs ? 'bg-emerald-500 text-white' : 'bg-gray-100 text-gray-400'}`}
+                      >
+                        <Truck className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-4">
+                    <select 
+                      value={o.status}
+                      onChange={(e) => updateOrderStatus(o.id, e.target.value)}
+                      className="flex-1 text-[10px] font-bold uppercase tracking-widest bg-gray-50 border border-gray-100 rounded-xl px-3 py-2 outline-none"
+                    >
+                      <option value="pending">Pending</option>
+                      <option value="awaiting tracking">Awaiting Tracking</option>
+                      <option value="shipped">Shipped</option>
+                      <option value="delivered">Delivered</option>
+                      <option value="cancelled">Cancelled</option>
+                    </select>
+                    <button 
+                      onClick={() => setExpandedOrder(expandedOrder === o.id ? null : o.id)}
+                      className="px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-gray-500 bg-gray-50 border border-gray-100 rounded-xl"
+                    >
+                      {expandedOrder === o.id ? 'Close' : 'Details'}
+                    </button>
+                  </div>
+                </div>
+
+                <AnimatePresence>
+                  {expandedOrder === o.id && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="overflow-hidden pt-4 border-t border-gray-50"
+                    >
+                      <div className="space-y-3">
+                        <div className="p-3 bg-gray-50 rounded-xl space-y-1">
+                          <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Shipping Address</p>
+                          <p className="text-[10px] text-gray-600 leading-relaxed">
+                            {o.shippingAddress || `${o.shippingInfo?.address}${o.shippingInfo?.unitNumber ? `, ${o.shippingInfo.unitNumber}` : ''}, ${o.shippingInfo?.city}, ${o.shippingInfo?.state} ${o.shippingInfo?.zip}`}
+                          </p>
+                        </div>
+                        <div className="space-y-2">
+                          {(o.items || []).map((item: any, idx: number) => (
+                            <div key={idx} className="flex items-center gap-3 p-2 bg-white rounded-xl border border-gray-100">
+                              <img src={item.image} alt="" className="w-8 h-8 rounded-lg object-cover" />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[10px] font-bold text-gray-900 truncate">{item.name}</p>
+                                <p className="text-[8px] text-gray-400 uppercase tracking-wider">{item.dosage} · Qty: {item.quantity}</p>
+                              </div>
+                              <p className="text-[10px] font-bold text-gray-900">${(item.price * item.quantity).toFixed(2)}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            ))}
+          </div>
         </div>
       ) : activeTab === 'affiliates' ? (
         <div className="bg-white rounded-[2rem] border border-gray-100 overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+          {/* Desktop Table View */}
+          <div className="hidden md:block overflow-x-auto scrollbar-hide">
+            <table className="w-full text-left border-collapse min-w-[1000px]">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
                   <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Applicant</th>
@@ -3648,7 +3889,7 @@ const AdminDashboard = () => {
                 ))}
                 {affiliateApplications.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-6 py-12 text-center text-gray-400 text-sm italic">
+                    <td colSpan={6} className="px-6 py-12 text-center text-gray-400 text-sm italic">
                       No Research Affiliate applications found.
                     </td>
                   </tr>
@@ -3656,11 +3897,64 @@ const AdminDashboard = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile Card View */}
+          <div className="md:hidden divide-y divide-gray-50">
+            {affiliateApplications.length === 0 ? (
+              <div className="px-6 py-12 text-center">
+                <p className="text-sm text-gray-500 italic">No applications found.</p>
+              </div>
+            ) : affiliateApplications.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)).map((app) => (
+              <div key={app.id} className="p-6 space-y-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="font-bold text-gray-900 text-sm">{app.fullName}</p>
+                    <p className="text-[10px] text-gray-400 uppercase tracking-widest mt-1">{app.email}</p>
+                  </div>
+                  <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                    app.status === 'approved' ? 'bg-emerald-100 text-emerald-700' : 
+                    app.status === 'pending' ? 'bg-amber-100 text-amber-700' : 
+                    'bg-red-100 text-red-700'
+                  }`}>
+                    {app.status}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-3 bg-gray-50 rounded-xl border border-gray-100">
+                    <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Social Handle</p>
+                    <p className="text-xs font-bold text-emerald-600">{app.socialHandle}</p>
+                    <p className="text-[10px] text-gray-500">{app.followerCount} followers</p>
+                  </div>
+                  <div className="p-3 bg-gray-50 rounded-xl border border-gray-100">
+                    <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Niche</p>
+                    <p className="text-xs font-bold text-gray-700">{app.niche}</p>
+                    <p className="text-[10px] text-gray-500">Uses Peptides: {app.usesPeptides}</p>
+                  </div>
+                </div>
+                <div className="p-3 bg-gray-50 rounded-xl border border-gray-100">
+                  <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Why Partner?</p>
+                  <p className="text-[10px] text-gray-600 leading-relaxed italic">"{app.whyPartner}"</p>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">Update Status</label>
+                  <select 
+                    value={app.status}
+                    onChange={(e) => updateAffiliateStatus(app.id, e.target.value)}
+                    className="w-full text-[10px] font-bold uppercase tracking-widest bg-gray-50 border border-gray-100 rounded-xl px-3 py-2 outline-none"
+                  >
+                    <option value="pending">Pending</option>
+                    <option value="approved">Approved</option>
+                    <option value="rejected">Rejected</option>
+                  </select>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       ) : activeTab === 'settings' ? (
         <div className="max-w-2xl mx-auto">
-          <div className="bg-white rounded-[2rem] border border-gray-100 overflow-hidden shadow-sm p-8">
-            <h2 className="text-2xl font-bold mb-8 flex items-center gap-2">
+          <div className="bg-white rounded-[2rem] border border-gray-100 overflow-hidden shadow-sm p-6 md:p-8">
+            <h2 className="text-xl md:text-2xl font-bold mb-6 md:mb-8 flex items-center gap-2">
               <Clock className="w-6 h-6 text-emerald-500" /> Countdown Timer Settings
             </h2>
             
@@ -3803,11 +4097,11 @@ const AdminDashboard = () => {
         </div>
       ) : activeTab === 'promos' ? (
         <div className="max-w-4xl mx-auto space-y-8">
-          <div className="bg-white rounded-[2rem] border border-gray-100 overflow-hidden shadow-sm p-8">
-            <h2 className="text-2xl font-bold mb-8 flex items-center gap-2">
+          <div className="bg-white rounded-[2rem] border border-gray-100 overflow-hidden shadow-sm p-6 md:p-8">
+            <h2 className="text-xl md:text-2xl font-bold mb-6 md:mb-8 flex items-center gap-2">
               <Plus className="w-6 h-6 text-emerald-500" /> Create New Promo Code
             </h2>
-            <form onSubmit={addPromoCode} className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+            <form onSubmit={addPromoCode} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 items-end">
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Promo Code</label>
                 <input 
@@ -3837,8 +4131,9 @@ const AdminDashboard = () => {
           </div>
 
           <div className="bg-white rounded-[2rem] border border-gray-100 overflow-hidden shadow-sm">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+            {/* Desktop Table View */}
+            <div className="hidden md:block overflow-x-auto scrollbar-hide">
+              <table className="w-full text-left border-collapse min-w-[600px]">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-100">
                     <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Code</th>
@@ -3884,12 +4179,43 @@ const AdminDashboard = () => {
                 </tbody>
               </table>
             </div>
+
+            {/* Mobile Card View */}
+            <div className="md:hidden divide-y divide-gray-50">
+              {promoCodes.length === 0 ? (
+                <div className="px-6 py-12 text-center">
+                  <p className="text-sm text-gray-500 italic">No promo codes found.</p>
+                </div>
+              ) : promoCodes.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)).map((promo) => (
+                <div key={promo.id} className="p-6 flex items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <span className="font-mono font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-lg border border-emerald-100 text-xs">{promo.code}</span>
+                    <p className="text-sm font-bold text-gray-900">{promo.discount}% OFF</p>
+                    <button 
+                      onClick={() => togglePromoStatus(promo.id, promo.isActive)}
+                      className={`px-2 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-wider transition-all ${
+                        promo.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-400'
+                      }`}
+                    >
+                      {promo.isActive ? 'Active' : 'Inactive'}
+                    </button>
+                  </div>
+                  <button 
+                    onClick={() => setIsDeletingPromo(promo.id)}
+                    className="p-3 bg-red-50 text-red-500 rounded-xl border border-red-100"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       ) : (
         <div className="bg-white rounded-[2rem] border border-gray-100 overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+          {/* Desktop Table View */}
+          <div className="hidden md:block overflow-x-auto scrollbar-hide">
+            <table className="w-full text-left border-collapse min-w-[800px]">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
                   <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Date</th>
@@ -3928,6 +4254,46 @@ const AdminDashboard = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile Card View */}
+          <div className="md:hidden divide-y divide-gray-50">
+            {coaRequests.length === 0 ? (
+              <div className="px-6 py-12 text-center">
+                <p className="text-sm text-gray-500 italic">No COA requests found.</p>
+              </div>
+            ) : coaRequests.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)).map((r) => (
+              <div key={r.id} className="p-6 space-y-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="font-bold text-gray-900 text-sm">{r.email}</p>
+                    <p className="text-[10px] text-gray-400 uppercase tracking-widest mt-1">
+                      {r.createdAt?.toDate ? r.createdAt.toDate().toLocaleDateString() : 'N/A'}
+                    </p>
+                  </div>
+                  <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                    r.status === 'processed' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                  }`}>
+                    {r.status}
+                  </span>
+                </div>
+                <div className="p-3 bg-gray-50 rounded-xl border border-gray-100">
+                  <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Product / Batch</p>
+                  <p className="text-sm text-gray-700">{r.product}</p>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">Update Status</label>
+                  <select 
+                    value={r.status}
+                    onChange={(e) => updateCoaStatus(r.id, e.target.value)}
+                    className="w-full text-[10px] font-bold uppercase tracking-widest bg-gray-50 border border-gray-100 rounded-xl px-3 py-2 outline-none"
+                  >
+                    <option value="pending">Pending</option>
+                    <option value="processed">Processed</option>
+                  </select>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -3980,9 +4346,9 @@ const AdminDashboard = () => {
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative bg-white w-full max-w-2xl rounded-[2.5rem] overflow-hidden shadow-2xl p-10 max-h-[90vh] overflow-y-auto"
+              className="relative bg-white w-full max-w-2xl rounded-[2rem] md:rounded-[2.5rem] overflow-hidden shadow-2xl p-6 md:p-10 max-h-[90vh] overflow-y-auto"
             >
-              <h2 className="text-3xl font-bold mb-8 tracking-tight">
+              <h2 className="text-2xl md:text-3xl font-bold mb-6 md:mb-8 tracking-tight">
                 {editingProduct ? 'Edit Product' : 'Add New Product'}
               </h2>
               
@@ -4037,7 +4403,7 @@ const AdminDashboard = () => {
                   alert('Failed to save product.');
                 }
               }} className="space-y-6">
-                <div className="grid grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Original Price</label>
                     <input 
@@ -4082,7 +4448,7 @@ const AdminDashboard = () => {
                   <input required name="name" defaultValue={editingProduct?.name} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-black outline-none" />
                 </div>
 
-                <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Category</label>
                     <input required name="category" defaultValue={editingProduct?.category || 'Peptides'} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-black outline-none" />
@@ -4103,7 +4469,7 @@ const AdminDashboard = () => {
                   <textarea name="description" defaultValue={editingProduct?.description} rows={3} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-black outline-none resize-none" />
                 </div>
 
-                <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Initial Stock</label>
                     <input required name="stock" type="number" defaultValue={editingProduct?.stock || 0} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-black outline-none" />
@@ -4152,7 +4518,7 @@ const AdminDashboard = () => {
                             <Trash2 className="w-3 h-3" />
                           </button>
                         </div>
-                        <div className="grid grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                           <div className="space-y-1">
                             <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">Original Price</label>
                             <input 
@@ -4201,7 +4567,7 @@ const AdminDashboard = () => {
                             />
                           </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="space-y-1">
                             <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">Label (e.g. 5MG)</label>
                             <input 
@@ -4229,7 +4595,7 @@ const AdminDashboard = () => {
                             />
                           </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="space-y-1">
                             <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">Initial Stock</label>
                             <input 
