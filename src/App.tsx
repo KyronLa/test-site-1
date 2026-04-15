@@ -232,6 +232,7 @@ interface AuthContextType {
   loading: boolean;
   login: (email: string, pass: string) => Promise<void>;
   register: (email: string, pass: string, firstName: string, lastName: string, phone?: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
   isAdmin: boolean;
   isFreeShippingEnabled: boolean;
@@ -255,51 +256,7 @@ const getGuestId = () => {
   return guestId;
 };
 
-const CountdownBanner = ({ currentView }: { currentView: string }) => {
-  const [settings, setSettings] = useState<SiteSettings | null>(null);
-  const [timeLeft, setTimeLeft] = useState<{ days: number, hours: number, minutes: number, seconds: number } | null>(null);
-
-  useEffect(() => {
-    const unsubscribe = onSnapshot(doc(db, 'settings', 'site'), (snapshot) => {
-      if (snapshot.exists()) {
-        setSettings(snapshot.data() as SiteSettings);
-      }
-    });
-    return () => unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    if (!settings?.countdownActive || !settings?.countdownTarget) {
-      setTimeLeft(null);
-      return;
-    }
-
-    const calculateTimeLeft = () => {
-      const target = new Date(settings.countdownTarget).getTime();
-      const now = new Date().getTime();
-      const difference = target - now;
-
-      if (difference <= 0) {
-        setTimeLeft(null);
-        return false;
-      }
-
-      setTimeLeft({
-        days: Math.floor(difference / (1000 * 60 * 60 * 24)),
-        hours: Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
-        minutes: Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60)),
-        seconds: Math.floor((difference % (1000 * 60)) / 1000)
-      });
-      return true;
-    };
-
-    const hasTime = calculateTimeLeft();
-    if (!hasTime) return;
-
-    const timer = setInterval(calculateTimeLeft, 1000);
-    return () => clearInterval(timer);
-  }, [settings]);
-
+const CountdownBanner = ({ currentView, settings, timeLeft }: { currentView: string, settings: SiteSettings | null, timeLeft: any }) => {
   const showOnViews = ['home', 'shop', 'product', 'checkout'];
   if (!settings?.countdownActive || !timeLeft || !showOnViews.includes(currentView)) return null;
 
@@ -740,7 +697,7 @@ const CartDrawer = ({
 };
 
 const AuthModal = ({ isOpen, onClose, onNavigate }: { isOpen: boolean, onClose: () => void, onNavigate: (view: any) => void }) => {
-  const { login, register, user } = useAuth();
+  const { login, register, signInWithGoogle, user } = useAuth();
   const [isSuccess, setIsSuccess] = useState(false);
   const [mode, setMode] = useState<'login' | 'register' | 'reset'>('login');
   const [error, setError] = useState<string | null>(null);
@@ -976,6 +933,40 @@ const AuthModal = ({ isOpen, onClose, onNavigate }: { isOpen: boolean, onClose: 
                   >
                     {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : (mode === 'login' ? 'Sign In' : mode === 'register' ? 'Create Account' : 'Send Reset Link')}
                   </button>
+
+                  {mode !== 'reset' && (
+                    <>
+                      <div className="relative py-2">
+                        <div className="absolute inset-0 flex items-center">
+                          <div className="w-full border-t border-gray-100"></div>
+                        </div>
+                        <div className="relative flex justify-center text-[10px] uppercase tracking-widest font-bold">
+                          <span className="bg-white px-4 text-gray-400">Or continue with</span>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          setError(null);
+                          setIsLoading(true);
+                          try {
+                            await signInWithGoogle();
+                          } catch (err: any) {
+                            console.error('Google Auth Error:', err);
+                            setError(err.message || 'An error occurred during Google sign in');
+                          } finally {
+                            setIsLoading(false);
+                          }
+                        }}
+                        disabled={isLoading}
+                        className="w-full py-4 bg-white border border-gray-100 text-gray-700 font-bold rounded-2xl hover:bg-gray-50 transition-all flex items-center justify-center gap-3"
+                      >
+                        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" referrerPolicy="no-referrer" />
+                        Sign in with Google
+                      </button>
+                    </>
+                  )}
                 </form>
 
                 <div className="mt-6 text-center">
@@ -3643,9 +3634,10 @@ const AdminDashboard = () => {
                 const oldMinutes = siteSettings?.durationMinutes || 0;
                 
                 let countdownTarget = siteSettings?.countdownTarget;
+                const isExpired = countdownTarget ? new Date(countdownTarget).getTime() <= Date.now() : true;
                 
-                // Only reset the target if duration changed or target is missing
-                if (days !== oldDays || hours !== oldHours || minutes !== oldMinutes || !countdownTarget) {
+                // Reset the target if duration changed, target is missing, or it's expired
+                if (days !== oldDays || hours !== oldHours || minutes !== oldMinutes || !countdownTarget || isExpired) {
                   const durationMs = (days * 24 * 60 * 60 * 1000) + (hours * 60 * 60 * 1000) + (minutes * 60 * 1000);
                   countdownTarget = new Date(Date.now() + durationMs).toISOString();
                 }
@@ -4335,6 +4327,37 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  const signInWithGoogle = async () => {
+    const provider = new GoogleAuthProvider();
+    const result = await signInWithPopup(auth, provider);
+    const u = result.user;
+
+    // Check if user exists in Firestore
+    const userDocRef = doc(db, 'users', u.uid);
+    const userDoc = await getDoc(userDocRef);
+    
+    if (!userDoc.exists()) {
+      const [firstName, ...lastNameParts] = (u.displayName || 'Research User').split(' ');
+      const lastName = lastNameParts.join(' ') || '';
+      const role = u.email === 'info@eclipseresearch.shop' ? 'admin' : 'user';
+
+      await setDoc(userDocRef, {
+        email: u.email,
+        firstName,
+        lastName,
+        displayName: u.displayName || `${firstName} ${lastName}`,
+        role: role,
+        createdAt: serverTimestamp(),
+        lastLogin: serverTimestamp()
+      });
+    } else {
+      // Update last login
+      await updateDoc(userDocRef, {
+        lastLogin: serverTimestamp()
+      });
+    }
+  };
+
   const logout = async () => {
     await signOut(auth);
   };
@@ -4353,7 +4376,7 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, isAdmin, isFreeShippingEnabled, toggleFreeShipping }}>
+    <AuthContext.Provider value={{ user, loading, login, register, signInWithGoogle, logout, isAdmin, isFreeShippingEnabled, toggleFreeShipping }}>
       {children}
     </AuthContext.Provider>
   );
@@ -6645,6 +6668,48 @@ const AppContent = () => {
   const [isCartLoaded, setIsCartLoaded] = useState(false);
   const { user, isAdmin } = useAuth();
   const [settings, setSettings] = useState<SiteSettings | null>(null);
+  const [timeLeft, setTimeLeft] = useState<{ days: number, hours: number, minutes: number, seconds: number } | null>(null);
+
+  useEffect(() => {
+    if (!settings?.countdownActive || !settings?.countdownTarget) {
+      setTimeLeft(null);
+      return;
+    }
+
+    const calculateTimeLeft = () => {
+      try {
+        const targetDate = new Date(settings.countdownTarget);
+        if (isNaN(targetDate.getTime())) {
+          setTimeLeft(null);
+          return false;
+        }
+
+        const target = targetDate.getTime();
+        const now = new Date().getTime();
+        const difference = target - now;
+
+        if (difference <= 0) {
+          setTimeLeft(null);
+          return false;
+        }
+
+        setTimeLeft({
+          days: Math.floor(difference / (1000 * 60 * 60 * 24)),
+          hours: Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+          minutes: Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60)),
+          seconds: Math.floor((difference % (1000 * 60)) / 1000)
+        });
+        return true;
+      } catch (err) {
+        setTimeLeft(null);
+        return false;
+      }
+    };
+
+    calculateTimeLeft();
+    const timer = setInterval(calculateTimeLeft, 1000);
+    return () => clearInterval(timer);
+  }, [settings]);
 
   // Load initial cart
   useEffect(() => {
@@ -6908,13 +6973,13 @@ const AppContent = () => {
   }, []);
 
   const isDarkPage = ['home', 'shop', 'track', 'refer'].includes(view);
-  const isBannerActive = settings?.countdownActive && ['home', 'shop', 'product', 'checkout'].includes(view);
+  const isBannerActive = settings?.countdownActive && timeLeft && ['home', 'shop', 'product', 'checkout'].includes(view);
 
   return (
     <div className="min-h-screen bg-[#F9F9F9] font-sans selection:bg-emerald-100 selection:text-emerald-900">
       <div className="fixed top-0 w-full z-50 bg-transparent pointer-events-none">
         <div className="pointer-events-auto">
-          <CountdownBanner currentView={view} />
+          <CountdownBanner currentView={view} settings={settings} timeLeft={timeLeft} />
           <Navbar 
             cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)} 
             onOpenCart={() => setIsCartOpen(true)}

@@ -30,7 +30,8 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() && 
-        (request.auth.token.email in ["info@eclipseresearch.shop", "kyron.laskosky2@gmail.com"]);
+             ('email' in request.auth.token) &&
+             (request.auth.token.email.lower() in ["info@eclipseresearch.shop", "kyron.laskosky2@gmail.com"]);
     }
 
     function isValidEmail(email) {
@@ -75,10 +76,13 @@ service cloud.firestore {
     }
 
     function isValidSettings(data) {
-      return hasOnlyAllowedFields(data, ['countdownActive', 'countdownText', 'countdownTarget']) &&
-             (!('countdownActive' in data) || data.countdownActive is bool) &&
+      return (!('countdownActive' in data) || data.countdownActive is bool) &&
              (!('countdownText' in data) || (data.countdownText is string && data.countdownText.size() < 200)) &&
-             (!('countdownTarget' in data) || isValidDateString(data.countdownTarget));
+             (!('countdownTarget' in data) || isValidDateString(data.countdownTarget)) &&
+             (!('durationDays' in data) || data.durationDays is number) &&
+             (!('durationHours' in data) || data.durationHours is number) &&
+             (!('durationMinutes' in data) || data.durationMinutes is number) &&
+             (!('referralCreditAmount' in data) || data.referralCreditAmount is number);
     }
 
     function isValidAffiliateApplication(data) {
