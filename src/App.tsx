@@ -3009,6 +3009,31 @@ const AdminDashboard = () => {
     }
   };
 
+  const inventoryStats = productsList.reduce((acc, product) => {
+    if (product.isArchived && !showArchived) return acc;
+    
+    // Calculate main product value and count
+    const mainStock = Number(product.stock) || 0;
+    const mainPrice = Number(product.price) || 0;
+    let productValue = mainPrice * mainStock;
+    let productCount = mainStock;
+    
+    // Add value and count of all dosage variations if they exist
+    if (product.dosages && product.dosages.length > 0) {
+      product.dosages.forEach((dosage) => {
+        const dPrice = Number(dosage.price) || mainPrice;
+        const dStock = Number(dosage.stock) || 0;
+        productValue += dPrice * dStock;
+        productCount += dStock;
+      });
+    }
+    
+    return {
+      totalValue: acc.totalValue + productValue,
+      totalItems: acc.totalItems + productCount
+    };
+  }, { totalValue: 0, totalItems: 0 });
+
   if (loading) {
     return (
       <div className="pt-32 flex justify-center">
@@ -3071,8 +3096,8 @@ const AdminDashboard = () => {
       </div>
 
       {activeTab === 'inventory' && (
-        <div className="mb-8 flex justify-between items-center">
-          <div className="flex items-center gap-4">
+        <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+          <div className="flex flex-wrap items-center gap-4">
             <button 
               onClick={() => setShowArchived(!showArchived)}
               className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 border ${
@@ -3083,6 +3108,23 @@ const AdminDashboard = () => {
             >
               <Archive className="w-4 h-4" /> {showArchived ? 'Showing All' : 'Show Archived'}
             </button>
+
+            <div className="px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-xl flex items-center gap-3">
+              <div className="w-8 h-8 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center">
+                <ShoppingBag className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest leading-none mb-1">Total Inventory Value</p>
+                <div className="flex items-baseline gap-2">
+                  <p className="text-sm font-bold text-gray-900 leading-none">
+                    ${inventoryStats.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                  <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">
+                    ({inventoryStats.totalItems} Units)
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
           <div className="flex gap-4">
             <button 
