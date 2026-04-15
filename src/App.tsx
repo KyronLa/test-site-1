@@ -953,6 +953,10 @@ const AuthModal = ({ isOpen, onClose, onNavigate }: { isOpen: boolean, onClose: 
                           try {
                             await signInWithGoogle();
                           } catch (err: any) {
+                            if (err.code === 'auth/popup-closed-by-user') {
+                              // User closed the popup, handle gracefully without showing an error
+                              return;
+                            }
                             console.error('Google Auth Error:', err);
                             setError(err.message || 'An error occurred during Google sign in');
                           } finally {
