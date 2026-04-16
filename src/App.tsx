@@ -4706,11 +4706,14 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const syncUserWithFirestore = async (u: FirebaseUser) => {
     const userDocRef = doc(db, 'users', u.uid);
     const userDoc = await getDoc(userDocRef);
+    const adminEmails = ['info@eclipseresearch.shop', 'kyron.laskosky2@gmail.com'];
+    const userEmail = (u.email || '').toLowerCase().trim();
+    const isUserAdmin = adminEmails.some(email => email.toLowerCase().trim() === userEmail);
     
     if (!userDoc.exists()) {
       const [firstName, ...lastNameParts] = (u.displayName || 'Research User').split(' ');
       const lastName = lastNameParts.join(' ') || '';
-      const role = u.email === 'info@eclipseresearch.shop' ? 'admin' : 'user';
+      const role = isUserAdmin ? 'admin' : 'user';
 
       await setDoc(userDocRef, {
         email: u.email,
@@ -4756,24 +4759,38 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         
         setUser(u);
         if (u) {
+          console.log("Auth state changed: User logged in", u.email);
           try {
             // Ensure user document exists and lastLogin is updated
             await syncUserWithFirestore(u);
             
             const userDoc = await getDoc(doc(db, 'users', u.uid));
             const adminEmails = ['info@eclipseresearch.shop', 'kyron.laskosky2@gmail.com'];
+            const userEmail = (u.email || '').toLowerCase().trim();
+            const isUserAdmin = adminEmails.some(email => email.toLowerCase().trim() === userEmail);
             
             if (userDoc.exists()) {
               const userData = userDoc.data();
-              setIsAdmin(adminEmails.includes(u.email || ''));
+              const finalIsAdmin = isUserAdmin || userData.role === 'admin';
+              console.log("Admin check:", { isUserAdmin, dbRole: userData.role, finalIsAdmin });
+              setIsAdmin(finalIsAdmin);
               setIsFreeShippingEnabled(userData.isFreeShippingEnabled || false);
-            } else if (adminEmails.includes(u.email || '')) {
+            } else if (isUserAdmin) {
+              console.log("Admin check: User doc missing but email matches admin list");
               setIsAdmin(true);
+            } else {
+              console.log("Admin check: User is not an admin");
+              setIsAdmin(false);
             }
           } catch (e) {
             console.error("Error syncing user data:", e);
+            // Fallback to email check if DB fails
+            const adminEmails = ['info@eclipseresearch.shop', 'kyron.laskosky2@gmail.com'];
+            const userEmail = (u.email || '').toLowerCase().trim();
+            setIsAdmin(adminEmails.some(email => email.toLowerCase().trim() === userEmail));
           }
         } else {
+          console.log("Auth state changed: No user");
           setIsAdmin(false);
           setIsFreeShippingEnabled(false);
         }
@@ -5109,7 +5126,7 @@ const ProductCard: React.FC<{
   if (variant === 'featured') {
     return (
       <div 
-        className="group bg-white rounded-[2.5rem] border border-gray-100 overflow-hidden hover:shadow-xl transition-all cursor-pointer"
+        className="group bg-white rounded-2xl md:rounded-[2.5rem] border border-gray-100 overflow-hidden hover:shadow-xl transition-all cursor-pointer flex flex-col h-full"
         onClick={() => onSelect(product)}
       >
         <div className="aspect-[4/5] relative overflow-hidden bg-gray-50">
@@ -5119,40 +5136,54 @@ const ProductCard: React.FC<{
             className="w-full h-full object-cover scale-110 group-hover:scale-125 transition-transform duration-700" 
             referrerPolicy="no-referrer"
           />
-          {product.inStock === false && (
-            <div className="absolute top-6 left-6 px-4 py-2 bg-red-500 text-white text-[10px] font-bold uppercase tracking-widest rounded-full shadow-lg z-10">
-              Restocking Soon
-            </div>
-          )}
-          {product.originalPrice && product.originalPrice > product.price && (
-            <div className={`absolute ${product.inStock === false ? 'top-16' : 'top-6'} left-6 px-4 py-2 bg-emerald-500 text-white text-[10px] font-bold uppercase tracking-widest rounded-full shadow-lg z-10`}>
-              Save {Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}%
-            </div>
-          )}
+          <div className="absolute top-3 left-3 md:top-6 md:left-6 flex flex-col gap-1 md:gap-2 z-10">
+            {product.inStock === false && (
+              <div className="px-2 py-1 md:px-4 md:py-2 bg-red-500 text-white text-[7px] md:text-[10px] font-bold uppercase tracking-widest rounded-full shadow-lg">
+                Restocking Soon
+              </div>
+            )}
+            {product.originalPrice && product.originalPrice > product.price && (
+              <div className="px-2 py-1 md:px-4 md:py-2 bg-emerald-500 text-white text-[7px] md:text-[10px] font-bold uppercase tracking-widest rounded-full shadow-lg">
+                Save {Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}%
+              </div>
+            )}
+          </div>
           <button 
             disabled={product.inStock === false}
             onClick={(e) => {
               e.stopPropagation();
               onAddToCart(product);
             }}
-            className="absolute bottom-6 left-6 right-6 py-4 bg-black text-white font-bold rounded-2xl opacity-0 translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 disabled:bg-gray-400 disabled:cursor-not-allowed"
+            className="absolute bottom-4 left-4 right-4 md:bottom-6 md:left-6 md:right-6 py-3 md:py-4 bg-black text-white text-xs md:text-sm font-bold rounded-xl md:rounded-2xl opacity-0 translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 disabled:bg-gray-400 disabled:cursor-not-allowed hidden md:flex"
           >
             {product.inStock === false ? 'Restocking Soon' : <><Plus className="w-4 h-4" /> Add to Cart</>}
           </button>
         </div>
-        <div className="p-8">
-          <div className="mb-2">
+        <div className="p-3 md:p-8 flex flex-col flex-1">
+          <div className="mb-1 md:mb-2 scale-75 md:scale-100 origin-left">
             <ProductRating productId={product.id} />
           </div>
-          <h3 className="font-bold text-lg text-gray-900 mb-1">{product.name}</h3>
+          <h3 className="font-bold text-sm md:text-lg text-gray-900 mb-0.5 md:mb-1 truncate">{product.name}</h3>
           {product.dosage && (
-            <p className="text-emerald-600 text-[10px] font-bold uppercase tracking-wider mb-4">{product.dosage}</p>
+            <p className="text-emerald-600 text-[8px] md:text-[10px] font-bold uppercase tracking-wider mb-2 md:mb-4">{product.dosage}</p>
           )}
-          <div className="flex items-center gap-3">
-            <span className="text-emerald-600 font-bold text-xl">${product.price.toFixed(2)}</span>
-            {product.originalPrice && product.originalPrice > product.price && (
-              <span className="text-gray-400 line-through text-sm font-medium">${product.originalPrice.toFixed(2)}</span>
-            )}
+          <div className="flex items-center justify-between mt-auto">
+            <div className="flex items-center gap-1.5 md:gap-3">
+              <span className="text-emerald-600 font-bold text-base md:text-xl">${product.price.toFixed(2)}</span>
+              {product.originalPrice && product.originalPrice > product.price && (
+                <span className="text-gray-400 line-through text-[10px] md:text-sm font-medium">${product.originalPrice.toFixed(2)}</span>
+              )}
+            </div>
+            <button 
+              disabled={product.inStock === false}
+              onClick={(e) => {
+                e.stopPropagation();
+                onAddToCart(product);
+              }}
+              className="md:hidden w-8 h-8 bg-black text-white rounded-lg flex items-center justify-center active:scale-95 transition-transform disabled:bg-gray-200 disabled:text-gray-400"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </div>
@@ -5256,13 +5287,14 @@ const FeaturedProducts: React.FC<{
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-8">
           {featured.map((product) => (
-            <ProductCard 
-              key={product.id}
-              product={product}
-              onAddToCart={onAddToCart}
-              onSelect={onSelectProduct}
-              variant="featured"
-            />
+            <div key={product.id}>
+              <ProductCard 
+                product={product}
+                onAddToCart={onAddToCart}
+                onSelect={onSelectProduct}
+                variant="featured"
+              />
+            </div>
           ))}
         </div>
       </div>
