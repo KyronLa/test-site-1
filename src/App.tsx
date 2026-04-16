@@ -41,7 +41,8 @@ import {
   Clock,
   Tag,
   Copy,
-  Check
+  Check,
+  Crown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -219,6 +220,21 @@ export interface Product {
 interface CartItem extends Product {
   quantity: number;
 }
+
+export const isProductAvailable = (product: Product): boolean => {
+  // Check default option stock
+  const defaultInStock = product.stock !== undefined ? product.stock > 0 : product.inStock !== false;
+  if (defaultInStock) return true;
+
+  // If dosages exist, check if ANY are in stock
+  if (product.dosages && product.dosages.length > 0) {
+    return product.dosages.some(d => 
+      d.stock !== undefined ? d.stock > 0 : d.inStock !== false
+    );
+  }
+
+  return false;
+};
 
 interface SiteSettings {
   countdownActive: boolean;
@@ -1717,38 +1733,33 @@ const AffiliateView = ({ onBack }: { onBack: () => void }) => {
         </button>
 
         <div className="text-center mb-16">
-          <div className="flex justify-center mb-6">
-            <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center">
-              <Gift className="w-8 h-8" />
-            </div>
-          </div>
-          <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-gray-900 mb-6">Become a Research Affiliate and Earn Free Supply</h1>
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-gray-900 mb-6 leading-tight">Become a Research Contributor</h1>
           <p className="text-gray-500 text-lg max-w-2xl mx-auto leading-relaxed mb-8">
-            Join our Research Affiliate program and earn competitive commissions while helping the scientific community access high-purity research compounds.
+            We're selectively accepting researchers and content creators to document their protocols and share findings with their audience. Contributors receive a research stipend for every order generated through their work.
           </p>
           <button 
             onClick={() => setIsModalOpen(true)}
             className="px-8 py-4 bg-emerald-500 text-white font-bold rounded-2xl hover:bg-emerald-600 transition-all active:scale-95 shadow-lg shadow-emerald-500/20"
           >
-            Apply for Research Affiliate Program
+            Apply to Contribute
           </button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-20">
           {[
             { 
-              title: "High Commissions", 
-              desc: "Earn up to 15% commission on every successful referral purchase.",
+              title: "Research Stipend", 
+              desc: "Earn a competitive stipend for every order attributed to your documentation.",
               icon: <CreditCard className="w-6 h-6" />
             },
             { 
-              title: "Real-time Tracking", 
-              desc: "Monitor your performance and earnings through our dedicated dashboard.",
+              title: "Contribution Tracking", 
+              desc: "Monitor your referrals, stipend earnings, and tier progress through your contributor dashboard.",
               icon: <Eye className="w-6 h-6" />
             },
             { 
-              title: "Exclusive Support", 
-              desc: "Get direct access to our team for marketing materials and research insights.",
+              title: "Direct Access", 
+              desc: "Accepted contributors get priority communication with our team and early access to new compounds.",
               icon: <MessageSquare className="w-6 h-6" />
             }
           ].map((benefit, i) => (
@@ -1767,18 +1778,18 @@ const AffiliateView = ({ onBack }: { onBack: () => void }) => {
             {[
               { 
                 step: "01", 
-                title: "Sign Up", 
-                desc: "Create your Research Affiliate account and get approved within 48 hours." 
+                title: "Apply", 
+                desc: "Submit a short application. We review all submissions within 48 hours and accept based on content quality and research focus." 
               },
               { 
                 step: "02", 
-                title: "Share Your Link", 
-                desc: "Use your unique referral link to promote Eclipse Research to your audience." 
+                title: "Document Your Research", 
+                desc: "Share your protocols, progress updates, and findings with your audience using your unique contributor code." 
               },
               { 
                 step: "03", 
-                title: "Earn Commission", 
-                desc: "Get paid for every successful purchase made through your link." 
+                title: "Receive Your Stipend", 
+                desc: "Earn on every order placed through your code. Hit milestones to unlock higher tiers and free supply." 
               }
             ].map((item, i) => (
               <div key={i} className="flex flex-col items-center text-center">
@@ -1792,42 +1803,132 @@ const AffiliateView = ({ onBack }: { onBack: () => void }) => {
           </div>
         </div>
 
-        {/* Commission Tiers */}
+        {/* Content Framework */}
         <div className="mb-24">
-          <h2 className="text-2xl font-bold text-gray-900 mb-12 text-center">Commission Tiers & Perks</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-12 text-center">What Documentation Looks Like</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
-              { tier: "Starter", referrals: "0–10 referrals", commission: "15% Commission", perk: "Highly Discounted Supply" },
-              { tier: "Growth", referrals: "11–25 referrals", commission: "15% Commission", perk: "1 Free Restock / Month" },
-              { tier: "Elite", referrals: "25+ referrals", commission: "15% Commission", perk: "Full Supply Covered" }
-            ].map((tier, i) => (
-              <div key={i} className="p-8 bg-black rounded-[2rem] border border-gray-800 text-center group hover:border-emerald-500/50 transition-colors">
-                <h3 className="text-emerald-500 font-bold uppercase tracking-widest text-xs mb-4">{tier.tier}</h3>
-                <div className="text-white text-3xl font-bold mb-2">{tier.commission}</div>
-                <p className="text-emerald-500 font-bold text-sm mb-2">{tier.perk}</p>
-                <p className="text-gray-400 text-xs">{tier.referrals}</p>
+              { 
+                title: "Baseline Post", 
+                emoji: "📋",
+                desc: "Introduce your research focus and the compounds you're working with." 
+              },
+              { 
+                title: "Weekly Updates", 
+                emoji: "📈",
+                desc: "Share ongoing observations and protocol adjustments with your audience." 
+              },
+              { 
+                title: "Final Summary", 
+                emoji: "🔬",
+                desc: "Publish your complete protocol findings. This is what builds your credibility and our community." 
+              }
+            ].map((item, i) => (
+              <div key={i} className="p-8 bg-emerald-50/50 rounded-[2rem] border border-emerald-100/50 text-center">
+                <div className="text-4xl mb-4">{item.emoji}</div>
+                <h3 className="text-lg font-bold text-gray-900 mb-3">{item.title}</h3>
+                <p className="text-gray-500 text-sm leading-relaxed">{item.desc}</p>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Perks & Rewards */}
-        <div className="mb-24">
-          <h2 className="text-2xl font-bold text-gray-900 mb-12 text-center">Perks & Rewards</h2>
+        {/* Contribution Tiers */}
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-12 text-center">Contributor Tiers</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
+            {[
+              { 
+                tier: "FIELD RESEARCHER", 
+                referrals: "0–10 referrals", 
+                stipend: "15% stipend", 
+                perk: "Highly discounted supply access" 
+              },
+              { 
+                tier: "SENIOR CONTRIBUTOR", 
+                referrals: "11–25 referrals", 
+                stipend: "18% stipend", 
+                perk: "$50 free supply credit per month" 
+              },
+              { 
+                tier: "PRINCIPAL INVESTIGATOR", 
+                referrals: "25+ referrals", 
+                stipend: "22% stipend", 
+                perk: "$100 free supply credit per month" 
+              },
+              { 
+                tier: "ECLIPSE AMBASSADOR", 
+                referrals: "100+ referrals", 
+                stipend: "30% stipend", 
+                perk: "$500 free supply credit per month",
+                extraPerks: [
+                  "Dedicated account manager",
+                  "Early access to all new compounds",
+                  "Co-branded content opportunities"
+                ],
+                isPremium: true
+              }
+            ].map((tier, i) => (
+              <div 
+                key={i} 
+                className={`p-8 rounded-[2rem] border text-center transition-all duration-300 relative group flex flex-col h-full
+                  ${tier.isPremium 
+                    ? 'bg-black border-amber-500/50 shadow-[0_0_30px_-10px_rgba(245,158,11,0.3)] scale-[1.02] z-10' 
+                    : 'bg-black border-gray-800 hover:border-emerald-500/50'
+                  }`}
+              >
+                {tier.isPremium && (
+                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-amber-500 text-black text-[10px] font-black px-3 py-1 rounded-full flex items-center gap-1 shadow-lg">
+                    <Crown className="w-3 h-3" /> ELITE
+                  </div>
+                )}
+                
+                <h3 className={`font-bold uppercase tracking-widest text-[10px] mb-4 
+                  ${tier.isPremium ? 'text-amber-500' : 'text-emerald-500'}`}
+                >
+                  {tier.tier}
+                </h3>
+                
+                <div className="text-white text-3xl font-bold mb-2">{tier.stipend}</div>
+                <p className={`${tier.isPremium ? 'text-amber-500' : 'text-emerald-500'} font-bold text-sm mb-4`}>
+                  {tier.perk}
+                </p>
+                
+                {(tier as any).extraPerks && (
+                  <ul className="text-left space-y-2 mb-6 flex-grow">
+                    {(tier as any).extraPerks.map((ep: string, j: number) => (
+                      <li key={j} className="text-[10px] text-gray-400 flex items-start gap-2">
+                        <Check className="w-3 h-3 text-amber-500 shrink-0 mt-0.5" />
+                        <span>{ep}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                
+                <p className="text-gray-400 text-xs font-bold uppercase tracking-tighter mt-auto pt-4 border-t border-gray-800">
+                  {tier.referrals}
+                </p>
+              </div>
+            ))}
+          </div>
+          <p className="text-center text-gray-400 text-xs mt-10">Tiers are evaluated monthly based on verified referral sales.</p>
+        </div>
+
+        {/* Milestone Rewards */}
+        <div className="mb-24 pt-12">
           <div className="max-w-3xl mx-auto">
             <div className="relative p-12 bg-black rounded-[3rem] border-2 border-emerald-500/30 shadow-[0_0_50px_-12px_rgba(16,185,129,0.2)] text-center overflow-hidden group">
-              {/* Subtle background glow */}
               <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-64 bg-emerald-500/10 blur-[100px] -z-10 group-hover:bg-emerald-500/20 transition-colors duration-500" />
               
               <div className="flex justify-center mb-8">
                 <div className="w-20 h-20 bg-emerald-500/10 text-emerald-500 rounded-3xl flex items-center justify-center border border-emerald-500/20 shadow-lg shadow-emerald-500/10">
-                  <Gift className="w-10 h-10" />
+                  <Star className="w-10 h-10 fill-current" />
                 </div>
               </div>
               
               <h3 className="text-2xl font-bold text-white mb-4">Milestone Rewards</h3>
               <p className="text-gray-400 text-lg leading-relaxed max-w-xl mx-auto">
-                Reach <span className="text-emerald-500 font-bold">11 referral sales</span> to unlock monthly restocks, or <span className="text-emerald-500 font-bold">25+ sales</span> to have your entire research supply covered by us.
+                Reach 11 documented referrals to unlock your first $50 monthly supply credit. Reach 25 to unlock $100 monthly supply credit. Reach 100 to have your entire research supply covered by Eclipse.
               </p>
               
               <div className="mt-8 flex justify-center gap-2">
@@ -1845,20 +1946,20 @@ const AffiliateView = ({ onBack }: { onBack: () => void }) => {
           <div className="space-y-4">
             {[
               { 
-                q: "When do I get paid?", 
-                a: "Commissions are paid out monthly, typically within the first 10 business days of the following month, once you meet the minimum payout threshold." 
+                q: "When do I receive my stipend?", 
+                a: "Stipends are processed monthly. Once your documented referrals are verified, earnings are deposited into your account within the first 10 business days of the following month." 
               },
               { 
-                q: "How long does the referral cookie last?", 
-                a: "Our referral cookies last for 30 days. If a customer clicks your link and makes a purchase within 30 days, you get the commission." 
+                q: "How are referrals tracked?", 
+                a: "We use a combination of unique contributor codes and advanced tracking links. Every order that uses your code is automatically attributed to your dashboard in real-time." 
               },
               { 
-                q: "Who is eligible to apply?", 
-                a: "We welcome researchers, content creators, and industry professionals who share our commitment to quality and transparency in scientific research." 
+                q: "What content platforms are accepted?", 
+                a: "We primarily work with researchers on YouTube, Instagram, X (Twitter), and specialized research forums. We value high-quality, long-form educational content across all platforms." 
               },
               { 
-                q: "What marketing materials do you provide?", 
-                a: "Research Affiliates get access to a library of high-quality product images, banners, and technical data sheets to help promote our compounds effectively." 
+                q: "What makes a strong application?", 
+                a: "A strong application demonstrates a clear research focus, a history of quality documentation, and an engaged audience interested in scientific discovery and protocol optimization." 
               }
             ].map((faq, i) => (
               <div key={i} className="border border-gray-100 rounded-2xl overflow-hidden">
@@ -1889,15 +1990,15 @@ const AffiliateView = ({ onBack }: { onBack: () => void }) => {
         </div>
 
         <div className="bg-black rounded-[2.5rem] p-12 text-white text-center">
-          <h2 className="text-3xl font-bold mb-6">Ready to start earning?</h2>
-          <p className="text-gray-400 mb-10 max-w-xl mx-auto">
-            Apply today to join our network of researchers and content creators. We review all applications within 48 business hours.
+          <h2 className="text-3xl font-bold mb-6 leading-tight">Ready to contribute to the research community?</h2>
+          <p className="text-gray-400 mb-10 max-w-xl mx-auto text-lg">
+            We selectively accept contributors who are serious about documenting their work. Applications are reviewed within 48 hours.
           </p>
           <button 
             onClick={() => setIsModalOpen(true)}
-            className="px-10 py-5 bg-emerald-500 text-white font-bold rounded-2xl hover:bg-emerald-600 transition-all active:scale-95"
+            className="px-10 py-5 bg-emerald-500 text-white font-bold rounded-2xl hover:bg-emerald-600 transition-all active:scale-95 shadow-xl shadow-emerald-500/20"
           >
-            Apply for Research Affiliate Program
+            Apply to Contribute
           </button>
         </div>
       </motion.div>
@@ -2730,10 +2831,10 @@ const AdminDashboard = () => {
         const { id, ...data } = p;
         await setDoc(doc(db, 'products', id), {
           ...data,
-          stock: 50,
-          inStock: true,
-          lowStockThreshold: 10,
-          isArchived: false,
+          stock: p.stock !== undefined ? p.stock : 50,
+          inStock: p.inStock !== undefined ? p.inStock : true,
+          lowStockThreshold: p.lowStockThreshold || 10,
+          isArchived: p.isArchived || false,
           updatedAt: serverTimestamp(),
           createdAt: serverTimestamp()
         }, { merge: true });
@@ -4901,6 +5002,8 @@ const ProductCard: React.FC<{
   onSelect, 
   variant = 'default' 
 }) => {
+  const isOutOfStock = !isProductAvailable(product);
+
   if (variant === 'featured') {
     return (
       <div 
@@ -4915,7 +5018,7 @@ const ProductCard: React.FC<{
             referrerPolicy="no-referrer"
           />
           <div className="absolute top-3 left-3 md:top-6 md:left-6 flex flex-col gap-1 md:gap-2 z-10">
-            {product.inStock === false && (
+            {isOutOfStock && (
               <div className="px-2 py-1 md:px-4 md:py-2 bg-red-500 text-white text-[7px] md:text-[10px] font-bold uppercase tracking-widest rounded-full shadow-lg">
                 Restocking Soon
               </div>
@@ -4962,13 +5065,13 @@ const ProductCard: React.FC<{
           className="w-full h-full object-cover scale-110 group-hover:scale-125 transition-transform duration-700" 
           referrerPolicy="no-referrer"
         />
-        {product.inStock === false && (
+        {isOutOfStock && (
           <div className="absolute top-4 left-4 px-3 py-1.5 bg-red-500 text-white text-[9px] font-bold uppercase tracking-widest rounded-full shadow-lg z-10">
             Restocking Soon
           </div>
         )}
         {product.originalPrice && product.originalPrice > product.price && (
-          <div className={`absolute ${product.inStock === false ? 'top-12' : 'top-4'} left-4 px-3 py-1.5 bg-emerald-500 text-white text-[9px] font-bold uppercase tracking-widest rounded-full shadow-lg z-10`}>
+          <div className={`absolute ${isOutOfStock ? 'top-12' : 'top-4'} left-4 px-3 py-1.5 bg-emerald-500 text-white text-[9px] font-bold uppercase tracking-widest rounded-full shadow-lg z-10`}>
             {Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}% OFF
           </div>
         )}
@@ -5007,8 +5110,10 @@ const FeaturedProducts: React.FC<{
 }> = ({ products, onAddToCart, onSelectProduct }) => {
   const featured = products.filter(p => !p.isArchived && (['2', '3', '10'].includes(p.id) || p.name === 'BPC-157' || p.name === 'GHK-Cu' || p.name === 'NAD+'))
     .sort((a, b) => {
-      if (a.inStock && !b.inStock) return -1;
-      if (!a.inStock && b.inStock) return 1;
+      const aStock = isProductAvailable(a);
+      const bStock = isProductAvailable(b);
+      if (aStock && !bStock) return -1;
+      if (!aStock && bStock) return 1;
       return 0;
     });
 
@@ -5057,9 +5162,11 @@ const ShopView: React.FC<{
     const matchesPrice = p.price <= maxPrice;
     return matchesSearch && matchesPrice;
   }).sort((a, b) => {
-    // Sort by inStock status: true (in stock) comes before false (out of stock)
-    if (a.inStock && !b.inStock) return -1;
-    if (!a.inStock && b.inStock) return 1;
+    // Sort by availability: in stock comes before out of stock
+    const aStock = isProductAvailable(a);
+    const bStock = isProductAvailable(b);
+    if (aStock && !bStock) return -1;
+    if (!aStock && bStock) return 1;
     return 0;
   });
 
@@ -6412,7 +6519,9 @@ const ProductDetailView = ({ product, products, onAddToCart, onBack, onSelectPro
   const baseOriginalPrice = activeDosage?.originalPrice || product.originalPrice;
   const displayImage = activeDosage?.image || product.image;
   const displayDosage = activeDosage?.label || product.dosage;
-  const isCurrentlyInStock = activeDosage ? (activeDosage.stock !== undefined ? activeDosage.stock > 0 : product.inStock !== false) : (product.stock !== undefined ? product.stock > 0 : product.inStock !== false);
+  const isCurrentlyInStock = activeDosage 
+    ? (activeDosage.stock !== undefined ? activeDosage.stock > 0 : activeDosage.inStock !== undefined ? activeDosage.inStock : product.inStock !== false) 
+    : (product.stock !== undefined ? product.stock > 0 : product.inStock !== false);
 
   const getDiscountedPrice = (qty: number) => {
     if (qty >= 3) return basePrice * 0.85;
@@ -6519,23 +6628,43 @@ const ProductDetailView = ({ product, products, onAddToCart, onBack, onSelectPro
                 <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400 mb-3 md:mb-2">Select Research Dosage</h4>
                 <div className="flex flex-wrap gap-2 md:gap-3">
                   {/* Default Dosage */}
-                  <button 
-                    onClick={() => setSelectedDosageIdx(null)}
-                    className={`px-4 md:px-5 py-2 md:py-2.5 rounded-xl md:rounded-2xl border-2 transition-all font-bold text-xs md:text-sm ${selectedDosageIdx === null ? 'border-emerald-500 bg-emerald-50 text-emerald-600' : 'border-gray-100 hover:border-gray-200 text-gray-600'}`}
-                  >
-                    {product.dosage || 'Standard'}
-                  </button>
+                  {(() => {
+                    const defaultInStock = product.stock !== undefined ? product.stock > 0 : product.inStock !== false;
+                    const isSelected = selectedDosageIdx === null;
+                    return (
+                      <button 
+                        onClick={() => setSelectedDosageIdx(null)}
+                        className={`px-4 md:px-5 py-2 md:py-2.5 rounded-xl md:rounded-2xl border-2 transition-all font-bold text-xs md:text-sm flex flex-col items-center justify-center min-w-[100px] ${
+                          isSelected 
+                            ? (defaultInStock ? 'border-emerald-500 bg-emerald-50 text-emerald-600' : 'border-red-500 bg-red-50 text-red-600') 
+                            : 'border-gray-100 hover:border-gray-200 text-gray-600'
+                        } ${!defaultInStock ? 'opacity-60 grayscale-[0.5]' : ''}`}
+                      >
+                        <span className={!defaultInStock ? 'line-through opacity-50' : ''}>{product.dosage || 'Standard'}</span>
+                        {!defaultInStock && <span className="text-[8px] md:text-[9px] font-black uppercase tracking-tighter mt-0.5">Out of Stock</span>}
+                      </button>
+                    );
+                  })()}
                   
                   {/* Additional Dosages */}
-                  {product.dosages?.map((d, idx) => (
-                    <button 
-                      key={idx}
-                      onClick={() => setSelectedDosageIdx(idx)}
-                      className={`px-4 md:px-5 py-2 md:py-2.5 rounded-xl md:rounded-2xl border-2 transition-all font-bold text-xs md:text-sm ${selectedDosageIdx === idx ? 'border-emerald-500 bg-emerald-50 text-emerald-600' : 'border-gray-100 hover:border-gray-200 text-gray-600'}`}
-                    >
-                      {d.label}
-                    </button>
-                  ))}
+                  {product.dosages?.map((d, idx) => {
+                    const dosageInStock = d.stock !== undefined ? d.stock > 0 : d.inStock !== undefined ? d.inStock : product.inStock !== false;
+                    const isSelected = selectedDosageIdx === idx;
+                    return (
+                      <button 
+                        key={idx}
+                        onClick={() => setSelectedDosageIdx(idx)}
+                        className={`px-4 md:px-5 py-2 md:py-2.5 rounded-xl md:rounded-2xl border-2 transition-all font-bold text-xs md:text-sm flex flex-col items-center justify-center min-w-[100px] ${
+                          isSelected 
+                            ? (dosageInStock ? 'border-emerald-500 bg-emerald-50 text-emerald-600' : 'border-red-500 bg-red-50 text-red-600') 
+                            : 'border-gray-100 hover:border-gray-200 text-gray-600'
+                        } ${!dosageInStock ? 'opacity-60 grayscale-[0.5]' : ''}`}
+                      >
+                        <span className={!dosageInStock ? 'line-through opacity-50' : ''}>{d.label}</span>
+                        {!dosageInStock && <span className="text-[8px] md:text-[9px] font-black uppercase tracking-tighter mt-0.5">Out of Stock</span>}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -7268,10 +7397,10 @@ const AppContent = () => {
             const { id, ...data } = p;
             await setDoc(doc(db, 'products', id), {
               ...data,
-              stock: 50,
-              inStock: true,
-              lowStockThreshold: 10,
-              isArchived: false,
+              stock: p.stock !== undefined ? p.stock : 50,
+              inStock: p.inStock !== undefined ? p.inStock : true,
+              lowStockThreshold: p.lowStockThreshold || 10,
+              isArchived: p.isArchived || false,
               updatedAt: serverTimestamp(),
               createdAt: serverTimestamp()
             }, { merge: true });
@@ -7285,6 +7414,24 @@ const AppContent = () => {
     };
     autoSeed();
   }, [isAdmin, isDbEmpty, loadingProducts]);
+
+  // Ensure NAD+ and MT-2 reflect out of stock status if they exist (specific user request fix)
+  useEffect(() => {
+    const syncOutOfStock = async () => {
+      if (isAdmin && !loadingProducts && productsList.length > 0) {
+        const nad = productsList.find(p => p.id === '10');
+        const mt2 = productsList.find(p => p.id === '4');
+        
+        if (nad && nad.inStock !== false) {
+          await updateDoc(doc(db, 'products', '10'), { inStock: false });
+        }
+        if (mt2 && mt2.inStock !== false) {
+          await updateDoc(doc(db, 'products', '4'), { inStock: false });
+        }
+      }
+    };
+    syncOutOfStock();
+  }, [isAdmin, loadingProducts, productsList]);
 
   useEffect(() => {
     if (!user) {

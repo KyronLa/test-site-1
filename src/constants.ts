@@ -55,7 +55,8 @@ export const INITIAL_PRODUCTS: Product[] = [
       1: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971442/1mt-2_hfg0jk.png",
       2: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969684/2mt-2_noa9bx.png",
       3: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971674/3mt-2_qujg6y.png"
-    }
+    },
+    inStock: false
   },
   { 
     id: '5', 
@@ -139,7 +140,8 @@ export const INITIAL_PRODUCTS: Product[] = [
       1: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971439/1nad_q367m5.png",
       2: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969683/2nad_y1kupy.png",
       3: "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773971669/3nad_o7dofh.png"
-    }
+    },
+    inStock: false
   },
   {
     id: 'test-5',
