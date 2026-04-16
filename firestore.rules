@@ -66,13 +66,15 @@ service cloud.firestore {
     }
 
     function isValidUser(data) {
-      return hasOnlyAllowedFields(data, ['email', 'firstName', 'lastName', 'phone', 'displayName', 'role', 'createdAt', 'lastLogin', 'addresses', 'rewardPoints']) &&
+      return hasOnlyAllowedFields(data, ['email', 'firstName', 'lastName', 'phone', 'displayName', 'role', 'createdAt', 'lastLogin', 'addresses', 'rewardPoints', 'isFreeShippingEnabled', 'uid', 'photoURL', 'updatedAt']) &&
              isValidEmail(data.email) &&
-             data.firstName is string && data.firstName.size() > 0 && data.firstName.size() < 50 &&
-             data.lastName is string && data.lastName.size() > 0 && data.lastName.size() < 50 &&
-             (!('phone' in data) || data.phone == null || (data.phone is string && data.phone.size() < 20)) &&
+             data.firstName is string && data.firstName.size() > 0 && data.firstName.size() < 100 &&
+             data.lastName is string && data.lastName.size() > 0 && data.lastName.size() < 100 &&
+             (!('phone' in data) || data.phone == null || (data.phone is string && data.phone.size() < 30)) &&
              (!('addresses' in data) || data.addresses is list) &&
-             (!('rewardPoints' in data) || data.rewardPoints is number);
+             (!('rewardPoints' in data) || data.rewardPoints is number) &&
+             (!('isFreeShippingEnabled' in data) || data.isFreeShippingEnabled is bool) &&
+             (!('photoURL' in data) || data.photoURL == null || isValidUrl(data.photoURL));
     }
 
     function isValidSettings(data) {
@@ -140,8 +142,9 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
       allow create: if isOwner(userId) && isValidUser(request.resource.data);
-      allow update: if isOwner(userId) && isValidUser(request.resource.data) &&
-                    (!('role' in request.resource.data) || request.resource.data.role == resource.data.role);
+      allow update: if (isOwner(userId) || isAdmin()) && 
+                    isValidUser(request.resource.data) &&
+                    (isAdmin() || !('role' in request.resource.data) || request.resource.data.role == resource.data.role);
       allow delete: if isAdmin();
     }
 

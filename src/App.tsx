@@ -4706,30 +4706,58 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   const syncUserWithFirestore = async (u: FirebaseUser) => {
+    console.log("Syncing user with Firestore:", u.uid, u.email);
     const userDocRef = doc(db, 'users', u.uid);
-    const userDoc = await getDoc(userDocRef);
-    const adminEmails = ['info@eclipseresearch.shop', 'kyron.laskosky2@gmail.com'];
-    const userEmail = (u.email || '').toLowerCase().trim();
-    const isUserAdmin = adminEmails.some(email => email.toLowerCase().trim() === userEmail);
-    
-    if (!userDoc.exists()) {
-      const [firstName, ...lastNameParts] = (u.displayName || 'Research User').split(' ');
-      const lastName = lastNameParts.join(' ') || '';
-      const role = isUserAdmin ? 'admin' : 'user';
+    try {
+      const userDoc = await getDoc(userDocRef);
+      const adminEmails = ['info@eclipseresearch.shop', 'kyron.laskosky2@gmail.com'];
+      const userEmail = (u.email || '').toLowerCase().trim();
+      const isUserAdmin = adminEmails.some(email => email.toLowerCase().trim() === userEmail);
+      
+      if (!userDoc.exists()) {
+        console.log("Creating new user document...");
+        const [firstName, ...lastNameParts] = (u.displayName || 'Research User').split(' ');
+        const lastName = lastNameParts.join(' ') || '';
+        const role = isUserAdmin ? 'admin' : 'user';
 
-      await setDoc(userDocRef, {
-        email: u.email,
-        firstName,
-        lastName,
-        displayName: u.displayName || `${firstName} ${lastName}`,
-        role: role,
-        createdAt: serverTimestamp(),
-        lastLogin: serverTimestamp()
-      });
-    } else {
-      await updateDoc(userDocRef, {
-        lastLogin: serverTimestamp()
-      });
+        try {
+          await setDoc(userDocRef, {
+            email: u.email,
+            firstName,
+            lastName,
+            displayName: u.displayName || `${firstName} ${lastName}`,
+            role: role,
+            createdAt: serverTimestamp(),
+            lastLogin: serverTimestamp(),
+            rewardPoints: 0,
+            addresses: [],
+            isFreeShippingEnabled: false
+          });
+          console.log("User document created successfully");
+        } catch (err) {
+          handleFirestoreError(err, OperationType.WRITE, `users/${u.uid}`);
+        }
+      } else {
+        console.log("Updating existing user document...");
+        const userData = userDoc.data();
+        console.log("Existing user data:", userData);
+        try {
+          await updateDoc(userDocRef, {
+            lastLogin: serverTimestamp(),
+            // Ensure role is correct if they are in the admin list but not marked in DB
+            ...(isUserAdmin && userData.role !== 'admin' ? { role: 'admin' } : {})
+          });
+          console.log("User document updated successfully");
+        } catch (err) {
+          handleFirestoreError(err, OperationType.UPDATE, `users/${u.uid}`);
+        }
+      }
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('{')) {
+        // Already handled by handleFirestoreError
+        throw error;
+      }
+      handleFirestoreError(error, OperationType.GET, `users/${u.uid}`);
     }
   };
 
