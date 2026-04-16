@@ -329,7 +329,7 @@ const Navbar = ({ cartCount, onOpenCart, onOpenAuth, onNavigate, currentView }: 
           opacity: showSolidNav ? 1 : 0
         }}
         transition={{ duration: 0.2, ease: "easeOut" }}
-        className="absolute inset-0 bg-white shadow-md -z-10"
+        className="absolute inset-0 bg-[#1a1a1a] shadow-md -z-10"
       />
       <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center transition-all duration-200 ${showSolidNav ? 'py-3' : 'py-5'} min-h-[70px] sm:min-h-[80px]`}>
         <button 
@@ -342,30 +342,32 @@ const Navbar = ({ cartCount, onOpenCart, onOpenAuth, onNavigate, currentView }: 
               initial={{ scale: 0.8, opacity: 0, rotate: -10 }}
               animate={{ scale: 1, opacity: 1, rotate: 0 }}
               transition={{ type: "spring", stiffness: 400, damping: 15 }}
-              src={showSolidNav ? "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969647/blacklogo_dbbepi.png" : "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969635/logo_gc8g0q.png"} 
+              src={showSolidNav ? "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969635/logo_gc8g0q.png" : "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969635/logo_gc8g0q.png"} 
               alt="Eclipse Research" 
               className="h-10 sm:h-14 w-auto" 
               referrerPolicy="no-referrer"
             />
           </div>
-          <span className={`text-lg sm:text-xl font-bold tracking-tight ${showSolidNav ? 'text-black' : 'text-white'}`}>ECLIPSE RESEARCH</span>
+          <span className={`text-lg sm:text-xl font-bold tracking-tight text-white`}>ECLIPSE RESEARCH</span>
         </button>
 
-        <div className="hidden md:flex items-center gap-8">
-          <button onClick={() => onNavigate('shop')} className={`text-sm font-medium hover:opacity-70 transition-opacity ${showSolidNav ? 'text-black' : 'text-white'}`}>Shop All</button>
-          <button onClick={() => onNavigate('calculator')} className={`text-sm font-medium hover:opacity-70 transition-opacity ${showSolidNav ? 'text-black' : 'text-white'}`}>Calculator</button>
-          <button onClick={() => onNavigate('about')} className={`text-sm font-medium hover:opacity-70 transition-opacity ${showSolidNav ? 'text-black' : 'text-white'}`}>About Us</button>
-          <button onClick={() => onNavigate('affiliate')} className={`text-sm font-medium hover:opacity-70 transition-opacity ${showSolidNav ? 'text-black' : 'text-white'}`}>Research Affiliate</button>
-          <button onClick={() => onNavigate('refer')} className={`text-sm font-medium hover:opacity-70 transition-opacity ${showSolidNav ? 'text-black' : 'text-white'}`}>Refer & Earn</button>
+        <div className="hidden lg:flex items-center gap-6 xl:gap-8">
+          <button onClick={() => onNavigate('shop')} className="text-[11px] font-bold uppercase tracking-wider hover:text-emerald-500 transition-colors text-white">Shop All</button>
+          <button onClick={() => onNavigate('calculator')} className="text-[11px] font-bold uppercase tracking-wider hover:text-emerald-500 transition-colors text-white">Calculator</button>
+          <button onClick={() => user ? onNavigate('account') : onOpenAuth()} className="text-[11px] font-bold uppercase tracking-wider hover:text-emerald-500 transition-colors text-white">My Account</button>
+          <button onClick={() => onNavigate('refer')} className="text-[11px] font-bold uppercase tracking-wider hover:text-emerald-500 transition-colors text-white">Refer & Earn</button>
+          <button onClick={() => onNavigate('about')} className="text-[11px] font-bold uppercase tracking-wider hover:text-emerald-500 transition-colors text-white">About Us</button>
+          <button onClick={() => onNavigate('affiliate')} className="text-[11px] font-bold uppercase tracking-wider hover:text-emerald-500 transition-colors text-white">Become an Affiliate</button>
+          <button onClick={() => onNavigate('coas')} className="text-[11px] font-bold uppercase tracking-wider hover:text-emerald-500 transition-colors text-white">Request COA</button>
           {isAdmin && (
-            <button onClick={() => onNavigate('admin')} className={`text-sm font-bold text-emerald-500 hover:opacity-70 transition-opacity`}>Admin Panel</button>
+            <button onClick={() => onNavigate('admin')} className="text-[11px] font-extrabold text-emerald-500 hover:opacity-70 transition-opacity uppercase tracking-wider">Admin</button>
           )}
         </div>
 
         <div className="flex items-center gap-1 sm:gap-4 flex-none">
           <button 
             onClick={onOpenCart}
-            className={`${showSolidNav ? 'text-black' : 'text-white'} relative p-2 hover:bg-black/5 rounded-full flex-shrink-0`}
+            className={`text-white relative p-2 hover:bg-white/5 rounded-full flex-shrink-0`}
           >
             <ShoppingCart className="w-6 h-6" />
             {cartCount > 0 && (
@@ -379,7 +381,7 @@ const Navbar = ({ cartCount, onOpenCart, onOpenAuth, onNavigate, currentView }: 
             <div className="flex items-center gap-2 flex-none">
               <button 
                 onClick={() => onNavigate('account')} 
-                className="w-10 h-10 min-w-[40px] min-h-[40px] rounded-full overflow-hidden border border-gray-200 p-0 flex-none bg-gray-100"
+                className="w-10 h-10 min-w-[40px] min-h-[40px] rounded-full overflow-hidden border border-white/10 p-0 flex-none bg-white/5"
               >
                 <img 
                   src={user.photoURL || `https://ui-avatars.com/api/?name=${user.displayName || user.email}&background=random`} 
@@ -388,21 +390,21 @@ const Navbar = ({ cartCount, onOpenCart, onOpenAuth, onNavigate, currentView }: 
                   style={{ width: '40px', height: '40px', minWidth: '40px', minHeight: '40px', borderRadius: '50%' }}
                 />
               </button>
-              <button onClick={logout} className={`${showSolidNav ? 'text-black' : 'text-white'} hover:opacity-70 p-2 flex-none`}>
+              <button onClick={logout} className={`text-white hover:opacity-70 p-2 flex-none`}>
                 <LogOut className="w-6 h-6" />
               </button>
             </div>
           ) : (
             <button 
               onClick={onOpenAuth}
-              className={`${showSolidNav ? 'text-black' : 'text-white'} p-2 hover:bg-black/5 rounded-full flex-shrink-0`}
+              className={`text-white p-2 hover:bg-white/5 rounded-full flex-shrink-0`}
             >
               <UserIcon className="w-6 h-6" />
             </button>
           )}
 
-          <button className="md:hidden p-2 flex-shrink-0" onClick={() => setIsMobileMenuOpen(true)}>
-            <Menu className={`w-6 h-6 ${showSolidNav ? 'text-black' : 'text-white'}`} />
+          <button className="lg:hidden p-2 flex-shrink-0" onClick={() => setIsMobileMenuOpen(true)}>
+            <Menu className={`w-6 h-6 text-white`} />
           </button>
         </div>
       </div>
@@ -419,17 +421,15 @@ const Navbar = ({ cartCount, onOpenCart, onOpenAuth, onNavigate, currentView }: 
               <button onClick={() => setIsMobileMenuOpen(false)}><X className="w-8 h-8" /></button>
             </div>
             <div className="flex flex-col gap-6 mt-12">
-              <button onClick={() => { onNavigate('shop'); setIsMobileMenuOpen(false); }} className="text-2xl font-bold text-black border-b border-gray-100 pb-4 text-left">Shop All</button>
-              <button onClick={() => { onNavigate('about'); setIsMobileMenuOpen(false); }} className="text-2xl font-bold text-black border-b border-gray-100 pb-4 text-left">About Us</button>
-              <button onClick={() => { onNavigate('affiliate'); setIsMobileMenuOpen(false); }} className="text-2xl font-bold text-black border-b border-gray-100 pb-4 text-left">Become a Research Affiliate</button>
-              <button onClick={() => { onNavigate('refer'); setIsMobileMenuOpen(false); }} className="text-2xl font-bold text-black border-b border-gray-100 pb-4 text-left">Refer & Earn</button>
-              <button onClick={() => { onNavigate('calculator'); setIsMobileMenuOpen(false); }} className="text-2xl font-bold text-black border-b border-gray-100 pb-4 text-left">Calculator</button>
-              <button onClick={() => { onNavigate('coas'); setIsMobileMenuOpen(false); }} className="text-2xl font-bold text-black border-b border-gray-100 pb-4 text-left">Request COA's</button>
-              {user && (
-                <button onClick={() => { onNavigate('account'); setIsMobileMenuOpen(false); }} className="text-2xl font-bold text-black border-b border-gray-100 pb-4 text-left">My Account</button>
-              )}
+              <button onClick={() => { onNavigate('shop'); setIsMobileMenuOpen(false); }} className="text-xl font-black text-black border-b border-gray-100 pb-4 text-left uppercase tracking-tighter">Shop All</button>
+              <button onClick={() => { onNavigate('calculator'); setIsMobileMenuOpen(false); }} className="text-xl font-black text-black border-b border-gray-100 pb-4 text-left uppercase tracking-tighter">Calculator</button>
+              <button onClick={() => { if (user) onNavigate('account'); else onOpenAuth(); setIsMobileMenuOpen(false); }} className="text-xl font-black text-black border-b border-gray-100 pb-4 text-left uppercase tracking-tighter">My Account</button>
+              <button onClick={() => { onNavigate('refer'); setIsMobileMenuOpen(false); }} className="text-xl font-black text-black border-b border-gray-100 pb-4 text-left uppercase tracking-tighter">Refer & Earn</button>
+              <button onClick={() => { onNavigate('about'); setIsMobileMenuOpen(false); }} className="text-xl font-black text-black border-b border-gray-100 pb-4 text-left uppercase tracking-tighter">About Us</button>
+              <button onClick={() => { onNavigate('affiliate'); setIsMobileMenuOpen(false); }} className="text-xl font-black text-black border-b border-gray-100 pb-4 text-left uppercase tracking-tighter">Become an Affiliate</button>
+              <button onClick={() => { onNavigate('coas'); setIsMobileMenuOpen(false); }} className="text-xl font-black text-black border-b border-gray-100 pb-4 text-left uppercase tracking-tighter">Request COA</button>
               {isAdmin && (
-                <button onClick={() => { onNavigate('admin'); setIsMobileMenuOpen(false); }} className="text-2xl font-bold text-emerald-500 border-b border-gray-100 pb-4 text-left">Admin Panel</button>
+                <button onClick={() => { onNavigate('admin'); setIsMobileMenuOpen(false); }} className="text-xl font-black text-emerald-500 border-b border-gray-100 pb-4 text-left uppercase tracking-tighter">Admin Panel</button>
               )}
             </div>
           </motion.div>
@@ -5055,10 +5055,10 @@ const ProductCard: React.FC<{
     <motion.div 
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="group flex flex-col cursor-pointer"
+      className="group flex flex-col bg-[#242424] rounded-xl border border-[#2a2a2a] overflow-hidden hover:shadow-xl transition-all cursor-pointer h-[420px] md:h-[550px]"
       onClick={() => onSelect(product)}
     >
-      <div className="aspect-[4/5] overflow-hidden bg-white rounded-2xl border border-gray-100 relative mb-4">
+      <div className="aspect-[4/5] h-[180px] md:h-[300px] overflow-hidden relative flex-shrink-0 bg-black/20">
         <img 
           src={product.image} 
           alt={product.name} 
@@ -5076,28 +5076,43 @@ const ProductCard: React.FC<{
           </div>
         )}
       </div>
-      <div className="flex flex-col flex-1">
-        <div className="mb-2">
-          <ProductRating productId={product.id} />
+      <div className="p-4 md:p-6 flex flex-col flex-1 min-h-0">
+        <div className="mb-2 flex-shrink-0">
+          <ProductRating productId={product.id} size="sm" />
         </div>
-        <h3 className="font-bold text-sm sm:text-base text-gray-900 mb-1 group-hover:text-emerald-600 transition-colors">{product.name}</h3>
-        <div className="flex items-center gap-2 mb-4">
-          <p className="text-gray-500 text-[10px] font-bold uppercase tracking-wider">99%+ Purity</p>
-          {product.dosage && (
-            <>
-              <span className="w-1 h-1 bg-gray-300 rounded-full" />
-              <p className="text-emerald-600 text-[10px] font-bold uppercase tracking-wider">{product.dosage}</p>
-            </>
-          )}
-        </div>
-        <div className="mt-auto">
-          <div className="flex items-center gap-3">
-            <p className="text-xl font-bold text-black">${product.price.toFixed(2)}</p>
+        <div className="flex-1 overflow-hidden text-[#e0e0e0]">
+          <h3 className="font-bold text-xs md:text-lg text-white mb-1 group-hover:text-emerald-400 transition-colors line-clamp-2">{product.name}</h3>
+          <div className="flex flex-wrap items-center gap-1.5 mb-2">
+            <p className="text-[#e0e0e0] text-[8px] md:text-[10px] font-bold uppercase tracking-wider">99%+ Purity</p>
+            {product.dosage && (
+              <>
+                <span className="w-1 h-1 bg-white/10 rounded-full" />
+                <p className="text-[#e0e0e0] text-[8px] md:text-[10px] font-bold uppercase tracking-wider truncate max-w-[100px]">{product.dosage}</p>
+              </>
+            )}
+          </div>
+          <div className="flex items-center gap-2 mb-2">
+            <p className="text-sm md:text-2xl font-black text-white">${product.price.toFixed(2)}</p>
             {product.originalPrice && product.originalPrice > product.price && (
-              <span className="text-gray-400 line-through text-sm font-medium">${product.originalPrice.toFixed(2)}</span>
+              <span className="text-[#888888] line-through text-[10px] md:text-sm font-medium">${product.originalPrice.toFixed(2)}</span>
             )}
           </div>
         </div>
+        
+        <button 
+          onClick={(e) => {
+            e.stopPropagation();
+            if (!isOutOfStock) onAddToCart(product);
+          }}
+          disabled={isOutOfStock}
+          className={`w-full py-3 md:py-4 mt-auto rounded-xl md:rounded-2xl font-black uppercase tracking-widest text-[8px] md:text-[11px] transition-all flex items-center justify-center gap-2 ${
+            isOutOfStock 
+              ? 'bg-white/5 text-gray-500 cursor-not-allowed' 
+              : 'bg-emerald-600 text-white hover:bg-emerald-500 active:scale-95'
+          }`}
+        >
+          {isOutOfStock ? 'Restocking' : <><Plus className="w-2.5 h-2.5 md:w-3.5 md:h-3.5" /> Add to Cart</>}
+        </button>
       </div>
     </motion.div>
   );
@@ -5176,12 +5191,13 @@ const ShopView: React.FC<{
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
+      className="bg-[#1a1a1a] min-h-screen"
     >
-      {/* Mobile Black Bar Sitting on Top */}
-      <div className="h-[75px] bg-black md:hidden" />
+      {/* Mobile Bar Sitting on Top */}
+      <div className="h-[75px] bg-[#1a1a1a] md:hidden" />
 
       {/* Shop Header */}
-      <section className="relative bg-black py-32 overflow-hidden">
+      <section className="relative bg-[#1a1a1a] py-32 overflow-hidden">
         <div className="absolute inset-0 z-0">
           <img 
             src="https://res.cloudinary.com/ditxwmhnj/image/upload/v1774582891/Screenshot_2026-03-26_at_11.41.24_PM_izjweq.png" 
@@ -5237,10 +5253,10 @@ const ShopView: React.FC<{
       <section id="product-section" className="py-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col lg:flex-row gap-8 lg:gap-12">
           {/* Sidebar Filter */}
-          <aside className="w-full lg:w-64 flex-shrink-0">
-            <div className="sticky top-32 space-y-8">
+          <aside className="w-full lg:w-64 flex-shrink-0 bg-[#242424] p-6 rounded-2xl border border-[#2a2a2a] h-fit sticky top-32">
+            <div className="space-y-8">
               <div>
-                <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400 mb-6">Filter by Price</h3>
+                <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500 mb-6 font-primary">Filter by Price</h3>
                 <div className="space-y-4">
                   <input 
                     type="range" 
@@ -5249,11 +5265,11 @@ const ShopView: React.FC<{
                     step="1"
                     value={maxPrice}
                     onChange={(e) => setMaxPrice(Number(e.target.value))}
-                    className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
+                    className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-emerald-500"
                   />
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium text-gray-500">$0</span>
-                    <span className="text-sm font-bold text-black">Up to ${maxPrice.toFixed(2)}</span>
+                  <div className="flex justify-between items-center font-primary">
+                    <span className="text-sm font-medium text-gray-400">$0</span>
+                    <span className="text-sm font-bold text-white">Up to ${maxPrice.toFixed(2)}</span>
                   </div>
                 </div>
               </div>
@@ -5263,13 +5279,13 @@ const ShopView: React.FC<{
           {/* Product Grid */}
           <div className="flex-1">
             <div className="relative w-full mb-8">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 w-5 h-5 font-primary" />
               <input 
                 type="text" 
                 placeholder="Search products..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-white border border-gray-200 rounded-xl py-3 pl-12 pr-4 text-sm text-black focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all shadow-sm"
+                className="w-full bg-[#242424] border border-[#2a2a2a] rounded-xl py-3 pl-12 pr-4 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all shadow-sm font-primary"
               />
             </div>
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-3 gap-y-8 md:gap-x-6 md:gap-y-10">
@@ -6524,8 +6540,8 @@ const ProductDetailView = ({ product, products, onAddToCart, onBack, onSelectPro
     : (product.stock !== undefined ? product.stock > 0 : product.inStock !== false);
 
   const getDiscountedPrice = (qty: number) => {
-    if (qty >= 3) return basePrice * 0.85;
-    if (qty >= 2) return basePrice * 0.90;
+    if (qty >= 3) return basePrice * 0.93;
+    if (qty >= 2) return basePrice * 0.96;
     return basePrice;
   };
 
@@ -6580,7 +6596,7 @@ const ProductDetailView = ({ product, products, onAddToCart, onBack, onSelectPro
         <motion.div 
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
-          className="flex flex-col md:overflow-y-auto md:pr-4 md:scrollbar-hide"
+          className="flex flex-col md:overflow-y-auto md:pr-4 md:scrollbar-thin"
         >
           <div className="mb-6 md:mb-4">
             <span className="text-emerald-500 font-bold tracking-[0.2em] text-xs uppercase mb-3 md:mb-2 block">{product.category}</span>
@@ -6694,13 +6710,23 @@ const ProductDetailView = ({ product, products, onAddToCart, onBack, onSelectPro
                     onClick={() => setQuantity(num)}
                     className={`relative flex flex-col items-center p-3 md:p-2.5 rounded-2xl md:rounded-3xl border-2 transition-all w-full ${quantity === num ? 'border-emerald-500 bg-emerald-50/50 ring-4 ring-emerald-500/10' : 'border-gray-100 bg-white hover:border-gray-200'}`}
                   >
+                    {num === 2 && (
+                      <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-emerald-600 text-white text-[7px] md:text-[8px] font-black px-2.5 py-1 rounded-full uppercase tracking-[0.1em] whitespace-nowrap z-20 shadow-md ring-2 ring-white">
+                        4% Discount
+                      </div>
+                    )}
+                    {num === 3 && (
+                      <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-emerald-600 text-white text-[7px] md:text-[8px] font-black px-2.5 py-1 rounded-full uppercase tracking-[0.1em] whitespace-nowrap z-20 shadow-md ring-2 ring-white">
+                        7% Discount
+                      </div>
+                    )}
                     {isPopular && (
-                      <div className="absolute top-1.5 md:top-2 left-1/2 -translate-x-1/2 bg-black text-white text-[6px] md:text-[7px] font-black px-2 md:px-2.5 py-0.5 rounded-full uppercase tracking-widest whitespace-nowrap z-10">
+                      <div className="absolute top-2.5 md:top-3 left-1/2 -translate-x-1/2 bg-black text-white text-[6px] md:text-[7px] font-black px-2 md:px-2.5 py-0.5 rounded-full uppercase tracking-widest whitespace-nowrap z-10">
                         Most Popular
                       </div>
                     )}
                     {isBestValue && (
-                      <div className="absolute top-1.5 md:top-2 left-1/2 -translate-x-1/2 bg-emerald-500 text-white text-[6px] md:text-[7px] font-black px-2 md:px-2.5 py-0.5 rounded-full uppercase tracking-widest whitespace-nowrap z-10">
+                      <div className="absolute top-2.5 md:top-3 left-1/2 -translate-x-1/2 bg-emerald-500 text-white text-[6px] md:text-[7px] font-black px-2 md:px-2.5 py-0.5 rounded-full uppercase tracking-widest whitespace-nowrap z-10">
                         Best Value
                       </div>
                     )}
