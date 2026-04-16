@@ -45,7 +45,8 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
-  signInWithPopup, 
+  signInWithRedirect,
+  getRedirectResult,
   GoogleAuthProvider, 
   onAuthStateChanged, 
   signOut, 
@@ -4702,7 +4703,45 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [isFreeShippingEnabled, setIsFreeShippingEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  const syncUserWithFirestore = async (u: FirebaseUser) => {
+    const userDocRef = doc(db, 'users', u.uid);
+    const userDoc = await getDoc(userDocRef);
+    
+    if (!userDoc.exists()) {
+      const [firstName, ...lastNameParts] = (u.displayName || 'Research User').split(' ');
+      const lastName = lastNameParts.join(' ') || '';
+      const role = u.email === 'info@eclipseresearch.shop' ? 'admin' : 'user';
+
+      await setDoc(userDocRef, {
+        email: u.email,
+        firstName,
+        lastName,
+        displayName: u.displayName || `${firstName} ${lastName}`,
+        role: role,
+        createdAt: serverTimestamp(),
+        lastLogin: serverTimestamp()
+      });
+    } else {
+      await updateDoc(userDocRef, {
+        lastLogin: serverTimestamp()
+      });
+    }
+  };
+
   useEffect(() => {
+    const handleRedirectResult = async () => {
+      try {
+        const result = await getRedirectResult(auth);
+        if (result?.user) {
+          await syncUserWithFirestore(result.user);
+        }
+      } catch (error) {
+        console.error("Error handling redirect result:", error);
+      }
+    };
+
+    handleRedirectResult();
+
     return onAuthStateChanged(auth, async (u) => {
       setUser(u);
       if (u) {
@@ -4772,33 +4811,7 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signInWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
-    const result = await signInWithPopup(auth, provider);
-    const u = result.user;
-
-    // Check if user exists in Firestore
-    const userDocRef = doc(db, 'users', u.uid);
-    const userDoc = await getDoc(userDocRef);
-    
-    if (!userDoc.exists()) {
-      const [firstName, ...lastNameParts] = (u.displayName || 'Research User').split(' ');
-      const lastName = lastNameParts.join(' ') || '';
-      const role = u.email === 'info@eclipseresearch.shop' ? 'admin' : 'user';
-
-      await setDoc(userDocRef, {
-        email: u.email,
-        firstName,
-        lastName,
-        displayName: u.displayName || `${firstName} ${lastName}`,
-        role: role,
-        createdAt: serverTimestamp(),
-        lastLogin: serverTimestamp()
-      });
-    } else {
-      // Update last login
-      await updateDoc(userDocRef, {
-        lastLogin: serverTimestamp()
-      });
-    }
+    await signInWithRedirect(auth, provider);
   };
 
   const logout = async () => {
@@ -4951,12 +4964,12 @@ const PeptideCarousel = ({ products, onSelectProduct }: { products: Product[], o
   if (carouselProducts.length === 0) return null;
 
   return (
-    <div className="hidden md:block bg-black py-12 overflow-hidden border-y border-white/5">
-      <div className="mb-8 text-center">
-        <h3 className="text-[10px] font-bold uppercase tracking-[0.4em] text-gray-500 mb-2">Research Catalog</h3>
-        <p className="text-white text-lg font-bold tracking-tight">Our Most Researched Compounds</p>
+    <div className="bg-black py-6 md:py-12 overflow-x-auto scrollbar-hide touch-pan-x border-y border-white/5">
+      <div className="mb-4 md:mb-8 text-center px-4">
+        <h3 className="text-[8px] md:text-[10px] font-bold uppercase tracking-[0.4em] text-gray-500 mb-1 md:mb-2">Research Catalog</h3>
+        <p className="text-white text-sm md:text-lg font-bold tracking-tight">Our Most Researched Compounds</p>
       </div>
-      <div className="flex animate-marquee whitespace-nowrap">
+      <div className="flex animate-marquee whitespace-nowrap cursor-grab active:cursor-grabbing">
         {carouselProducts.map((product, idx) => {
           const hasDiscount = product.originalPrice && product.originalPrice > product.price;
           const discountPercentage = hasDiscount 
@@ -4966,10 +4979,10 @@ const PeptideCarousel = ({ products, onSelectProduct }: { products: Product[], o
           return (
             <div 
               key={`${product.id}-${idx}`} 
-              className="inline-block px-4 group cursor-pointer"
+              className="inline-block px-2 md:px-4 group cursor-pointer select-none"
               onClick={() => onSelectProduct(product)}
             >
-              <div className="relative w-48 h-64 rounded-[1.5rem] overflow-hidden border border-white/10 bg-white/5 backdrop-blur-sm transition-all duration-700 group-hover:border-emerald-500/50 group-hover:scale-105 group-hover:shadow-[0_0_40px_rgba(16,185,129,0.1)]">
+              <div className="relative w-32 h-44 md:w-48 md:h-64 rounded-xl md:rounded-[1.5rem] overflow-hidden border border-white/10 bg-white/5 backdrop-blur-sm transition-all duration-700 group-hover:border-emerald-500/50 group-hover:scale-105 group-hover:shadow-[0_0_40px_rgba(16,185,129,0.1)]">
                 {hasDiscount && (
                   <div className="absolute top-3 left-3 z-10 bg-emerald-500 text-white text-[8px] font-black px-2 py-0.5 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.5)] uppercase tracking-tighter">
                     -{discountPercentage}%
