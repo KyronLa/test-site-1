@@ -4729,35 +4729,55 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   useEffect(() => {
+    let isMounted = true;
     let unsubscribe: (() => void) | null = null;
 
     const initializeAuth = async () => {
       try {
         // 1. Handle redirect result first
+        // This is critical for capturing the result of a signInWithRedirect
         const result = await getRedirectResult(auth);
-        if (result?.user) {
+        
+        if (result?.user && isMounted) {
           await syncUserWithFirestore(result.user);
+          setUser(result.user);
         }
       } catch (error) {
         console.error("Error handling redirect result:", error);
       }
 
+      if (!isMounted) return;
+
       // 2. Listen for auth state changes
+      // This will capture the user whether they just signed in via redirect,
+      // were already signed in, or just signed out.
       unsubscribe = onAuthStateChanged(auth, async (u) => {
+        if (!isMounted) return;
+        
         setUser(u);
         if (u) {
-          const userDoc = await getDoc(doc(db, 'users', u.uid));
-          const adminEmails = ['info@eclipseresearch.shop', 'kyron.laskosky2@gmail.com'];
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            setIsAdmin(adminEmails.includes(u.email || ''));
-            setIsFreeShippingEnabled(userData.isFreeShippingEnabled || false);
-          } else if (adminEmails.includes(u.email || '')) {
-            setIsAdmin(true);
+          try {
+            // Ensure user document exists and lastLogin is updated
+            await syncUserWithFirestore(u);
+            
+            const userDoc = await getDoc(doc(db, 'users', u.uid));
+            const adminEmails = ['info@eclipseresearch.shop', 'kyron.laskosky2@gmail.com'];
+            
+            if (userDoc.exists()) {
+              const userData = userDoc.data();
+              setIsAdmin(adminEmails.includes(u.email || ''));
+              setIsFreeShippingEnabled(userData.isFreeShippingEnabled || false);
+            } else if (adminEmails.includes(u.email || '')) {
+              setIsAdmin(true);
+            }
+          } catch (e) {
+            console.error("Error syncing user data:", e);
           }
         } else {
           setIsAdmin(false);
+          setIsFreeShippingEnabled(false);
         }
+        
         setLoading(false);
       });
     };
@@ -4765,6 +4785,7 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     initializeAuth();
 
     return () => {
+      isMounted = false;
       if (unsubscribe) unsubscribe();
     };
   }, []);
