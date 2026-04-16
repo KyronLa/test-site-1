@@ -47,6 +47,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   signInWithRedirect,
   getRedirectResult,
+  setPersistence,
+  browserLocalPersistence,
   GoogleAuthProvider, 
   onAuthStateChanged, 
   signOut, 
@@ -4857,7 +4859,12 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signInWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
-    await signInWithRedirect(auth, provider);
+    try {
+      await setPersistence(auth, browserLocalPersistence);
+      await signInWithRedirect(auth, provider);
+    } catch (error) {
+      console.error("Error setting persistence or signing in:", error);
+    }
   };
 
   const logout = async () => {
