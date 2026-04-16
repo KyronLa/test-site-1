@@ -4729,8 +4729,11 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   useEffect(() => {
-    const handleRedirectResult = async () => {
+    let unsubscribe: (() => void) | null = null;
+
+    const initializeAuth = async () => {
       try {
+        // 1. Handle redirect result first
         const result = await getRedirectResult(auth);
         if (result?.user) {
           await syncUserWithFirestore(result.user);
@@ -4738,27 +4741,32 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       } catch (error) {
         console.error("Error handling redirect result:", error);
       }
+
+      // 2. Listen for auth state changes
+      unsubscribe = onAuthStateChanged(auth, async (u) => {
+        setUser(u);
+        if (u) {
+          const userDoc = await getDoc(doc(db, 'users', u.uid));
+          const adminEmails = ['info@eclipseresearch.shop', 'kyron.laskosky2@gmail.com'];
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            setIsAdmin(adminEmails.includes(u.email || ''));
+            setIsFreeShippingEnabled(userData.isFreeShippingEnabled || false);
+          } else if (adminEmails.includes(u.email || '')) {
+            setIsAdmin(true);
+          }
+        } else {
+          setIsAdmin(false);
+        }
+        setLoading(false);
+      });
     };
 
-    handleRedirectResult();
+    initializeAuth();
 
-    return onAuthStateChanged(auth, async (u) => {
-      setUser(u);
-      if (u) {
-        const userDoc = await getDoc(doc(db, 'users', u.uid));
-        const adminEmails = ['info@eclipseresearch.shop', 'kyron.laskosky2@gmail.com'];
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          setIsAdmin(adminEmails.includes(u.email || ''));
-          setIsFreeShippingEnabled(userData.isFreeShippingEnabled || false);
-        } else if (adminEmails.includes(u.email || '')) {
-          setIsAdmin(true);
-        }
-      } else {
-        setIsAdmin(false);
-      }
-      setLoading(false);
-    });
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, []);
 
   const login = async (email: string, pass: string) => {
@@ -6720,7 +6728,7 @@ const ProductDetailView = ({ product, products, onAddToCart, onBack, onSelectPro
                   <div className={`absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex flex-col justify-end p-3 text-left transition-opacity ${quantity === num ? 'opacity-100' : 'opacity-80'}`}>
                     <span className="text-white font-bold text-sm">{num} {num === 1 ? 'Bottle' : 'Bottles'}</span>
                     <span className="text-emerald-400 text-[10px] font-bold uppercase tracking-wider">
-                      {num === 1 ? 'Standard' : num === 2 ? '10% OFF' : '15% OFF'}
+                      {num === 1 ? 'Standard' : num === 2 ? '4% OFF' : '7% OFF'}
                     </span>
                   </div>
                   {quantity === num && (
