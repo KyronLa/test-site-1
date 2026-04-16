@@ -295,7 +295,7 @@ const Navbar = ({ cartCount, onOpenCart, onOpenAuth, onNavigate, currentView }: 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { user, logout, isAdmin } = useAuth();
 
-  const isDarkPage = currentView === 'home' || currentView === 'shop' || currentView === 'track' || currentView === 'refer';
+  const isDarkPage = currentView === 'home' || currentView === 'shop' || currentView === 'refer';
   const showSolidNav = isScrolled || !isDarkPage;
 
   useEffect(() => {
@@ -407,7 +407,6 @@ const Navbar = ({ cartCount, onOpenCart, onOpenAuth, onNavigate, currentView }: 
               <button onClick={() => { onNavigate('about'); setIsMobileMenuOpen(false); }} className="text-2xl font-bold text-black border-b border-gray-100 pb-4 text-left">About Us</button>
               <button onClick={() => { onNavigate('affiliate'); setIsMobileMenuOpen(false); }} className="text-2xl font-bold text-black border-b border-gray-100 pb-4 text-left">Become a Research Affiliate</button>
               <button onClick={() => { onNavigate('refer'); setIsMobileMenuOpen(false); }} className="text-2xl font-bold text-black border-b border-gray-100 pb-4 text-left">Refer & Earn</button>
-              <button onClick={() => { onNavigate('track'); setIsMobileMenuOpen(false); }} className="text-2xl font-bold text-black border-b border-gray-100 pb-4 text-left">Track Order</button>
               <button onClick={() => { onNavigate('calculator'); setIsMobileMenuOpen(false); }} className="text-2xl font-bold text-black border-b border-gray-100 pb-4 text-left">Calculator</button>
               <button onClick={() => { onNavigate('coas'); setIsMobileMenuOpen(false); }} className="text-2xl font-bold text-black border-b border-gray-100 pb-4 text-left">Request COA's</button>
               {user && (
@@ -1423,262 +1422,6 @@ const AboutUsView = ({ onBack, onShopNow }: { onBack: () => void, onShopNow: () 
   );
 };
 
-const TrackOrderView = ({ onBack }: { onBack: () => void }) => {
-  const [orderNumber, setOrderNumber] = useState('');
-  const [email, setEmail] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [order, setOrder] = useState<any | null>(null);
-
-  const handleTrack = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-    setOrder(null);
-
-    const cleanOrderNumber = sanitizeInput(orderNumber).trim();
-    const cleanEmail = sanitizeInput(email).trim().toLowerCase();
-
-    try {
-      // Use getDoc for direct ID lookup
-      const orderDoc = await getDoc(doc(db, 'orders', cleanOrderNumber));
-      
-      if (orderDoc.exists()) {
-        const data = orderDoc.data();
-        
-        // Security check: Verify email matches the order
-        if (data.shippingInfo.email.toLowerCase() === cleanEmail) {
-          setOrder({ id: orderDoc.id, ...data });
-        } else {
-          setError('Order not found or email mismatch. Please check your details.');
-        }
-      } else {
-        setError('Order not found. Please verify your Order Number.');
-      }
-    } catch (err) {
-      console.error('Tracking Error:', err);
-      // Use handleFirestoreError logic for better AIS Agent debugging
-      if (err instanceof Error && err.message.includes('insufficient permissions')) {
-        setError('Security error: Access denied. Please ensure you are using the correct Order ID.');
-      } else {
-        setError('An error occurred while fetching the order. Please try again later.');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-black text-white selection:bg-emerald-500/30">
-      {/* Background Effects */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-emerald-500/5 blur-[120px] rounded-full" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-emerald-500/5 blur-[120px] rounded-full" />
-      </div>
-
-      <div className="relative pt-24 md:pt-32 pb-24 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-3xl mx-auto">
-          <motion.button 
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            onClick={onBack}
-            className="flex items-center gap-2 text-[10px] md:text-xs font-bold text-gray-500 hover:text-emerald-500 mb-12 transition-all uppercase tracking-widest group p-2 -ml-2"
-          >
-            <ChevronLeft className="w-3 h-3 md:w-4 md:h-4 group-hover:-translate-x-1 transition-transform" /> 
-            Back to Home
-          </motion.button>
-
-          <div className="text-center space-y-6 mb-20">
-            <motion.p 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-[10px] font-bold text-emerald-500 uppercase tracking-[0.5em]"
-            >
-              Order Status
-            </motion.p>
-            <motion.h1 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="text-5xl md:text-8xl font-bold tracking-tighter leading-none"
-            >
-              TRACK YOUR <br />
-              <span className="text-emerald-500">ORDER</span>
-            </motion.h1>
-            <motion.p 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="max-w-md mx-auto text-gray-300 font-medium leading-relaxed text-base"
-            >
-              Enter your Order Number and billing email to check the status of your research compounds. 
-              Your Order Number was provided in your confirmation email.
-            </motion.p>
-          </div>
-
-          {!order ? (
-            <motion.div 
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="bg-[#0a0a0a] border border-white/5 rounded-[2.5rem] p-8 md:p-16 shadow-2xl relative overflow-hidden"
-            >
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-emerald-500/20 to-transparent" />
-              
-              <form onSubmit={handleTrack} className="space-y-8 md:space-y-10">
-                <div className="space-y-3">
-                  <label className="text-xs font-bold text-gray-300 uppercase tracking-[0.2em] ml-1">Order Number</label>
-                  <div className="relative">
-                    <Hash className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <input 
-                      type="text" 
-                      required
-                      placeholder="e.g. VR-20250220-0001"
-                      value={orderNumber}
-                      onChange={e => setOrderNumber(e.target.value)}
-                      autoComplete="off"
-                      spellCheck="false"
-                      className="w-full bg-black border border-white/20 rounded-2xl px-12 py-5 focus:outline-none focus:border-emerald-500 transition-all text-white placeholder:text-gray-600 font-medium"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <label className="text-xs font-bold text-gray-300 uppercase tracking-[0.2em] ml-1">Billing Email</label>
-                  <div className="relative">
-                    <Mail className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <input 
-                      type="email" 
-                      required
-                      placeholder="email@example.com"
-                      value={email}
-                      onChange={e => setEmail(e.target.value)}
-                      className="w-full bg-black border border-white/20 rounded-2xl px-14 py-5 focus:outline-none focus:border-emerald-500 transition-all text-white placeholder:text-gray-600 font-medium"
-                    />
-                  </div>
-                </div>
-
-                {error && (
-                  <motion.div 
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="p-5 bg-red-500/5 border border-red-500/10 rounded-2xl text-red-400 text-xs font-bold text-center uppercase tracking-widest"
-                  >
-                    {error}
-                  </motion.div>
-                )}
-
-                <button 
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-white md:hover:bg-emerald-500 text-black md:hover:text-white active:scale-[0.98] font-bold py-5 md:py-6 rounded-2xl transition-all flex items-center justify-center gap-3 disabled:opacity-50 group shadow-xl shadow-white/5 md:hover:shadow-emerald-500/20 touch-manipulation"
-                >
-                  {loading ? (
-                    <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <>
-                      <Search className="w-5 h-5 md:group-hover:scale-110 transition-transform" />
-                      <span className="tracking-widest">TRACK RESEARCH ORDER</span>
-                    </>
-                  )}
-                </button>
-              </form>
-            </motion.div>
-          ) : (
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.98 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="space-y-8"
-            >
-              <div className="bg-[#0a0a0a] border border-white/5 rounded-[2.5rem] p-8 md:p-16 shadow-2xl">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 mb-16 pb-16 border-b border-white/5">
-                  <div className="space-y-2">
-                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Order Reference</p>
-                    <p className="text-3xl font-bold tracking-tighter">#{order.id}</p>
-                  </div>
-                  <div className="space-y-2 md:text-right">
-                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Current Status</p>
-                    <div className="flex flex-col items-end gap-1">
-                      <div className="flex items-center gap-3 md:justify-end">
-                        <div className={`w-2 h-2 rounded-full animate-pulse ${
-                          order.status === 'completed' ? 'bg-emerald-500' : 
-                          order.status === 'pending' ? 'bg-amber-500' : 
-                          'bg-blue-500'
-                        }`} />
-                        <span className={`text-xl font-bold uppercase tracking-tighter ${
-                          order.status === 'completed' ? 'text-emerald-500' : 
-                          order.status === 'pending' ? 'text-amber-500' : 
-                          'text-blue-500'
-                        }`}>
-                          {order.status}
-                        </span>
-                      </div>
-                      {order.status === 'pending' && (
-                        <p className="text-[10px] text-amber-500/60 font-medium uppercase tracking-widest">Awaiting Lab Processing</p>
-                      )}
-                      {order.status === 'shipped' && (
-                        <p className="text-[10px] text-blue-500/60 font-medium uppercase tracking-widest">In Transit to Destination</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-16">
-                  <div className="space-y-8">
-                    <h3 className="text-[10px] font-bold text-emerald-500 uppercase tracking-[0.3em]">Research Inventory</h3>
-                    <div className="space-y-6">
-                      {order.items.map((item: any, i: number) => (
-                        <div key={i} className="flex justify-between items-center group">
-                          <div className="flex items-center gap-5">
-                            <div className="w-14 h-14 bg-black border border-white/10 rounded-2xl flex items-center justify-center text-xs font-bold text-emerald-500 group-hover:border-emerald-500/30 transition-colors">
-                              {item.quantity}x
-                            </div>
-                            <div>
-                              <p className="font-bold text-base tracking-tight">{item.name}</p>
-                              <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">{item.category}</p>
-                            </div>
-                          </div>
-                          <p className="font-bold text-base tracking-tight">${(item.price * item.quantity).toFixed(2)}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="space-y-8">
-                    <h3 className="text-[10px] font-bold text-emerald-500 uppercase tracking-[0.3em]">Delivery Destination</h3>
-                    <div className="bg-black/40 border border-white/5 rounded-3xl p-8 space-y-2">
-                      <p className="text-white font-bold text-lg tracking-tight">{order.shippingInfo.firstName} {order.shippingInfo.lastName}</p>
-                      <p className="text-gray-400 text-sm leading-relaxed">{order.shippingInfo.address}{order.shippingInfo.unitNumber ? `, ${order.shippingInfo.unitNumber}` : ''}</p>
-                      <p className="text-gray-400 text-sm leading-relaxed">{order.shippingInfo.city}, {order.shippingInfo.state} {order.shippingInfo.zip}</p>
-                    </div>
-                    
-                    <div className="pt-8 border-t border-white/5 flex justify-between items-end">
-                      <div className="space-y-1">
-                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Total Investment</p>
-                        <p className="text-3xl font-bold tracking-tighter">${order.total.toFixed(2)}</p>
-                      </div>
-                      <div className="flex items-center gap-2 text-[10px] font-bold text-emerald-500 uppercase tracking-widest bg-emerald-500/5 px-4 py-2 rounded-full border border-emerald-500/10">
-                        <ShieldCheck className="w-3 h-3" /> Verified
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <button 
-                onClick={() => setOrder(null)}
-                className="w-full py-8 text-gray-500 hover:text-white transition-all text-[10px] font-bold uppercase tracking-[0.4em] hover:tracking-[0.6em]"
-              >
-                Track another research order
-              </button>
-            </motion.div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
 const PrivacyPolicyView = ({ onBack }: { onBack: () => void }) => {
   return (
     <section className="py-24 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -2273,25 +2016,25 @@ const AccountView = ({ onNavigate, onEditOrder }: { onNavigate: (view: any) => v
   ];
 
   return (
-    <section className="py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="flex flex-col md:flex-row gap-12">
+    <section className="py-8 md:py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="flex flex-col md:flex-row gap-6 md:gap-12">
         {/* Sidebar */}
         <div className="w-full md:w-64 flex-shrink-0">
-          <div className="bg-white rounded-3xl border border-gray-100 p-6 sticky top-32">
-            <div className="flex items-center gap-4 mb-8">
-              <img src={user.photoURL || `https://ui-avatars.com/api/?name=${user.displayName || user.email}&background=random`} alt="" className="w-12 h-12 rounded-full border border-gray-100" />
+          <div className="bg-white rounded-3xl border border-gray-100 p-3 md:p-6 sticky top-32">
+            <div className="flex items-center gap-3 mb-3 md:mb-8">
+              <img src={user.photoURL || `https://ui-avatars.com/api/?name=${user.displayName || user.email}&background=random`} alt="" className="w-10 md:w-12 h-10 md:h-12 rounded-full border border-gray-100" />
               <div>
                 <h2 className="font-bold text-gray-900 leading-tight">{profile?.firstName || 'Researcher'}</h2>
                 <p className="text-xs text-gray-400 truncate w-32">{user.email}</p>
               </div>
             </div>
 
-            <nav className="space-y-2">
+            <nav className="space-y-1 md:space-y-2">
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeTab === tab.id ? 'bg-black text-white shadow-lg shadow-black/10' : 'text-gray-500 hover:bg-gray-50'}`}
+                  className={`w-full flex items-center gap-3 px-3 md:px-4 py-1.5 md:py-3 rounded-xl text-sm font-bold transition-all ${activeTab === tab.id ? 'bg-black text-white shadow-lg shadow-black/10' : 'text-gray-500 hover:bg-gray-50'}`}
                 >
                   <tab.icon className="w-4 h-4" />
                   {tab.label}
@@ -4945,7 +4688,7 @@ const Hero = ({ onShopNow, onViewCOAs }: { onShopNow: () => void, onViewCOAs: ()
         <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/20 to-transparent" />
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full translate-y-[20px]">
         <motion.div
           initial={{ opacity: 0, x: -50 }}
           animate={{ opacity: 1, x: 0 }}
@@ -5183,16 +4926,6 @@ const ProductCard: React.FC<{
               </div>
             )}
           </div>
-          <button 
-            disabled={product.inStock === false}
-            onClick={(e) => {
-              e.stopPropagation();
-              onAddToCart(product);
-            }}
-            className="absolute bottom-4 left-4 right-4 md:bottom-6 md:left-6 md:right-6 py-3 md:py-4 bg-black text-white text-xs md:text-sm font-bold rounded-xl md:rounded-2xl opacity-0 translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 disabled:bg-gray-400 disabled:cursor-not-allowed hidden md:flex"
-          >
-            {product.inStock === false ? 'Restocking Soon' : <><Plus className="w-4 h-4" /> Add to Cart</>}
-          </button>
         </div>
         <div className="p-3 md:p-8 flex flex-col flex-1">
           <div className="mb-1 md:mb-2 scale-75 md:scale-100 origin-left">
@@ -5209,16 +4942,6 @@ const ProductCard: React.FC<{
                 <span className="text-gray-400 line-through text-[10px] md:text-sm font-medium">${product.originalPrice.toFixed(2)}</span>
               )}
             </div>
-            <button 
-              disabled={product.inStock === false}
-              onClick={(e) => {
-                e.stopPropagation();
-                onAddToCart(product);
-              }}
-              className="md:hidden w-8 h-8 bg-black text-white rounded-lg flex items-center justify-center active:scale-95 transition-transform disabled:bg-gray-200 disabled:text-gray-400"
-            >
-              <Plus className="w-4 h-4" />
-            </button>
           </div>
         </div>
       </div>
@@ -5249,18 +4972,6 @@ const ProductCard: React.FC<{
             {Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}% OFF
           </div>
         )}
-        <div className="absolute top-4 right-4">
-          <button 
-            disabled={product.inStock === false}
-            onClick={(e) => {
-              e.stopPropagation();
-              onAddToCart(product);
-            }}
-            className="w-10 h-10 bg-white shadow-lg rounded-full flex items-center justify-center text-black hover:bg-black hover:text-white transition-all active:scale-90 disabled:opacity-50 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
-          >
-            <Plus className="w-5 h-5" />
-          </button>
-        </div>
       </div>
       <div className="flex flex-col flex-1">
         <div className="mb-2">
@@ -5276,23 +4987,13 @@ const ProductCard: React.FC<{
             </>
           )}
         </div>
-        <div className="mt-auto space-y-4">
+        <div className="mt-auto">
           <div className="flex items-center gap-3">
             <p className="text-xl font-bold text-black">${product.price.toFixed(2)}</p>
             {product.originalPrice && product.originalPrice > product.price && (
               <span className="text-gray-400 line-through text-sm font-medium">${product.originalPrice.toFixed(2)}</span>
             )}
           </div>
-          <button 
-            disabled={product.inStock === false}
-            onClick={(e) => {
-              e.stopPropagation();
-              onAddToCart(product);
-            }}
-            className="w-full py-3 bg-black text-white text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-emerald-600 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:bg-gray-400 disabled:cursor-not-allowed"
-          >
-            {product.inStock === false ? 'Restocking Soon' : <><ShoppingCart className="w-4 h-4" /> Add to Cart</>}
-          </button>
         </div>
       </div>
     </motion.div>
@@ -6702,7 +6403,7 @@ const CheckoutView = ({
   );
 };
 
-const ProductDetailView = ({ product, products, onAddToCart, onBack, onSelectProduct }: { product: Product, products: Product[], onAddToCart: (product: Product, quantity: number) => void, onBack: () => void, onSelectProduct: (product: Product) => void }) => {
+const ProductDetailView = ({ product, products, onAddToCart, onBack, onSelectProduct, settings, timeLeft }: { product: Product, products: Product[], onAddToCart: (product: Product, quantity: number) => void, onBack: () => void, onSelectProduct: (product: Product) => void, settings: SiteSettings | null, timeLeft: { hours: number, minutes: number, seconds: number } | null }) => {
   const [quantity, setQuantity] = useState(1);
   const [selectedDosageIdx, setSelectedDosageIdx] = useState<number | null>(null);
   
@@ -6730,17 +6431,33 @@ const ProductDetailView = ({ product, products, onAddToCart, onBack, onSelectPro
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <button onClick={onBack} className="flex items-center gap-2 text-gray-500 hover:text-black mb-8 transition-colors group">
-        <ChevronLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" /> Back to Shop
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-6 md:h-[calc(100vh-80px)] md:overflow-hidden overflow-x-hidden">
+      {/* Trust Badge Bar */}
+      <div className="flex flex-wrap items-center justify-center gap-y-3 gap-x-6 md:gap-12 py-3 md:py-2 border-b border-gray-100 mb-6 md:mb-4 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center gap-1.5 md:gap-2 text-gray-400 flex-shrink-0">
+          <ShieldCheck className="w-3.5 h-3.5 md:w-4 md:h-4 text-emerald-500" />
+          <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-widest whitespace-nowrap">Lab Verified</span>
+        </div>
+        <div className="flex items-center gap-1.5 md:gap-2 text-gray-400 flex-shrink-0">
+          <Truck className="w-3.5 h-3.5 md:w-4 md:h-4 text-emerald-500" />
+          <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-widest whitespace-nowrap">1-3 Day Shipping</span>
+        </div>
+        <div className="flex items-center gap-1.5 md:gap-2 text-gray-400 flex-shrink-0">
+          <CheckCircle2 className="w-3.5 h-3.5 md:w-4 md:h-4 text-emerald-500" />
+          <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-widest whitespace-nowrap">30-Day Guarantee</span>
+        </div>
+      </div>
+
+      <button onClick={onBack} className="flex items-center gap-2 text-gray-500 hover:text-black mb-6 md:mb-4 transition-colors group text-sm md:text-base">
+        <ChevronLeft className="w-4 h-4 md:w-5 md:h-5 group-hover:-translate-x-1 transition-transform" /> Back to Shop
       </button>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
+      <div className="grid grid-cols-1 lg:grid-cols-[40%_60%] gap-8 md:gap-12 md:h-[calc(100%-120px)]">
         {/* Product Image */}
         <motion.div 
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
-          className="aspect-[4/5] rounded-[2.5rem] overflow-hidden bg-white border border-gray-100 shadow-sm relative"
+          className="aspect-[4/5] md:aspect-auto md:h-full rounded-[2.5rem] overflow-hidden bg-white border border-gray-100 shadow-sm relative md:sticky md:top-0"
         >
           <img src={displayImage} alt={product.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
           {!isCurrentlyInStock && (
@@ -6754,26 +6471,57 @@ const ProductDetailView = ({ product, products, onAddToCart, onBack, onSelectPro
         <motion.div 
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
-          className="flex flex-col"
+          className="flex flex-col md:overflow-y-auto md:pr-4 md:scrollbar-hide"
         >
-          <div className="mb-8">
-            <span className="text-emerald-500 font-bold tracking-[0.2em] text-xs uppercase mb-4 block">{product.category}</span>
-            <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4 tracking-tight">{product.name}</h1>
-            <div className="mb-6">
-              <ProductRating productId={product.id} size="md" />
+          <div className="mb-6 md:mb-4">
+            <span className="text-emerald-500 font-bold tracking-[0.2em] text-xs uppercase mb-3 md:mb-2 block">{product.category}</span>
+            <h1 className="text-4xl md:text-3xl font-bold text-gray-900 mb-2 tracking-tight">{product.name}</h1>
+            <div className="flex items-center gap-2 mb-3 md:mb-2">
+              <Star className="w-4 h-4 text-emerald-500 fill-emerald-500" />
+              <span className="text-emerald-600 font-bold text-[10px] md:text-xs uppercase tracking-wider">Loved by 500+ researchers</span>
             </div>
-            <p className="text-gray-500 leading-relaxed text-lg mb-6">
-              {product.description || "High-purity research compound synthesized for laboratory use. HPLC tested and verified for maximum precision in research applications."}
-            </p>
+            <div className="mb-4 md:mb-3">
+              <ProductRating productId={product.id} size="sm" />
+            </div>
+            
+            <div className="space-y-3 md:space-y-0 md:grid md:grid-cols-3 md:gap-4 mb-6 md:mb-4">
+              <div className="flex items-start md:flex-col md:items-center md:text-center gap-3 md:gap-2 md:p-3 md:bg-white md:rounded-2xl md:border md:border-gray-100 md:shadow-sm">
+                <div className="w-5 h-5 md:w-7 md:h-7 rounded-full bg-emerald-50 flex items-center justify-center flex-shrink-0 mt-0.5 md:mt-0">
+                  <Check className="w-3 h-3 md:w-4 md:h-4 text-emerald-600" />
+                </div>
+                <div>
+                  <h4 className="text-sm md:text-[11px] font-bold text-gray-900 leading-tight">HPLC Tested</h4>
+                  <p className="text-xs md:text-[9px] text-gray-500 md:mt-0.5">Third-party analysis.</p>
+                </div>
+              </div>
+              <div className="flex items-start md:flex-col md:items-center md:text-center gap-3 md:gap-2 md:p-3 md:bg-white md:rounded-2xl md:border md:border-gray-100 md:shadow-sm">
+                <div className="w-5 h-5 md:w-7 md:h-7 rounded-full bg-emerald-50 flex items-center justify-center flex-shrink-0 mt-0.5 md:mt-0">
+                  <Check className="w-3 h-3 md:w-4 md:h-4 text-emerald-600" />
+                </div>
+                <div>
+                  <h4 className="text-sm md:text-[11px] font-bold text-gray-900 leading-tight">Secure Synthesis</h4>
+                  <p className="text-xs md:text-[9px] text-gray-500 md:mt-0.5">State-of-the-art lab.</p>
+                </div>
+              </div>
+              <div className="flex items-start md:flex-col md:items-center md:text-center gap-3 md:gap-2 md:p-3 md:bg-white md:rounded-2xl md:border md:border-gray-100 md:shadow-sm">
+                <div className="w-5 h-5 md:w-7 md:h-7 rounded-full bg-emerald-50 flex items-center justify-center flex-shrink-0 mt-0.5 md:mt-0">
+                  <Check className="w-3 h-3 md:w-4 md:h-4 text-emerald-600" />
+                </div>
+                <div>
+                  <h4 className="text-sm md:text-[11px] font-bold text-gray-900 leading-tight">Fast Logistics</h4>
+                  <p className="text-xs md:text-[9px] text-gray-500 md:mt-0.5">Discreet shipping.</p>
+                </div>
+              </div>
+            </div>
 
-            <div className="pt-6 border-t border-gray-100 space-y-6">
+            <div className="pt-4 md:pt-3 border-t border-gray-100 space-y-4 md:space-y-3">
               <div>
-                <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400 mb-4">Select Research Dosage</h4>
-                <div className="flex flex-wrap gap-3">
+                <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400 mb-3 md:mb-2">Select Research Dosage</h4>
+                <div className="flex flex-wrap gap-2 md:gap-3">
                   {/* Default Dosage */}
                   <button 
                     onClick={() => setSelectedDosageIdx(null)}
-                    className={`px-6 py-3 rounded-2xl border-2 transition-all font-bold text-sm ${selectedDosageIdx === null ? 'border-emerald-500 bg-emerald-50 text-emerald-600' : 'border-gray-100 hover:border-gray-200 text-gray-600'}`}
+                    className={`px-4 md:px-5 py-2 md:py-2.5 rounded-xl md:rounded-2xl border-2 transition-all font-bold text-xs md:text-sm ${selectedDosageIdx === null ? 'border-emerald-500 bg-emerald-50 text-emerald-600' : 'border-gray-100 hover:border-gray-200 text-gray-600'}`}
                   >
                     {product.dosage || 'Standard'}
                   </button>
@@ -6783,7 +6531,7 @@ const ProductDetailView = ({ product, products, onAddToCart, onBack, onSelectPro
                     <button 
                       key={idx}
                       onClick={() => setSelectedDosageIdx(idx)}
-                      className={`px-6 py-3 rounded-2xl border-2 transition-all font-bold text-sm ${selectedDosageIdx === idx ? 'border-emerald-500 bg-emerald-50 text-emerald-600' : 'border-gray-100 hover:border-gray-200 text-gray-600'}`}
+                      className={`px-4 md:px-5 py-2 md:py-2.5 rounded-xl md:rounded-2xl border-2 transition-all font-bold text-xs md:text-sm ${selectedDosageIdx === idx ? 'border-emerald-500 bg-emerald-50 text-emerald-600' : 'border-gray-100 hover:border-gray-200 text-gray-600'}`}
                     >
                       {d.label}
                     </button>
@@ -6792,9 +6540,9 @@ const ProductDetailView = ({ product, products, onAddToCart, onBack, onSelectPro
               </div>
 
               <div className="flex items-center gap-4">
-                <p className="text-2xl font-bold text-gray-900">{displayDosage}</p>
+                <p className="text-xl md:text-2xl font-bold text-gray-900">{displayDosage}</p>
                 {baseOriginalPrice && baseOriginalPrice > basePrice && (
-                  <div className="px-3 py-1 bg-emerald-500 text-white text-[10px] font-bold uppercase tracking-widest rounded-full">
+                  <div className="px-3 py-1 bg-emerald-500 text-white text-[9px] md:text-[10px] font-bold uppercase tracking-widest rounded-full">
                     {Math.round(((baseOriginalPrice - basePrice) / baseOriginalPrice) * 100)}% OFF
                   </div>
                 )}
@@ -6802,55 +6550,75 @@ const ProductDetailView = ({ product, products, onAddToCart, onBack, onSelectPro
             </div>
           </div>
 
-          <div className="bg-gray-50 rounded-3xl p-8 mb-8 border border-gray-100">
-            <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-6">Select Your Offer</h3>
+          <div className="bg-gray-50 rounded-3xl p-6 md:p-5 mb-6 md:mb-4 border border-gray-100">
+            <h3 className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-gray-400 mb-4 md:mb-3">Select Your Offer</h3>
             
-            <div className="grid grid-cols-3 gap-4 mb-8">
-              {[1, 2, 3].map((num) => (
-                <button 
-                  key={num}
-                  onClick={() => setQuantity(num)}
-                  className={`relative aspect-square rounded-2xl overflow-hidden border-2 transition-all ${quantity === num ? 'border-emerald-500 ring-4 ring-emerald-500/10' : 'border-transparent hover:border-gray-200'}`}
-                >
-                  <img src={quantityImages[num]} alt={`${num} Bottle`} className="w-full h-full object-cover scale-125" />
-                  <div className={`absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex flex-col justify-end p-3 text-left transition-opacity ${quantity === num ? 'opacity-100' : 'opacity-80'}`}>
-                    <span className="text-white font-bold text-sm">{num} {num === 1 ? 'Bottle' : 'Bottles'}</span>
-                    <span className="text-emerald-400 text-[10px] font-bold uppercase tracking-wider">
-                      {num === 1 ? 'Standard' : num === 2 ? '4% OFF' : '7% OFF'}
-                    </span>
-                  </div>
-                  {quantity === num && (
-                    <div className="absolute top-2 right-2 bg-emerald-500 text-white p-1 rounded-full">
-                      <ShieldCheck className="w-3 h-3" />
+            <div className="flex flex-col gap-3 md:grid md:grid-cols-3 mb-6 md:mb-4">
+              {[1, 2, 3].map((num) => {
+                const cardPrice = getDiscountedPrice(num);
+                const isPopular = num === 2;
+                const isBestValue = num === 3;
+                
+                return (
+                  <button 
+                    key={num}
+                    onClick={() => setQuantity(num)}
+                    className={`relative flex flex-col items-center p-3 md:p-2.5 rounded-2xl md:rounded-3xl border-2 transition-all w-full ${quantity === num ? 'border-emerald-500 bg-emerald-50/50 ring-4 ring-emerald-500/10' : 'border-gray-100 bg-white hover:border-gray-200'}`}
+                  >
+                    {isPopular && (
+                      <div className="absolute top-1.5 md:top-2 left-1/2 -translate-x-1/2 bg-black text-white text-[6px] md:text-[7px] font-black px-2 md:px-2.5 py-0.5 rounded-full uppercase tracking-widest whitespace-nowrap z-10">
+                        Most Popular
+                      </div>
+                    )}
+                    {isBestValue && (
+                      <div className="absolute top-1.5 md:top-2 left-1/2 -translate-x-1/2 bg-emerald-500 text-white text-[6px] md:text-[7px] font-black px-2 md:px-2.5 py-0.5 rounded-full uppercase tracking-widest whitespace-nowrap z-10">
+                        Best Value
+                      </div>
+                    )}
+                    
+                    <div className="w-12 h-12 md:w-14 md:h-14 mt-1 md:mt-0.5 mb-2 md:mb-2 relative overflow-hidden rounded-lg md:rounded-xl">
+                      <img src={quantityImages[num]} alt={`${num} Bottle`} className="w-full h-full object-cover scale-150 md:scale-125 transition-transform" />
                     </div>
-                  )}
-                </button>
-              ))}
+                    
+                    <div className="text-center">
+                      <p className="text-[10px] md:text-xs font-bold text-gray-900 mb-0.5">{num} {num === 1 ? 'Bottle' : 'Bottles'}</p>
+                      <p className="text-sm md:text-base font-black text-black">${cardPrice.toFixed(2)}<span className="text-[8px] md:text-[9px] text-gray-400 font-bold uppercase ml-1">/ea</span></p>
+                      <p className="text-[8px] md:text-[9px] font-bold text-gray-400 uppercase tracking-wider">Total: ${(cardPrice * num).toFixed(2)}</p>
+                    </div>
+                    
+                    {quantity === num && (
+                      <div className="absolute top-1.5 right-1.5 md:top-2 md:right-2 text-emerald-500">
+                        <CheckCircle2 className="w-3 h-3 md:w-3.5 md:h-3.5" />
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
             </div>
 
-            <div className="flex flex-col gap-6">
+            <div className="flex flex-col gap-4 md:gap-3">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4 bg-white rounded-2xl p-2 border border-gray-100 shadow-sm">
+                <div className="flex items-center gap-3 bg-white rounded-xl p-1.5 border border-gray-100 shadow-sm">
                   <button 
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-gray-50 transition-colors text-gray-400 hover:text-black"
+                    className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-gray-50 transition-colors text-gray-400 hover:text-black"
                   >
-                    <Minus className="w-4 h-4" />
+                    <Minus className="w-3 h-3" />
                   </button>
-                  <span className="w-8 text-center font-bold text-lg">{quantity}</span>
+                  <span className="w-6 text-center font-bold text-base">{quantity}</span>
                   <button 
                     onClick={() => setQuantity(quantity + 1)}
-                    className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-gray-50 transition-colors text-gray-400 hover:text-black"
+                    className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-gray-50 transition-colors text-gray-400 hover:text-black"
                   >
-                    <Plus className="w-4 h-4" />
+                    <Plus className="w-3 h-3" />
                   </button>
                 </div>
                 <div className="text-right">
-                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Price Per Bottle</p>
+                  <p className="text-[9px] md:text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Price Per Bottle</p>
                   <div className="flex flex-col items-end">
-                    <p className="text-xl font-bold text-black">${currentPrice.toFixed(2)}</p>
+                    <p className="text-lg md:text-xl font-bold text-black">${currentPrice.toFixed(2)}</p>
                     {baseOriginalPrice && baseOriginalPrice > basePrice && (
-                      <span className="text-gray-400 line-through text-xs font-medium">
+                      <span className="text-gray-400 line-through text-[10px] md:text-xs font-medium">
                         ${(baseOriginalPrice * (currentPrice / basePrice)).toFixed(2)}
                       </span>
                     )}
@@ -6858,35 +6626,61 @@ const ProductDetailView = ({ product, products, onAddToCart, onBack, onSelectPro
                 </div>
               </div>
 
-              <div className="flex items-center justify-between pt-6 border-t border-gray-200">
-                <div>
-                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Total Amount</p>
-                  <div className="flex flex-col">
-                    <p className="text-3xl font-bold text-black">${total.toFixed(2)}</p>
-                    {baseOriginalPrice && baseOriginalPrice > basePrice && (
-                      <span className="text-gray-400 line-through text-sm font-medium">
-                        ${(baseOriginalPrice * quantity * (currentPrice / basePrice)).toFixed(2)}
-                      </span>
-                    )}
+              <div className="pt-4 md:pt-3 border-t border-gray-200">
+                {settings?.countdownActive && timeLeft && (
+                  <div className="flex items-center justify-center gap-2 py-2 md:py-1.5 bg-emerald-50 rounded-xl border border-emerald-100 mb-4 md:mb-3 animate-pulse">
+                    <Clock className="w-3.5 h-3.5 text-emerald-600" />
+                    <span className="text-[9px] md:text-[10px] font-bold text-emerald-700 uppercase tracking-widest">
+                      Offer Ends In: {String(timeLeft.hours).padStart(2, '0')}:{String(timeLeft.minutes).padStart(2, '0')}:{String(timeLeft.seconds).padStart(2, '0')}
+                    </span>
+                  </div>
+                )}
+                
+                <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 md:gap-0">
+                  <div className="flex flex-row md:flex-col justify-between items-center md:items-start">
+                    <p className="text-[9px] md:text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0 md:mb-0.5">Total Amount</p>
+                    <div className="flex items-baseline md:flex-col gap-2 md:gap-0">
+                      <p className="text-2xl md:text-2xl font-bold text-black">${total.toFixed(2)}</p>
+                      {baseOriginalPrice && baseOriginalPrice > basePrice && (
+                        <span className="text-gray-400 line-through text-[10px] md:text-xs font-medium">
+                          ${(baseOriginalPrice * quantity * (currentPrice / basePrice)).toFixed(2)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <button 
+                    disabled={!isCurrentlyInStock}
+                    onClick={() => onAddToCart({
+                      ...product,
+                      price: basePrice,
+                      image: displayImage,
+                      dosage: displayDosage
+                    }, quantity)}
+                    className="w-full md:w-auto px-10 md:px-12 py-4 md:py-4 min-h-[52px] bg-black text-white font-bold rounded-xl md:rounded-2xl hover:bg-emerald-600 transition-all active:scale-95 flex items-center justify-center gap-3 shadow-xl shadow-black/10 disabled:opacity-50 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  >
+                    {!isCurrentlyInStock ? 'Restocking Soon' : <><ShoppingCart className="w-5 h-5" /> Add to Cart</>}
+                  </button>
+                </div>
+
+                <div className="mt-3 md:mt-2 flex flex-wrap items-center justify-center gap-3 md:gap-4 text-gray-400">
+                  <div className="flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+                    <span className="text-[8px] md:text-[9px] font-bold uppercase tracking-widest">30-Day Guarantee</span>
+                  </div>
+                  <div className="hidden md:flex items-center gap-1.5">
+                    <Truck className="w-3.5 h-3.5 text-emerald-500" />
+                    <span className="text-[9px] font-bold uppercase tracking-widest">1-3 Day Shipping</span>
+                  </div>
+                  <div className="hidden md:flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+                    <span className="text-[9px] font-bold uppercase tracking-widest">Lab Verified</span>
                   </div>
                 </div>
-                <button 
-                  disabled={!isCurrentlyInStock}
-                  onClick={() => onAddToCart({
-                    ...product,
-                    price: basePrice,
-                    image: displayImage,
-                    dosage: displayDosage
-                  }, quantity)}
-                  className="px-12 py-5 bg-black text-white font-bold rounded-2xl hover:bg-emerald-600 transition-all active:scale-95 flex items-center gap-3 shadow-xl shadow-black/10 disabled:opacity-50 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                >
-                  {!isCurrentlyInStock ? 'Restocking Soon' : <><ShoppingCart className="w-5 h-5" /> Add to Cart</>}
-                </button>
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3 md:hidden">
             <div className="p-4 rounded-2xl border border-gray-100 flex items-center gap-3">
               <Truck className="w-5 h-5 text-emerald-500" />
               <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">1-3 Day Shipping</span>
@@ -6897,6 +6691,26 @@ const ProductDetailView = ({ product, products, onAddToCart, onBack, onSelectPro
             </div>
           </div>
         </motion.div>
+      </div>
+
+      {/* Sticky Mobile Add to Cart Bar */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 p-4 flex items-center justify-between z-50 md:hidden shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
+        <div className="flex flex-col">
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Total Amount</p>
+          <p className="text-xl font-bold text-black">${total.toFixed(2)}</p>
+        </div>
+        <button 
+          disabled={!isCurrentlyInStock}
+          onClick={() => onAddToCart({
+            ...product,
+            price: basePrice,
+            image: displayImage,
+            dosage: displayDosage
+          }, quantity)}
+          className="px-8 py-3 bg-black text-white font-bold rounded-xl hover:bg-emerald-600 transition-all active:scale-95 flex items-center gap-2 disabled:opacity-50 disabled:bg-gray-400"
+        >
+          {!isCurrentlyInStock ? 'Restocking' : <><ShoppingCart className="w-4 h-4" /> Add to Cart</>}
+        </button>
       </div>
 
       {/* Frequently Researched Together Slider */}
@@ -7283,7 +7097,7 @@ const OrderSuccessView = ({ onBackToHome }: { onBackToHome: () => void }) => {
 };
 
 const AppContent = () => {
-  const [view, setView] = useState<'home' | 'shop' | 'about' | 'track' | 'coas' | 'admin' | 'account' | 'checkout' | 'product' | 'terms' | 'shipping' | 'refund' | 'privacy' | 'calculator' | 'affiliate' | 'order-success' | 'refer'>('home');
+  const [view, setView] = useState<'home' | 'shop' | 'about' | 'coas' | 'admin' | 'account' | 'checkout' | 'product' | 'terms' | 'shipping' | 'refund' | 'privacy' | 'calculator' | 'affiliate' | 'order-success' | 'refer'>('home');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -7601,11 +7415,11 @@ const AppContent = () => {
     }
   }, []);
 
-  const isDarkPage = ['home', 'shop', 'track', 'refer'].includes(view);
+  const isDarkPage = ['home', 'shop', 'refer'].includes(view);
   const isBannerActive = settings?.countdownActive && timeLeft && ['home', 'shop', 'product', 'checkout'].includes(view);
 
   return (
-    <div className="min-h-screen bg-[#F9F9F9] font-sans selection:bg-emerald-100 selection:text-emerald-900">
+    <div className="min-h-screen bg-[#F9F9F9] font-sans selection:bg-emerald-100 selection:text-emerald-900 overflow-x-hidden">
       <div className="fixed top-0 w-full z-50 bg-transparent pointer-events-none">
         <div className="pointer-events-auto">
           <CountdownBanner currentView={view} settings={settings} timeLeft={timeLeft} />
@@ -7619,7 +7433,7 @@ const AppContent = () => {
         </div>
       </div>
       
-      <main className={`${!isDarkPage ? (isBannerActive ? 'pt-[132px]' : 'pt-24') : ''}`}>
+      <main className={`${!isDarkPage ? (isBannerActive ? 'pt-[132px]' : 'pt-24') : ''} overflow-x-hidden`}>
         <AnimatePresence mode="wait">
           {view === 'home' && (
             <motion.div
@@ -7653,10 +7467,6 @@ const AppContent = () => {
 
           {view === 'about' && (
             <AboutUsView onBack={() => setView('home')} onShopNow={() => setView('shop')} />
-          )}
-
-          {view === 'track' && (
-            <TrackOrderView onBack={() => setView('home')} />
           )}
 
           {view === 'calculator' && (
@@ -7738,6 +7548,8 @@ const AppContent = () => {
                   setSelectedProduct(p);
                   window.scrollTo(0, 0);
                 }}
+                settings={settings}
+                timeLeft={timeLeft}
               />
             </motion.div>
           )}
@@ -7960,7 +7772,6 @@ const AppContent = () => {
                 <li><button onClick={() => setView('shop')} className="hover:text-black transition-colors">Shop All Compounds</button></li>
                 <li><button onClick={() => setView('about')} className="hover:text-black transition-colors">About Us</button></li>
                 <li><button onClick={() => setView('affiliate')} className="hover:text-black transition-colors">Become a Research Affiliate</button></li>
-                <li><button onClick={() => setView('track')} className="hover:text-black transition-colors">Track Order</button></li>
                 <li><button onClick={() => setView('calculator')} className="hover:text-black transition-colors">Reconstitution Calculator</button></li>
                 <li><button onClick={() => setView('coas')} className="hover:text-black transition-colors">Request COA's</button></li>
                 <li><button onClick={() => setView('account')} className="hover:text-black transition-colors">My Research Account</button></li>
