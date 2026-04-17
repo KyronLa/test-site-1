@@ -4831,7 +4831,7 @@ const Hero = ({ onShopNow, onViewCOAs }: { onShopNow: () => void, onViewCOAs: ()
             <span className="text-[8px] md:text-[10px] font-bold text-white uppercase tracking-widest">$250+ free shipping</span>
           </motion.div>
 
-          <div className="flex flex-wrap items-start gap-4 md:gap-6 -mt-[30px] md:-mt-10">
+          <div className="flex flex-wrap items-start gap-4 md:gap-6 -mt-[30px] md:mt-8">
             <motion.button 
               onClick={onShopNow}
               whileHover={{ 
@@ -4851,7 +4851,7 @@ const Hero = ({ onShopNow, onViewCOAs }: { onShopNow: () => void, onViewCOAs: ()
             >
               <div className="relative flex items-center gap-2 md:gap-3">
                 Explore Catalog <ChevronRight className="w-4 h-4 md:w-5 md:h-5" />
-                <span className="absolute -top-6 -right-4 md:-top-8 md:-right-6 bg-emerald-500 text-white text-[8px] md:text-[10px] font-black px-2 py-0.5 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.5)] animate-bounce uppercase tracking-tighter">
+                <span className="absolute -top-6 -right-4 md:-top-5 md:-right-4 bg-emerald-500 text-white text-[8px] md:text-[10px] font-black px-2 py-0.5 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.5)] animate-bounce uppercase tracking-tighter">
                   Sale
                 </span>
               </div>
