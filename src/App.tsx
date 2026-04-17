@@ -4761,19 +4761,32 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 };
 
 const Hero = ({ onShopNow, onViewCOAs }: { onShopNow: () => void, onViewCOAs: () => void }) => {
+  const videoRef = React.useRef<HTMLVideoElement>(null);
+
+  React.useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.defaultMuted = true;
+      videoRef.current.muted = true;
+      videoRef.current.play().catch(error => {
+        console.log("Autoplay was prevented:", error);
+      });
+    }
+  }, []);
+
   return (
     <>
-      {/* Mobile Black Bar Sitting on Top */}
+      {/* Mobile Bar Sitting on Top */}
       <div className="h-0 bg-black md:hidden" />
       
       <section className="relative h-screen flex items-center overflow-hidden bg-black">
         {/* Background Video Layer */}
       <div className="absolute inset-0 z-0">
         <video 
+          ref={videoRef}
           autoPlay 
           muted 
           loop 
-          playsInline
+          playsInline 
           className="w-full h-full object-cover"
         >
           <source src="https://res.cloudinary.com/ditxwmhnj/video/upload/v1773973748/Generated_Video_March_19_2026_-_10_28PM_wpetru.mp4" type="video/mp4" />
