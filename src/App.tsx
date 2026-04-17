@@ -5065,10 +5065,10 @@ const ProductCard: React.FC<{
     <motion.div 
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="group flex flex-col bg-[#242424] rounded-xl border border-[#2a2a2a] overflow-hidden hover:shadow-xl transition-all cursor-pointer h-[420px] md:h-[550px]"
+      className="group flex flex-col bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-xl transition-all cursor-pointer h-[420px] md:h-[550px]"
       onClick={() => onSelect(product)}
     >
-      <div className="aspect-[4/5] h-[180px] md:h-[300px] overflow-hidden relative flex-shrink-0 bg-black/20">
+      <div className="aspect-[4/5] h-[180px] md:h-[300px] overflow-hidden relative flex-shrink-0 bg-gray-50">
         <img 
           src={product.image} 
           alt={product.name} 
@@ -5090,19 +5090,19 @@ const ProductCard: React.FC<{
         <div className="mb-2 flex-shrink-0">
           <ProductRating productId={product.id} size="sm" />
         </div>
-        <div className="flex-1 overflow-hidden text-[#e0e0e0]">
-          <h3 className="font-bold text-xs md:text-lg text-white mb-1 group-hover:text-emerald-400 transition-colors line-clamp-2">{product.name}</h3>
+        <div className="flex-1 overflow-hidden">
+          <h3 className="font-bold text-xs md:text-lg text-black mb-1 group-hover:text-emerald-600 transition-colors line-clamp-2">{product.name}</h3>
           <div className="flex flex-wrap items-center gap-1.5 mb-2">
-            <p className="text-[#e0e0e0] text-[8px] md:text-[10px] font-bold uppercase tracking-wider">99%+ Purity</p>
+            <p className="text-gray-600 text-[8px] md:text-[10px] font-bold uppercase tracking-wider">99%+ Purity</p>
             {product.dosage && (
               <>
-                <span className="w-1 h-1 bg-white/10 rounded-full" />
-                <p className="text-[#e0e0e0] text-[8px] md:text-[10px] font-bold uppercase tracking-wider truncate max-w-[100px]">{product.dosage}</p>
+                <span className="w-1 h-1 bg-gray-200 rounded-full" />
+                <p className="text-gray-600 text-[8px] md:text-[10px] font-bold uppercase tracking-wider truncate max-w-[100px]">{product.dosage}</p>
               </>
             )}
           </div>
           <div className="flex items-center gap-2 mb-2">
-            <p className="text-sm md:text-2xl font-black text-white">${product.price.toFixed(2)}</p>
+            <p className="text-sm md:text-2xl font-black text-black">${product.price.toFixed(2)}</p>
             {product.originalPrice && product.originalPrice > product.price && (
               <span className="text-[#888888] line-through text-[10px] md:text-sm font-medium">${product.originalPrice.toFixed(2)}</span>
             )}
@@ -5117,7 +5117,7 @@ const ProductCard: React.FC<{
           disabled={isOutOfStock}
           className={`w-full py-3 md:py-4 mt-auto rounded-xl md:rounded-2xl font-black uppercase tracking-widest text-[8px] md:text-[11px] transition-all flex items-center justify-center gap-2 ${
             isOutOfStock 
-              ? 'bg-white/5 text-gray-500 cursor-not-allowed' 
+              ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
               : 'bg-emerald-600 text-white hover:bg-emerald-500 active:scale-95'
           }`}
         >
@@ -5143,12 +5143,12 @@ const FeaturedProducts: React.FC<{
     });
 
   return (
-    <section className="py-24 bg-black">
+    <section className="py-24 bg-[#ededed]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-end mb-12">
           <div>
-            <h2 className="text-3xl font-bold tracking-tight text-white mb-2">Featured Compounds</h2>
-            <p className="text-gray-400">Our most requested high-purity research materials.</p>
+            <h2 className="text-3xl font-bold tracking-tight text-gray-900 mb-2">Featured Compounds</h2>
+            <p className="text-gray-500">Our most requested high-purity research materials.</p>
           </div>
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-8">
@@ -5201,13 +5201,13 @@ const ShopView: React.FC<{
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="bg-[#1a1a1a] min-h-screen"
+      className="bg-[#ededed] min-h-screen"
     >
       {/* Mobile Bar Sitting on Top */}
-      <div className="h-[75px] bg-[#1a1a1a] md:hidden" />
+      <div className="h-[75px] bg-[#ededed] md:hidden" />
 
       {/* Shop Header */}
-      <section className="relative bg-[#1a1a1a] py-32 overflow-hidden">
+      <section className="relative bg-[#ededed] py-32 overflow-hidden">
         <div className="absolute inset-0 z-0">
           <img 
             src="https://res.cloudinary.com/ditxwmhnj/image/upload/v1774582891/Screenshot_2026-03-26_at_11.41.24_PM_izjweq.png" 
@@ -5263,10 +5263,10 @@ const ShopView: React.FC<{
       <section id="product-section" className="py-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col lg:flex-row gap-8 lg:gap-12">
           {/* Sidebar Filter */}
-          <aside className="w-full lg:w-64 flex-shrink-0 bg-[#242424] p-6 rounded-2xl border border-[#2a2a2a] h-fit sticky top-32">
+          <aside className="w-full lg:w-64 flex-shrink-0 bg-white p-6 rounded-2xl border border-gray-100 h-fit sticky top-32 shadow-sm">
             <div className="space-y-8">
               <div>
-                <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500 mb-6 font-primary">Filter by Price</h3>
+                <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400 mb-6 font-primary">Filter by Price</h3>
                 <div className="space-y-4">
                   <input 
                     type="range" 
@@ -5275,11 +5275,11 @@ const ShopView: React.FC<{
                     step="1"
                     value={maxPrice}
                     onChange={(e) => setMaxPrice(Number(e.target.value))}
-                    className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                    className="w-full h-1.5 bg-gray-100 rounded-lg appearance-none cursor-pointer accent-emerald-500"
                   />
                   <div className="flex justify-between items-center font-primary">
                     <span className="text-sm font-medium text-gray-400">$0</span>
-                    <span className="text-sm font-bold text-white">Up to ${maxPrice.toFixed(2)}</span>
+                    <span className="text-sm font-bold text-gray-900">Up to ${maxPrice.toFixed(2)}</span>
                   </div>
                 </div>
               </div>
@@ -5289,13 +5289,13 @@ const ShopView: React.FC<{
           {/* Product Grid */}
           <div className="flex-1">
             <div className="relative w-full mb-8">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 w-5 h-5 font-primary" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5 font-primary" />
               <input 
                 type="text" 
                 placeholder="Search products..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-[#242424] border border-[#2a2a2a] rounded-xl py-3 pl-12 pr-4 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all shadow-sm font-primary"
+                className="w-full bg-white border border-gray-100 rounded-xl py-3 pl-12 pr-4 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all shadow-sm font-primary"
               />
             </div>
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-3 gap-y-8 md:gap-x-6 md:gap-y-10">
@@ -6720,23 +6720,13 @@ const ProductDetailView = ({ product, products, onAddToCart, onBack, onSelectPro
                     onClick={() => setQuantity(num)}
                     className={`relative flex flex-col items-center p-3 md:p-2.5 rounded-2xl md:rounded-3xl border-2 transition-all w-full ${quantity === num ? 'border-emerald-500 bg-emerald-50/50 ring-4 ring-emerald-500/10' : 'border-gray-100 bg-white hover:border-gray-200'}`}
                   >
-                    {num === 2 && (
-                      <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-emerald-600 text-white text-[7px] md:text-[8px] font-black px-2.5 py-1 rounded-full uppercase tracking-[0.1em] whitespace-nowrap z-20 shadow-md ring-2 ring-white">
-                        4% Discount
-                      </div>
-                    )}
-                    {num === 3 && (
-                      <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-emerald-600 text-white text-[7px] md:text-[8px] font-black px-2.5 py-1 rounded-full uppercase tracking-[0.1em] whitespace-nowrap z-20 shadow-md ring-2 ring-white">
-                        7% Discount
-                      </div>
-                    )}
                     {isPopular && (
-                      <div className="absolute top-2.5 md:top-3 left-1/2 -translate-x-1/2 bg-black text-white text-[6px] md:text-[7px] font-black px-2 md:px-2.5 py-0.5 rounded-full uppercase tracking-widest whitespace-nowrap z-10">
+                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-black text-white text-[7px] md:text-[9px] font-black px-3 md:px-4 py-1.5 rounded-full uppercase tracking-[0.1em] whitespace-nowrap z-20 shadow-lg ring-2 ring-white">
                         Most Popular
                       </div>
                     )}
                     {isBestValue && (
-                      <div className="absolute top-2.5 md:top-3 left-1/2 -translate-x-1/2 bg-emerald-500 text-white text-[6px] md:text-[7px] font-black px-2 md:px-2.5 py-0.5 rounded-full uppercase tracking-widest whitespace-nowrap z-10">
+                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-emerald-600 text-white text-[7px] md:text-[9px] font-black px-3 md:px-4 py-1.5 rounded-full uppercase tracking-[0.1em] whitespace-nowrap z-20 shadow-lg ring-2 ring-white">
                         Best Value
                       </div>
                     )}
