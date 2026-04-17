@@ -321,7 +321,7 @@ const Navbar = ({ cartCount, onOpenCart, onOpenAuth, onNavigate, currentView }: 
   }, []);
 
   return (
-    <nav className="w-full transition-all duration-200 relative">
+    <nav className={`w-full transition-all duration-200 relative ${!showSolidNav && isDarkPage && currentView === 'shop' ? 'bg-black lg:bg-transparent' : ''}`}>
       <motion.div
         initial={false}
         animate={{ 
@@ -4799,7 +4799,7 @@ const Hero = ({ onShopNow, onViewCOAs }: { onShopNow: () => void, onViewCOAs: ()
         <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/20 to-transparent" />
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full translate-y-[20px]">
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full translate-y-[20px] md:-translate-y-[60px]">
         <motion.div
           initial={{ opacity: 0, x: -50 }}
           animate={{ opacity: 1, x: 0 }}
@@ -5065,10 +5065,10 @@ const ProductCard: React.FC<{
     <motion.div 
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="group flex flex-col bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-xl transition-all cursor-pointer h-[420px] md:h-[550px]"
+      className="group flex flex-col bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-xl transition-all cursor-pointer h-[380px] md:h-[460px]"
       onClick={() => onSelect(product)}
     >
-      <div className="aspect-[4/5] h-[180px] md:h-[300px] overflow-hidden relative flex-shrink-0 bg-gray-50">
+      <div className="aspect-[4/5] h-[160px] md:h-[240px] overflow-hidden relative flex-shrink-0 bg-gray-50">
         <img 
           src={product.image} 
           alt={product.name} 
@@ -5203,9 +5203,6 @@ const ShopView: React.FC<{
       exit={{ opacity: 0 }}
       className="bg-[#ededed] min-h-screen"
     >
-      {/* Mobile Bar Sitting on Top */}
-      <div className="h-[75px] bg-[#ededed] md:hidden" />
-
       {/* Shop Header */}
       <section className="relative bg-[#ededed] py-32 overflow-hidden">
         <div className="absolute inset-0 z-0">
