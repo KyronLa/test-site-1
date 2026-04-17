@@ -329,7 +329,7 @@ const Navbar = ({ cartCount, onOpenCart, onOpenAuth, onNavigate, currentView }: 
           opacity: showSolidNav ? 1 : 0
         }}
         transition={{ duration: 0.2, ease: "easeOut" }}
-        className="absolute inset-0 bg-[#1a1a1a] shadow-md -z-10"
+        className="absolute inset-0 bg-white shadow-md -z-10"
       />
       <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center transition-all duration-200 ${showSolidNav ? 'py-3' : 'py-5'} min-h-[70px] sm:min-h-[80px]`}>
         <button 
@@ -342,32 +342,29 @@ const Navbar = ({ cartCount, onOpenCart, onOpenAuth, onNavigate, currentView }: 
               initial={{ scale: 0.8, opacity: 0, rotate: -10 }}
               animate={{ scale: 1, opacity: 1, rotate: 0 }}
               transition={{ type: "spring", stiffness: 400, damping: 15 }}
-              src={showSolidNav ? "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969635/logo_gc8g0q.png" : "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969635/logo_gc8g0q.png"} 
+              src={showSolidNav ? "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969647/blacklogo_dbbepi.png" : "https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969635/logo_gc8g0q.png"} 
               alt="Eclipse Research" 
               className="h-10 sm:h-14 w-auto" 
               referrerPolicy="no-referrer"
             />
           </div>
-          <span className={`text-lg sm:text-xl font-bold tracking-tight text-white`}>ECLIPSE RESEARCH</span>
+          <span className={`text-lg sm:text-xl font-bold tracking-tight ${showSolidNav ? 'text-black' : 'text-white'}`}>ECLIPSE RESEARCH</span>
         </button>
 
         <div className="hidden lg:flex items-center gap-6 xl:gap-8">
-          <button onClick={() => onNavigate('shop')} className="text-[11px] font-bold uppercase tracking-wider hover:text-emerald-500 transition-colors text-white">Shop All</button>
-          <button onClick={() => onNavigate('calculator')} className="text-[11px] font-bold uppercase tracking-wider hover:text-emerald-500 transition-colors text-white">Calculator</button>
-          <button onClick={() => user ? onNavigate('account') : onOpenAuth()} className="text-[11px] font-bold uppercase tracking-wider hover:text-emerald-500 transition-colors text-white">My Account</button>
-          <button onClick={() => onNavigate('refer')} className="text-[11px] font-bold uppercase tracking-wider hover:text-emerald-500 transition-colors text-white">Refer & Earn</button>
-          <button onClick={() => onNavigate('about')} className="text-[11px] font-bold uppercase tracking-wider hover:text-emerald-500 transition-colors text-white">About Us</button>
-          <button onClick={() => onNavigate('affiliate')} className="text-[11px] font-bold uppercase tracking-wider hover:text-emerald-500 transition-colors text-white">Become an Affiliate</button>
-          <button onClick={() => onNavigate('coas')} className="text-[11px] font-bold uppercase tracking-wider hover:text-emerald-500 transition-colors text-white">Request COA</button>
+          <button onClick={() => onNavigate('shop')} className={`text-[13px] font-bold uppercase tracking-wider hover:text-emerald-500 transition-colors ${showSolidNav ? 'text-black' : 'text-white'}`}>Shop All</button>
+          <button onClick={() => onNavigate('calculator')} className={`text-[13px] font-bold uppercase tracking-wider hover:text-emerald-500 transition-colors ${showSolidNav ? 'text-black' : 'text-white'}`}>Calculator</button>
+          <button onClick={() => onNavigate('refer')} className={`text-[13px] font-bold uppercase tracking-wider hover:text-emerald-500 transition-colors ${showSolidNav ? 'text-black' : 'text-white'}`}>Refer & Earn</button>
+          <button onClick={() => onNavigate('affiliate')} className={`text-[13px] font-bold uppercase tracking-wider hover:text-emerald-500 transition-colors ${showSolidNav ? 'text-black' : 'text-white'}`}>Become an Affiliate</button>
           {isAdmin && (
-            <button onClick={() => onNavigate('admin')} className="text-[11px] font-extrabold text-emerald-500 hover:opacity-70 transition-opacity uppercase tracking-wider">Admin</button>
+            <button onClick={() => onNavigate('admin')} className="text-[13px] font-extrabold text-emerald-500 hover:opacity-70 transition-opacity uppercase tracking-wider">Admin</button>
           )}
         </div>
 
         <div className="flex items-center gap-1 sm:gap-4 flex-none">
           <button 
             onClick={onOpenCart}
-            className={`text-white relative p-2 hover:bg-white/5 rounded-full flex-shrink-0`}
+            className={`${showSolidNav ? 'text-black' : 'text-white'} relative p-2 hover:bg-black/5 rounded-full flex-shrink-0`}
           >
             <ShoppingCart className="w-6 h-6" />
             {cartCount > 0 && (
@@ -381,7 +378,7 @@ const Navbar = ({ cartCount, onOpenCart, onOpenAuth, onNavigate, currentView }: 
             <div className="flex items-center gap-2 flex-none">
               <button 
                 onClick={() => onNavigate('account')} 
-                className="w-10 h-10 min-w-[40px] min-h-[40px] rounded-full overflow-hidden border border-white/10 p-0 flex-none bg-white/5"
+                className={`w-10 h-10 min-w-[40px] min-h-[40px] rounded-full overflow-hidden border ${showSolidNav ? 'border-gray-200 bg-gray-100' : 'border-white/10 bg-white/5'} p-0 flex-none`}
               >
                 <img 
                   src={user.photoURL || `https://ui-avatars.com/api/?name=${user.displayName || user.email}&background=random`} 
@@ -390,21 +387,21 @@ const Navbar = ({ cartCount, onOpenCart, onOpenAuth, onNavigate, currentView }: 
                   style={{ width: '40px', height: '40px', minWidth: '40px', minHeight: '40px', borderRadius: '50%' }}
                 />
               </button>
-              <button onClick={logout} className={`text-white hover:opacity-70 p-2 flex-none`}>
+              <button onClick={logout} className={`${showSolidNav ? 'text-black' : 'text-white'} hover:opacity-70 p-2 flex-none`}>
                 <LogOut className="w-6 h-6" />
               </button>
             </div>
           ) : (
             <button 
               onClick={onOpenAuth}
-              className={`text-white p-2 hover:bg-white/5 rounded-full flex-shrink-0`}
+              className={`${showSolidNav ? 'text-black' : 'text-white'} p-2 hover:bg-black/5 rounded-full flex-shrink-0`}
             >
               <UserIcon className="w-6 h-6" />
             </button>
           )}
 
           <button className="lg:hidden p-2 flex-shrink-0" onClick={() => setIsMobileMenuOpen(true)}>
-            <Menu className={`w-6 h-6 text-white`} />
+            <Menu className={`w-6 h-6 ${showSolidNav ? 'text-black' : 'text-white'}`} />
           </button>
         </div>
       </div>
