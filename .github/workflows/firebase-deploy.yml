@@ -10,7 +10,7 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: '18'
-      - run: npm install --ignore-scripts=false --foreground-scripts
+      - run: npm install
       - run: npm run build
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
