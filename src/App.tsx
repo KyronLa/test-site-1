@@ -4813,20 +4813,20 @@ const Hero = ({ onShopNow, onViewCOAs }: { onShopNow: () => void, onViewCOAs: ()
         <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/20 to-transparent" />
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full translate-y-[20px] md:-translate-y-[60px]">
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full translate-y-[20px] md:translate-y-0 md:pt-40">
         <motion.div
           initial={{ opacity: 0, x: -50 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.8 }}
-          className="max-w-2xl md:-mt-12"
+          className="max-w-2xl md:mt-0"
         >
-          <h1 className="text-4xl sm:text-6xl md:text-7xl font-bold text-white tracking-tight mt-0 md:mt-20 mb-6 md:mb-8 leading-[0.9] uppercase md:-translate-y-[15px]">
+          <h1 className="text-4xl sm:text-6xl md:text-7xl font-bold text-white tracking-tight mt-0 md:mt-0 mb-6 md:mb-10 leading-[0.9] uppercase md:translate-y-[30px]">
             Purity <br />
             <span className="text-emerald-500">Peptides</span> <br />
             Without <br />
             Compromise
           </h1>
-          <p className="text-gray-400 text-sm md:text-xl mb-8 md:mb-4 max-w-lg leading-relaxed -translate-y-4 md:-translate-y-[45px]">
+          <p className="text-gray-400 text-sm md:text-xl mb-8 md:mb-10 max-w-lg leading-relaxed md:translate-y-0">
             Synthesizing high-purity research compounds for the global scientific community. 
             HPLC tested, 1-3 business days shipping, and laboratory verified.
           </p>
@@ -4836,7 +4836,7 @@ const Hero = ({ onShopNow, onViewCOAs }: { onShopNow: () => void, onViewCOAs: ()
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 }}
-            className="hidden md:inline-flex items-center gap-x-4 md:gap-x-8 px-5 py-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-xl mb-4 md:-translate-y-[40px]"
+            className="hidden md:inline-flex items-center gap-x-4 md:gap-x-8 px-5 py-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-xl mb-4 md:mb-12 md:translate-y-0"
           >
             <span className="text-[8px] md:text-[10px] font-bold text-white uppercase tracking-widest">99% Purity</span>
             <div className="w-[1px] h-3 bg-white/10" />
