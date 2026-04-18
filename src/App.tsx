@@ -4813,37 +4813,23 @@ const Hero = ({ onShopNow, onViewCOAs }: { onShopNow: () => void, onViewCOAs: ()
         <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/20 to-transparent" />
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full translate-y-[20px] md:translate-y-0 md:pt-40">
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full translate-y-[20px] md:translate-y-[20px]">
         <motion.div
           initial={{ opacity: 0, x: -50 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.8 }}
-          className="max-w-2xl md:mt-0"
+          className="max-w-2xl md:-mt-12"
         >
-          <h1 className="text-4xl sm:text-6xl md:text-7xl font-bold text-white tracking-tight mt-0 md:mt-0 mb-6 md:mb-10 leading-[0.9] uppercase md:translate-y-[30px]">
+          <h1 className="text-4xl sm:text-6xl md:text-7xl font-bold text-white tracking-tight mt-0 md:mt-20 mb-6 md:mb-8 leading-[0.9] uppercase md:translate-y-[20px]">
             Purity <br />
             <span className="text-emerald-500">Peptides</span> <br />
             Without <br />
             Compromise
           </h1>
-          <p className="text-gray-400 text-sm md:text-xl mb-8 md:mb-10 max-w-lg leading-relaxed md:translate-y-0">
+          <p className="text-gray-400 text-sm md:text-xl mb-8 md:mb-4 max-w-lg leading-relaxed -translate-y-4 md:-translate-y-[10px]">
             Synthesizing high-purity research compounds for the global scientific community. 
             HPLC tested, 1-3 business days shipping, and laboratory verified.
           </p>
-
-          {/* Desktop Trust Bubble */}
-          <motion.div 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-            className="hidden md:inline-flex items-center gap-x-4 md:gap-x-8 px-5 py-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-xl mb-4 md:mb-12 md:translate-y-0"
-          >
-            <span className="text-[8px] md:text-[10px] font-bold text-white uppercase tracking-widest">99% Purity</span>
-            <div className="w-[1px] h-3 bg-white/10" />
-            <span className="text-[8px] md:text-[10px] font-bold text-white uppercase tracking-widest">COA Available</span>
-            <div className="w-[1px] h-3 bg-white/10" />
-            <span className="text-[8px] md:text-[10px] font-bold text-white uppercase tracking-widest">$250+ free shipping</span>
-          </motion.div>
 
           <div className="flex flex-wrap items-start gap-4 md:gap-6 -mt-[30px] md:mt-8">
             <motion.button 
@@ -4871,29 +4857,27 @@ const Hero = ({ onShopNow, onViewCOAs }: { onShopNow: () => void, onViewCOAs: ()
               </span>
             </motion.button>
             
-            <div className="flex flex-col items-center gap-4">
-              <button 
-                onClick={onViewCOAs}
-                className="w-full px-6 py-3 md:px-10 md:py-5 border border-white/20 text-white text-sm md:text-base font-bold rounded-2xl hover:bg-white/10 transition-all"
-              >
-                Request COA's
-              </button>
-
-              {/* Mobile Trust Bubble */}
-              <motion.div 
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5 }}
-                className="md:hidden inline-flex items-center gap-x-4 md:gap-x-8 px-5 py-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-xl"
-              >
-                <span className="text-[8px] md:text-[10px] font-bold text-white uppercase tracking-widest">99% Purity</span>
-                <div className="w-[1px] h-3 bg-white/10" />
-                <span className="text-[8px] md:text-[10px] font-bold text-white uppercase tracking-widest">COA Available</span>
-                <div className="w-[1px] h-3 bg-white/10" />
-                <span className="text-[8px] md:text-[10px] font-bold text-white uppercase tracking-widest">$250+ free shipping</span>
-              </motion.div>
-            </div>
+            <button 
+              onClick={onViewCOAs}
+              className="px-6 py-3 md:px-10 md:py-5 border border-white/20 text-white text-sm md:text-base font-bold rounded-2xl hover:bg-white/10 transition-all ml-0 md:ml-0"
+            >
+              Request COA's
+            </button>
           </div>
+
+          {/* Unified Trust Bubble */}
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+            className="flex items-center gap-x-4 md:gap-x-8 px-5 py-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-xl mt-6 lg:mt-8 w-fit"
+          >
+            <span className="text-[8px] md:text-[10px] font-bold text-white uppercase tracking-widest">99% Purity</span>
+            <div className="w-[1px] h-3 bg-white/10" />
+            <span className="text-[8px] md:text-[10px] font-bold text-white uppercase tracking-widest">COA Available</span>
+            <div className="w-[1px] h-3 bg-white/10" />
+            <span className="text-[8px] md:text-[10px] font-bold text-white uppercase tracking-widest">$250+ free shipping</span>
+          </motion.div>
         </motion.div>
       </div>
 
