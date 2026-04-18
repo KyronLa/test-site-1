@@ -770,6 +770,13 @@ const AuthModal = ({ isOpen, onClose, onNavigate }: { isOpen: boolean, onClose: 
     }
   }, [user, isOpen, onClose]);
 
+  useEffect(() => {
+    if (email && email.includes('@') && email.length > 5) {
+      const _learnq = (window as any)._learnq || [];
+      _learnq.push(['identify', { '$email': email }]);
+    }
+  }, [email]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -1539,6 +1546,13 @@ const AffiliateApplicationModal = ({ isOpen, onClose }: { isOpen: boolean; onClo
       }));
     }
   }, [user, isOpen]);
+
+  useEffect(() => {
+    if (formData.email && formData.email.includes('@') && formData.email.length > 5) {
+      const _learnq = (window as any)._learnq || [];
+      _learnq.push(['identify', { '$email': formData.email }]);
+    }
+  }, [formData.email]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -5602,6 +5616,13 @@ const COARequestView = () => {
     }
   }, [user]);
 
+  useEffect(() => {
+    if (email && email.includes('@') && email.length > 5) {
+      const _learnq = (window as any)._learnq || [];
+      _learnq.push(['identify', { '$email': email }]);
+    }
+  }, [email]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) {
@@ -5822,6 +5843,14 @@ const CheckoutView = ({
       setShippingInfo(prev => ({ ...prev, email: user.email }));
     }
   }, [user]);
+  useEffect(() => {
+    const email = shippingInfo.email;
+    if (email && email.includes('@') && email.length > 5) {
+      const _learnq = (window as any)._learnq || [];
+      _learnq.push(['identify', { '$email': email }]);
+    }
+  }, [shippingInfo.email]);
+
   const [shippingMethod, setShippingMethod] = useState(initialOrder?.shippingMethod || 'express');
   const [paymentMethod, setPaymentMethod] = useState(initialOrder?.paymentMethod || 'card');
   const [acknowledgements, setAcknowledgements] = useState({
@@ -6071,18 +6100,7 @@ const CheckoutView = ({
                     type="email" 
                     className={`w-full px-2 md:px-4 py-2 md:py-3 bg-gray-50 rounded-lg md:rounded-xl border-none focus:ring-2 focus:ring-black transition-all text-xs md:text-base ${user ? 'opacity-60 cursor-not-allowed' : ''}`}
                     value={shippingInfo.email}
-                    onChange={e => {
-                      const email = e.target.value;
-                      if (!user) setShippingInfo({...shippingInfo, email});
-                      
-                      // Identify user as soon as they type a potentially valid email
-                      if (email && email.includes('@') && email.length > 5) {
-                        const _learnq = (window as any)._learnq || [];
-                        _learnq.push(['identify', {
-                          '$email': email
-                        }]);
-                      }
-                    }}
+                    onChange={e => !user && setShippingInfo({...shippingInfo, email: e.target.value})}
                     readOnly={!!user}
                   />
                 </div>
@@ -7491,6 +7509,15 @@ const AppContent = () => {
   }, [user]);
 
   useEffect(() => {
+    if (user?.email) {
+      const _learnq = (window as any)._learnq || [];
+      _learnq.push(['identify', {
+        '$email': user.email
+      }]);
+    }
+  }, [user]);
+
+  useEffect(() => {
     window.scrollTo(0, 0);
     // Klaviyo Active on Site tracking
     const _learnq = (window as any)._learnq || [];
@@ -7532,6 +7559,13 @@ const AppContent = () => {
 
     // Fire Klaviyo event with full current cart contents
     const _learnq = (window as any)._learnq || [];
+    
+    // Attempt to identify from user profile or saved email if available
+    const email = user?.email || userProfile?.email;
+    if (email) {
+      _learnq.push(['identify', { '$email': email }]);
+    }
+
     _learnq.push(['track', 'Added to Cart', cartData]);
   }, [cart]);
 
