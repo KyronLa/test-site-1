@@ -7331,10 +7331,13 @@ const AppContent = () => {
       try {
         const snapshot = await getDoc(doc(db, 'carts', cartId));
         if (snapshot.exists()) {
-          setCart(snapshot.data().items || []);
-        } else {
-          setCart([]);
+          const remoteItems = snapshot.data().items || [];
+          if (remoteItems.length > 0) {
+            setCart(remoteItems);
+          }
         }
+        // We don't setCart([]) here because it might overwrite the localStorage cart
+        // which is initialized in the useState.
       } catch (error) {
         console.error('Error loading cart:', error);
       } finally {
