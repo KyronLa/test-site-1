@@ -30,8 +30,8 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() && 
-             ('email' in request.auth.token) &&
-             (request.auth.token.email.lower() in ["info@eclipseresearch.shop", "kyron.laskosky2@gmail.com"]);
+             (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true);
     }
 
     function isValidEmail(email) {

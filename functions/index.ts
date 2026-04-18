@@ -82,8 +82,9 @@ async function verifyToken(req: any): Promise<admin.auth.DecodedIdToken> {
  */
 async function verifyAdmin(req: any): Promise<admin.auth.DecodedIdToken> {
   const decodedToken = await verifyToken(req);
-  const adminEmails = ['info@eclipseresearch.shop', 'kyron.laskosky2@gmail.com'];
-  if (!adminEmails.includes(decodedToken.email || '') || !decodedToken.email_verified) {
+  const userDoc = await db.collection('users').doc(decodedToken.uid).get();
+  const userData = userDoc.data();
+  if (!userData || (userData.role !== 'admin' && !userData.isAdmin)) {
     throw new Error('Forbidden: Admin access required');
   }
   return decodedToken;
@@ -143,8 +144,9 @@ export const generateAIContent = onCall(async (request: any) => {
   }
   
   // Verify admin for AI content generation if it's for admin purposes
-  const adminEmails = ['info@eclipseresearch.shop', 'kyron.laskosky2@gmail.com'];
-  if (!adminEmails.includes(request.auth.token.email || '') || !request.auth.token.email_verified) {
+  const userDoc = await db.collection('users').doc(request.auth.uid).get();
+  const userData = userDoc.data();
+  if (!userData || (userData.role !== 'admin' && !userData.isAdmin)) {
     throw new HttpsError("permission-denied", "Admin access required for AI generation.");
   }
 

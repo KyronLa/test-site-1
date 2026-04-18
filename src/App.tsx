@@ -4565,15 +4565,11 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const userDocRef = doc(db, 'users', u.uid);
     try {
       const userDoc = await getDoc(userDocRef);
-      const adminEmails = ['info@eclipseresearch.shop', 'kyron.laskosky2@gmail.com'];
-      const userEmail = (u.email || '').toLowerCase().trim();
-      const isUserAdmin = adminEmails.some(email => email.toLowerCase().trim() === userEmail);
       
       if (!userDoc.exists()) {
         console.log("Creating new user document...");
         const [firstName, ...lastNameParts] = (u.displayName || 'Research User').split(' ');
         const lastName = lastNameParts.join(' ') || '';
-        const role = isUserAdmin ? 'admin' : 'user';
 
         try {
           await setDoc(userDocRef, {
@@ -4581,7 +4577,8 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             firstName,
             lastName,
             displayName: u.displayName || `${firstName} ${lastName}`,
-            role: role,
+            role: 'user',
+            isAdmin: false,
             createdAt: serverTimestamp(),
             lastLogin: serverTimestamp(),
             rewardPoints: 0,
@@ -4594,13 +4591,9 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
       } else {
         console.log("Updating existing user document...");
-        const userData = userDoc.data();
-        console.log("Existing user data:", userData);
         try {
           await updateDoc(userDocRef, {
             lastLogin: serverTimestamp(),
-            // Ensure role is correct if they are in the admin list but not marked in DB
-            ...(isUserAdmin && userData.role !== 'admin' ? { role: 'admin' } : {})
           });
           console.log("User document updated successfully");
         } catch (err) {
@@ -4650,29 +4643,20 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             await syncUserWithFirestore(u);
             
             const userDoc = await getDoc(doc(db, 'users', u.uid));
-            const adminEmails = ['info@eclipseresearch.shop', 'kyron.laskosky2@gmail.com'];
-            const userEmail = (u.email || '').toLowerCase().trim();
-            const isUserAdmin = adminEmails.some(email => email.toLowerCase().trim() === userEmail);
             
             if (userDoc.exists()) {
               const userData = userDoc.data();
-              const finalIsAdmin = isUserAdmin || userData.role === 'admin';
-              console.log("Admin check:", { isUserAdmin, dbRole: userData.role, finalIsAdmin });
+              const finalIsAdmin = userData.role === 'admin' || userData.isAdmin === true;
+              console.log("Admin check:", { dbRole: userData.role, dbIsAdmin: userData.isAdmin, finalIsAdmin });
               setIsAdmin(finalIsAdmin);
               setIsFreeShippingEnabled(userData.isFreeShippingEnabled || false);
-            } else if (isUserAdmin) {
-              console.log("Admin check: User doc missing but email matches admin list");
-              setIsAdmin(true);
             } else {
-              console.log("Admin check: User is not an admin");
+              console.log("Admin check: User doc missing");
               setIsAdmin(false);
             }
           } catch (e) {
             console.error("Error syncing user data:", e);
-            // Fallback to email check if DB fails
-            const adminEmails = ['info@eclipseresearch.shop', 'kyron.laskosky2@gmail.com'];
-            const userEmail = (u.email || '').toLowerCase().trim();
-            setIsAdmin(adminEmails.some(email => email.toLowerCase().trim() === userEmail));
+            setIsAdmin(false);
           }
         } else {
           console.log("Auth state changed: No user");
@@ -4704,15 +4688,14 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       displayName: `${firstName} ${lastName}`
     });
 
-    const role = u.email === 'info@eclipseresearch.shop' ? 'admin' : 'user';
-
     await setDoc(doc(db, 'users', u.uid), {
       email: u.email,
       firstName,
       lastName,
       phone: phone || null,
       displayName: `${firstName} ${lastName}`,
-      role: role,
+      role: 'user',
+      isAdmin: false,
       createdAt: serverTimestamp(),
       lastLogin: serverTimestamp()
     });
@@ -4820,7 +4803,7 @@ const Hero = ({ onShopNow, onViewCOAs }: { onShopNow: () => void, onViewCOAs: ()
           transition={{ duration: 0.8 }}
           className="max-w-2xl md:-mt-12"
         >
-          <h1 className="text-4xl sm:text-6xl md:text-7xl font-bold text-white tracking-tight mt-0 md:mt-20 mb-6 md:mb-8 leading-[0.9] uppercase md:translate-y-[20px]">
+          <h1 className="text-4xl sm:text-6xl md:text-6xl font-bold text-white tracking-tight mt-0 md:mt-20 mb-6 md:mb-8 leading-[0.9] uppercase md:translate-y-[20px]">
             Purity <br />
             <span className="text-emerald-500">Peptides</span> <br />
             Without <br />
@@ -4831,7 +4814,7 @@ const Hero = ({ onShopNow, onViewCOAs }: { onShopNow: () => void, onViewCOAs: ()
             HPLC tested, 1-3 business days shipping, and laboratory verified.
           </p>
 
-          <div className="flex flex-wrap items-start gap-4 md:gap-6 -mt-[30px] md:mt-8">
+          <div className="flex flex-wrap items-start gap-4 md:gap-6 -mt-[30px] md:mt-8 md:-translate-y-[20px]">
             <motion.button 
               onClick={onShopNow}
               whileHover={{ 
@@ -4870,7 +4853,7 @@ const Hero = ({ onShopNow, onViewCOAs }: { onShopNow: () => void, onViewCOAs: ()
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 }}
-            className="flex items-center gap-x-4 md:gap-x-8 px-5 py-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-xl mt-6 lg:mt-8 w-fit"
+            className="flex items-center gap-x-4 md:gap-x-8 px-5 py-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-xl mt-6 md:-mt-[15px] lg:-mt-[15px] w-fit"
           >
             <span className="text-[8px] md:text-[10px] font-bold text-white uppercase tracking-widest">99% Purity</span>
             <div className="w-[1px] h-3 bg-white/10" />
