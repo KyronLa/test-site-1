@@ -4847,14 +4847,14 @@ const Hero = ({ onShopNow, onViewCOAs }: { onShopNow: () => void, onViewCOAs: ()
                 repeat: Infinity,
                 ease: "easeInOut"
               }}
-              className="px-6 py-3 md:px-10 md:py-5 bg-white text-black text-sm md:text-base font-bold rounded-2xl hover:bg-emerald-500 hover:text-white transition-all active:scale-95 flex items-center gap-2 md:gap-3"
+              className="px-6 py-3 md:px-10 md:py-5 bg-white text-black text-sm md:text-base font-bold rounded-2xl hover:bg-emerald-500 hover:text-white transition-all active:scale-95 flex items-center gap-2 md:gap-3 relative"
             >
-              <div className="relative flex items-center gap-2 md:gap-3">
+              <div className="flex items-center gap-2 md:gap-3">
                 Explore Catalog <ChevronRight className="w-4 h-4 md:w-5 md:h-5" />
-                <span className="absolute -top-6 -right-4 md:-top-5 md:-right-4 bg-emerald-500 text-white text-[8px] md:text-[10px] font-black px-2 py-0.5 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.5)] animate-bounce uppercase tracking-tighter">
-                  Sale
-                </span>
               </div>
+              <span className="absolute -top-3 right-4 md:right-8 bg-emerald-500 text-white text-[8px] md:text-[11px] font-black px-2 md:px-4 py-0.5 md:py-1 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.5)] animate-bounce uppercase tracking-tighter whitespace-nowrap z-20">
+                Sale
+              </span>
             </motion.button>
             
             <div className="flex flex-col items-center gap-4">
@@ -6071,7 +6071,18 @@ const CheckoutView = ({
                     type="email" 
                     className={`w-full px-2 md:px-4 py-2 md:py-3 bg-gray-50 rounded-lg md:rounded-xl border-none focus:ring-2 focus:ring-black transition-all text-xs md:text-base ${user ? 'opacity-60 cursor-not-allowed' : ''}`}
                     value={shippingInfo.email}
-                    onChange={e => !user && setShippingInfo({...shippingInfo, email: e.target.value})}
+                    onChange={e => {
+                      const email = e.target.value;
+                      if (!user) setShippingInfo({...shippingInfo, email});
+                      
+                      // Identify user as soon as they type a potentially valid email
+                      if (email && email.includes('@') && email.length > 5) {
+                        const _learnq = (window as any)._learnq || [];
+                        _learnq.push(['identify', {
+                          '$email': email
+                        }]);
+                      }
+                    }}
                     readOnly={!!user}
                   />
                 </div>
@@ -7476,17 +7487,43 @@ const AppContent = () => {
     _learnq.push(['track', 'Active on Site']);
   }, [view]);
 
-  const addToCart = (product: Product, quantity: number = 1) => {
-    // Klaviyo Added to Cart tracking
-    const klaviyo = (window as any).klaviyo || [];
-    klaviyo.push(['track', 'Added to Cart', {
-      'ProductName': product.name,
-      'ProductID': product.id,
-      'Price': product.price,
-      'ItemURL': window.location.origin + '/?product=' + product.id,
-      'ImageURL': product.image
-    }]);
+  useEffect(() => {
+    if (cart.length === 0) {
+      localStorage.removeItem('klaviyo_cart');
+      return;
+    }
+    
+    const cartValue = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const cartData = {
+      '$value': cartValue,
+      'ItemNames': cart.map(item => item.name),
+      'CheckoutURL': 'https://eclipseresearch.shop/checkout',
+      'Items': cart.map(item => ({
+        ProductName: item.name,
+        ItemPrice: item.price,
+        Quantity: item.quantity,
+        SKU: item.id
+      }))
+    };
 
+    // Save to localStorage for persistence
+    localStorage.setItem('klaviyo_cart', JSON.stringify({
+      items: cart.map(item => ({
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        sku: item.id
+      })),
+      totalValue: cartValue,
+      checkoutUrl: 'https://eclipseresearch.shop/checkout'
+    }));
+
+    // Fire Klaviyo event with full current cart contents
+    const _learnq = (window as any)._learnq || [];
+    _learnq.push(['track', 'Added to Cart', cartData]);
+  }, [cart]);
+
+  const addToCart = (product: Product, quantity: number = 1) => {
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id && item.dosage === product.dosage);
       const newQuantity = existing ? existing.quantity + quantity : quantity;
@@ -7505,20 +7542,6 @@ const AppContent = () => {
   };
 
   const updateQuantity = (id: string, delta: number) => {
-    if (delta > 0) {
-      const item = cart.find(i => i.id === id);
-      if (item) {
-        const klaviyo = (window as any).klaviyo || [];
-        klaviyo.push(['track', 'Added to Cart', {
-          'ProductName': item.name,
-          'ProductID': item.id,
-          'Price': item.price,
-          'ItemURL': window.location.origin + '/?product=' + item.id,
-          'ImageURL': item.image
-        }]);
-      }
-    }
-
     setCart(prev => prev.map(item => {
       if (item.id === id) {
         const newQty = item.quantity + delta;
