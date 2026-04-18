@@ -7262,7 +7262,14 @@ const OrderSuccessView = ({ onBackToHome }: { onBackToHome: () => void }) => {
 const AppContent = () => {
   const [view, setView] = useState<'home' | 'shop' | 'about' | 'coas' | 'admin' | 'account' | 'checkout' | 'product' | 'terms' | 'shipping' | 'refund' | 'privacy' | 'calculator' | 'affiliate' | 'order-success' | 'refer'>('home');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [cart, setCart] = useState<CartItem[]>([]);
+  const [cart, setCart] = useState<CartItem[]>(() => {
+    const saved = localStorage.getItem('eclipse_cart');
+    try {
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [editingOrder, setEditingOrder] = useState<any>(null);
@@ -7490,6 +7497,7 @@ const AppContent = () => {
   useEffect(() => {
     if (cart.length === 0) {
       localStorage.removeItem('klaviyo_cart');
+      localStorage.removeItem('eclipse_cart');
       return;
     }
     
@@ -7507,6 +7515,7 @@ const AppContent = () => {
     };
 
     // Save to localStorage for persistence
+    localStorage.setItem('eclipse_cart', JSON.stringify(cart));
     localStorage.setItem('klaviyo_cart', JSON.stringify({
       items: cart.map(item => ({
         name: item.name,
