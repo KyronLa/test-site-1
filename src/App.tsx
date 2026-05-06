@@ -1,4 +1,18 @@
+/**
+ * Eclipse Research Shop - Main Application
+ * Last Updated: 2026-05-06 - Order Flow & Admin Fixes
+ */
 import React, { useState, useEffect, useRef, createContext, useContext, Component } from 'react';
+import { 
+  BrowserRouter, 
+  Routes, 
+  Route, 
+  Link, 
+  useNavigate, 
+  useLocation, 
+  useParams, 
+  Navigate 
+} from 'react-router-dom';
 import { 
   Search, 
   ShoppingCart, 
@@ -15,7 +29,9 @@ import {
   Image as ImageIcon,
   Send,
   Loader2,
+  AlertCircle,
   AlertTriangle,
+  BadgePercent,
   Info,
   User as UserIcon,
   LogOut,
@@ -42,9 +58,17 @@ import {
   Tag,
   Copy,
   Check,
-  Crown
+  Crown,
+  ArrowRight,
+  Lock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+const maskEmail = (email: string) => {
+  if (!email || email === 'Guest') return 'Explorer';
+  if (!email.includes('@')) return email;
+  const [name, domain] = email.split('@');
+  return `${name.substring(0, 3)}***@${domain}`;
+};
 import { 
   signInWithRedirect,
   getRedirectResult,
@@ -75,10 +99,12 @@ import {
   updateDoc,
   Timestamp,
   increment,
+  arrayUnion,
   or,
   and
 } from 'firebase/firestore';
-import { auth, db } from './firebase';
+import { auth, db, functions } from './firebase';
+import { httpsCallable } from 'firebase/functions';
 import { INITIAL_PRODUCTS } from './constants';
 import { sanitizeData, sanitizeInput } from './lib/sanitization';
 
@@ -222,18 +248,23 @@ interface CartItem extends Product {
 }
 
 export const isProductAvailable = (product: Product): boolean => {
-  // Check default option stock
-  const defaultInStock = product.stock !== undefined ? product.stock > 0 : product.inStock !== false;
-  if (defaultInStock) return true;
+  if (product.isArchived) return false;
 
-  // If dosages exist, check if ANY are in stock
-  if (product.dosages && product.dosages.length > 0) {
-    return product.dosages.some(d => 
-      d.stock !== undefined ? d.stock > 0 : d.inStock !== false
-    );
+  // 1. Check if any dosage variation is in stock
+  const hasInStockDosage = product.dosages && product.dosages.length > 0 && product.dosages.some(d => {
+    if (typeof d.stock === 'number') return d.stock > 0;
+    return d.inStock !== false;
+  });
+
+  if (hasInStockDosage) return true;
+
+  // 2. If no dosages or all dosages out of stock, check the main stock field
+  if (typeof product.stock === 'number') {
+    return product.stock > 0;
   }
 
-  return false;
+  // 3. Fallback to the top-level boolean flag
+  return true;
 };
 
 interface SiteSettings {
@@ -275,9 +306,10 @@ const getGuestId = () => {
   return guestId;
 };
 
-const CountdownBanner = ({ currentView, settings, timeLeft }: { currentView: string, settings: SiteSettings | null, timeLeft: any }) => {
-  const showOnViews = ['home', 'shop', 'product', 'checkout'];
-  if (!settings?.countdownActive || !timeLeft || !showOnViews.includes(currentView)) return null;
+const CountdownBanner = ({ settings, timeLeft }: { settings: SiteSettings | null, timeLeft: any }) => {
+  const location = useLocation();
+  const showOnViews = ['/', '/shop', '/product', '/checkout'];
+  if (!settings?.countdownActive || !timeLeft || !showOnViews.some(path => location.pathname.startsWith(path))) return null;
 
   return (
     <div className="bg-emerald-600 text-white py-2 px-4 text-center relative z-[60]">
@@ -306,12 +338,14 @@ const CountdownBanner = ({ currentView, settings, timeLeft }: { currentView: str
 
 // --- Components ---
 
-const Navbar = ({ cartCount, onOpenCart, onOpenAuth, onNavigate, currentView }: { cartCount: number, onOpenCart: () => void, onOpenAuth: () => void, onNavigate: (view: any) => void, currentView: string }) => {
+const Navbar = ({ cartCount, onOpenCart, onOpenAuth }: { cartCount: number, onOpenCart: () => void, onOpenAuth: () => void }) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { user, logout, isAdmin } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  const isDarkPage = currentView === 'home' || currentView === 'shop' || currentView === 'refer';
+  const isDarkPage = location.pathname === '/' || location.pathname === '/shop' || location.pathname === '/refer';
   const showSolidNav = isScrolled || !isDarkPage;
 
   useEffect(() => {
@@ -321,7 +355,7 @@ const Navbar = ({ cartCount, onOpenCart, onOpenAuth, onNavigate, currentView }: 
   }, []);
 
   return (
-    <nav className={`w-full transition-all duration-200 relative ${!showSolidNav && isDarkPage && currentView === 'shop' ? 'bg-black lg:bg-transparent' : ''}`}>
+    <nav className={`w-full transition-all duration-200 relative ${!showSolidNav && isDarkPage && location.pathname === '/shop' ? 'bg-black lg:bg-transparent' : ''}`}>
       <motion.div
         initial={false}
         animate={{ 
@@ -332,8 +366,8 @@ const Navbar = ({ cartCount, onOpenCart, onOpenAuth, onNavigate, currentView }: 
         className="absolute inset-0 bg-white shadow-md -z-10"
       />
       <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center transition-all duration-200 ${showSolidNav ? 'py-3' : 'py-5'} min-h-[70px] sm:min-h-[80px]`}>
-        <button 
-          onClick={() => onNavigate('home')}
+        <Link 
+          to="/"
           className="flex items-center gap-2 hover:opacity-80 transition-opacity min-w-0 flex-shrink"
         >
           <div className="relative h-10 sm:h-14 w-auto flex-shrink-0 flex items-center justify-center">
@@ -349,15 +383,15 @@ const Navbar = ({ cartCount, onOpenCart, onOpenAuth, onNavigate, currentView }: 
             />
           </div>
           <span className={`text-lg sm:text-xl font-bold tracking-tight ${showSolidNav ? 'text-black' : 'text-white'}`}>ECLIPSE RESEARCH</span>
-        </button>
+        </Link>
 
         <div className="hidden lg:flex items-center gap-6 xl:gap-8">
-          <button onClick={() => onNavigate('shop')} className={`text-[13px] font-bold uppercase tracking-wider hover:text-emerald-500 transition-colors ${showSolidNav ? 'text-black' : 'text-white'}`}>Shop All</button>
-          <button onClick={() => onNavigate('calculator')} className={`text-[13px] font-bold uppercase tracking-wider hover:text-emerald-500 transition-colors ${showSolidNav ? 'text-black' : 'text-white'}`}>Calculator</button>
-          <button onClick={() => onNavigate('refer')} className={`text-[13px] font-bold uppercase tracking-wider hover:text-emerald-500 transition-colors ${showSolidNav ? 'text-black' : 'text-white'}`}>Refer & Earn</button>
-          <button onClick={() => onNavigate('affiliate')} className={`text-[13px] font-bold uppercase tracking-wider hover:text-emerald-500 transition-colors ${showSolidNav ? 'text-black' : 'text-white'}`}>Become an Affiliate</button>
+          <Link to="/shop" className={`text-[13px] font-bold uppercase tracking-wider hover:text-emerald-500 transition-colors ${showSolidNav ? 'text-black' : 'text-white'}`}>Shop All</Link>
+          <Link to="/calculator" className={`text-[13px] font-bold uppercase tracking-wider hover:text-emerald-500 transition-colors ${showSolidNav ? 'text-black' : 'text-white'}`}>Calculator</Link>
+          <Link to="/refer" className={`text-[13px] font-bold uppercase tracking-wider hover:text-emerald-500 transition-colors ${showSolidNav ? 'text-black' : 'text-white'}`}>Refer & Earn</Link>
+          <Link to="/affiliate" className={`text-[13px] font-bold uppercase tracking-wider hover:text-emerald-500 transition-colors ${showSolidNav ? 'text-black' : 'text-white'}`}>Become an Affiliate</Link>
           {isAdmin && (
-            <button onClick={() => onNavigate('admin')} className="text-[13px] font-extrabold text-emerald-500 hover:opacity-70 transition-opacity uppercase tracking-wider">Admin</button>
+            <Link to="/admin" className="text-[13px] font-extrabold text-emerald-500 hover:opacity-70 transition-opacity uppercase tracking-wider">Admin</Link>
           )}
         </div>
 
@@ -377,7 +411,7 @@ const Navbar = ({ cartCount, onOpenCart, onOpenAuth, onNavigate, currentView }: 
           {user ? (
             <div className="flex items-center gap-2 flex-none">
               <button 
-                onClick={() => onNavigate('account')} 
+                onClick={() => navigate('/account')} 
                 className={`w-10 h-10 min-w-[40px] min-h-[40px] rounded-full overflow-hidden border ${showSolidNav ? 'border-gray-200 bg-gray-100' : 'border-white/10 bg-white/5'} p-0 flex-none`}
               >
                 <img 
@@ -418,15 +452,15 @@ const Navbar = ({ cartCount, onOpenCart, onOpenAuth, onNavigate, currentView }: 
               <button onClick={() => setIsMobileMenuOpen(false)}><X className="w-8 h-8" /></button>
             </div>
             <div className="flex flex-col gap-6 mt-12">
-              <button onClick={() => { onNavigate('shop'); setIsMobileMenuOpen(false); }} className="text-xl font-black text-black border-b border-gray-100 pb-4 text-left uppercase tracking-tighter">Shop All</button>
-              <button onClick={() => { onNavigate('calculator'); setIsMobileMenuOpen(false); }} className="text-xl font-black text-black border-b border-gray-100 pb-4 text-left uppercase tracking-tighter">Calculator</button>
-              <button onClick={() => { if (user) onNavigate('account'); else onOpenAuth(); setIsMobileMenuOpen(false); }} className="text-xl font-black text-black border-b border-gray-100 pb-4 text-left uppercase tracking-tighter">My Account</button>
-              <button onClick={() => { onNavigate('refer'); setIsMobileMenuOpen(false); }} className="text-xl font-black text-black border-b border-gray-100 pb-4 text-left uppercase tracking-tighter">Refer & Earn</button>
-              <button onClick={() => { onNavigate('about'); setIsMobileMenuOpen(false); }} className="text-xl font-black text-black border-b border-gray-100 pb-4 text-left uppercase tracking-tighter">About Us</button>
-              <button onClick={() => { onNavigate('affiliate'); setIsMobileMenuOpen(false); }} className="text-xl font-black text-black border-b border-gray-100 pb-4 text-left uppercase tracking-tighter">Become an Affiliate</button>
-              <button onClick={() => { onNavigate('coas'); setIsMobileMenuOpen(false); }} className="text-xl font-black text-black border-b border-gray-100 pb-4 text-left uppercase tracking-tighter">Request COA</button>
+              <Link to="/shop" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-black text-black border-b border-gray-100 pb-4 text-left uppercase tracking-tighter">Shop All</Link>
+              <Link to="/calculator" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-black text-black border-b border-gray-100 pb-4 text-left uppercase tracking-tighter">Calculator</Link>
+              <Link to="/account" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-black text-black border-b border-gray-100 pb-4 text-left uppercase tracking-tighter">My Account</Link>
+              <Link to="/refer" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-black text-black border-b border-gray-100 pb-4 text-left uppercase tracking-tighter">Refer & Earn</Link>
+              <Link to="/about" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-black text-black border-b border-gray-100 pb-4 text-left uppercase tracking-tighter">About Us</Link>
+              <Link to="/affiliate" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-black text-black border-b border-gray-100 pb-4 text-left uppercase tracking-tighter">Become an Affiliate</Link>
+              <Link to="/coas" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-black text-black border-b border-gray-100 pb-4 text-left uppercase tracking-tighter">Request COA</Link>
               {isAdmin && (
-                <button onClick={() => { onNavigate('admin'); setIsMobileMenuOpen(false); }} className="text-xl font-black text-emerald-500 border-b border-gray-100 pb-4 text-left uppercase tracking-tighter">Admin Panel</button>
+                <Link to="/admin" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-black text-emerald-500 border-b border-gray-100 pb-4 text-left uppercase tracking-tighter">Admin Panel</Link>
               )}
             </div>
           </motion.div>
@@ -597,41 +631,41 @@ const CartDrawer = ({
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
+            <div className="flex-1 overflow-y-auto p-3 space-y-2 scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
               {items.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-4">
                   <ShoppingCart className="w-16 h-16 opacity-20" />
                   <p>Your cart is empty</p>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {items.map((item) => (
-                    <div key={item.id} className="flex gap-4 p-3 bg-gray-50/50 rounded-xl border border-gray-100">
-                      <div className="w-16 h-16 bg-white rounded-lg overflow-hidden flex-shrink-0 border border-gray-100">
+                    <div key={item.id} className="flex gap-3 p-2 bg-gray-50/50 rounded-lg border border-gray-100">
+                      <div className="w-12 h-12 bg-white rounded-md overflow-hidden flex-shrink-0 border border-gray-100">
                         <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
                       </div>
-                      <div className="flex-1">
-                        <div className="flex justify-between mb-1">
-                          <h3 className="font-bold text-xs">{item.name}</h3>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between mb-0.5">
+                          <h3 className="font-bold text-[11px] leading-tight truncate pr-2">{item.name}</h3>
                           <button onClick={() => onRemove(item.id)} className="text-gray-400 hover:text-red-500">
                             <Trash2 className="w-3 h-3" />
                           </button>
                         </div>
                         <div className="flex justify-between items-center">
-                          <p className="text-emerald-600 font-bold text-xs">${item.price.toFixed(2)}</p>
-                          <div className="flex items-center gap-2">
+                          <p className="text-emerald-600 font-bold text-[11px]">${item.price.toFixed(2)}</p>
+                          <div className="flex items-center gap-1.5">
                             <button 
                               onClick={() => onUpdateQuantity(item.id, -1)}
-                              className="w-6 h-6 rounded-md border border-gray-200 flex items-center justify-center hover:bg-gray-50"
+                              className="w-5 h-5 rounded border border-gray-200 flex items-center justify-center hover:bg-gray-50"
                             >
-                              <Minus className="w-2 h-2" />
+                              <Minus className="w-1.5 h-1.5" />
                             </button>
-                            <span className="text-xs font-bold w-4 text-center">{item.quantity}</span>
+                            <span className="text-[10px] font-bold w-3 text-center">{item.quantity}</span>
                             <button 
                               onClick={() => onUpdateQuantity(item.id, 1)}
-                              className="w-6 h-6 rounded-md border border-gray-200 flex items-center justify-center hover:bg-gray-50"
+                              className="w-5 h-5 rounded border border-gray-200 flex items-center justify-center hover:bg-gray-50"
                             >
-                              <Plus className="w-2 h-2" />
+                              <Plus className="w-1.5 h-1.5" />
                             </button>
                           </div>
                         </div>
@@ -643,28 +677,69 @@ const CartDrawer = ({
             </div>
 
             {items.length > 0 && !isRecommendedInCart && (
-              <div className="p-4 bg-gray-50 border-t border-gray-100">
-                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-2">Required for reconstitution</p>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-white rounded-lg overflow-hidden border border-gray-100 flex-shrink-0">
+              <div className="p-3 bg-gray-50 border-t border-gray-100">
+                <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest mb-1">Required for reconstitution</p>
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 bg-white rounded-lg overflow-hidden border border-gray-100 flex-shrink-0">
                     <img src={recommendedProduct.image} alt="" className="w-full h-full object-cover" />
                   </div>
-                  <div className="flex-1">
-                    <h4 className="text-[11px] font-bold">{recommendedProduct.name}</h4>
-                    <p className="text-[11px] text-emerald-600 font-bold">${recommendedProduct.price.toFixed(2)}</p>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-[10px] font-bold truncate">{recommendedProduct.name}</h4>
+                    <p className="text-[10px] text-emerald-600 font-bold">${recommendedProduct.price.toFixed(2)}</p>
                   </div>
                   <button 
                     onClick={() => onAddToCart(recommendedProduct)}
-                    className="p-1.5 bg-black text-white rounded-lg hover:bg-emerald-600 transition-colors"
+                    className="p-1 px-2 bg-black text-white text-[9px] font-bold uppercase tracking-wider rounded-lg hover:bg-emerald-600 transition-colors"
                   >
-                    <Plus className="w-3 h-3" />
+                    Add
                   </button>
                 </div>
               </div>
             )}
 
             {items.length > 0 && (
-              <div className="p-4 border-t border-gray-100 bg-white space-y-3">
+              <div className="p-4 bg-white border-t border-gray-100 space-y-4">
+                {/* 5. Order Summary */}
+                <div className="space-y-2">
+                  <div className="flex justify-between text-gray-500 text-[11px]">
+                    <span>Subtotal</span>
+                    <span className="font-bold text-gray-900">${subtotal.toFixed(2)}</span>
+                  </div>
+                  
+                  {quantityDiscountAmount > 0 && (
+                    <div className="flex justify-between text-emerald-600 text-[11px]">
+                      <div className="flex items-center gap-1">
+                        <Tag className="w-3 h-3" />
+                        <span>Quantity Discount ({quantityDiscountPercent}%)</span>
+                      </div>
+                      <span className="font-bold">-${quantityDiscountAmount.toFixed(2)}</span>
+                    </div>
+                  )}
+
+                  <div className="flex justify-between text-gray-500 text-[11px]">
+                    <span>Shipping</span>
+                    <span className="font-bold text-emerald-600">
+                      {shipping === 0 ? 'FREE' : `$${shipping.toFixed(2)}`}
+                    </span>
+                  </div>
+
+                  {appliedPromo && (
+                    <div className="flex justify-between text-emerald-600 text-[11px]">
+                      <div className="flex items-center gap-1">
+                        <Tag className="w-3 h-3" />
+                        <span>Promo ({appliedPromo.discount}%)</span>
+                      </div>
+                      <span className="font-bold">-${discountAmount.toFixed(2)}</span>
+                    </div>
+                  )}
+
+                  <div className="flex justify-between text-gray-900 font-bold text-sm pt-2 border-t border-gray-100">
+                    <span>Total</span>
+                    <span>${finalTotal.toFixed(2)}</span>
+                  </div>
+                </div>
+
+                {/* 6. Promo Code Input */}
                 <div className="space-y-2">
                   <div className="flex gap-2">
                     <input 
@@ -672,12 +747,12 @@ const CartDrawer = ({
                       placeholder="Promo Code"
                       value={promoCode}
                       onChange={(e) => setPromoCode(e.target.value)}
-                      className="flex-1 bg-gray-50 border border-gray-100 rounded-lg px-3 py-1.5 text-xs focus:ring-2 focus:ring-black outline-none uppercase"
+                      className="flex-1 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-black outline-none uppercase"
                     />
                     <button 
                       onClick={handleApplyPromo}
                       disabled={isApplying || !promoCode.trim()}
-                      className="px-3 py-1.5 bg-black text-white font-bold text-[10px] rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50"
+                      className="px-4 py-2 bg-black text-white font-bold text-[10px] uppercase tracking-wider rounded-lg hover:bg-gray-800 disabled:opacity-50 transition-colors"
                     >
                       {isApplying ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Apply'}
                     </button>
@@ -696,43 +771,13 @@ const CartDrawer = ({
                   )}
                 </div>
 
-                <div className="pt-3 border-t border-gray-100">
-                  <div className="flex justify-between mb-1">
-                    <span className="text-gray-500 text-xs">Subtotal</span>
-                    <span className="text-xs font-bold">${subtotal.toFixed(2)}</span>
-                  </div>
-                  {quantityDiscountPercent > 0 && (
-                    <div className="flex justify-between mb-1">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-emerald-600 text-xs font-bold">Quantity Discount</span>
-                        <span className="bg-emerald-100 text-emerald-700 text-[8px] px-1.5 py-0.5 rounded-full font-black uppercase">-{quantityDiscountPercent}%</span>
-                      </div>
-                      <span className="text-xs font-bold text-emerald-600">-${quantityDiscountAmount.toFixed(2)}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between mb-1">
-                    <span className="text-gray-500 text-xs">Shipping</span>
-                    <span className="text-xs font-bold text-emerald-600">
-                      {shipping === 0 ? 'FREE' : `$${shipping.toFixed(2)}`}
-                    </span>
-                  </div>
-                  {appliedPromo && (
-                    <div className="flex justify-between mb-1">
-                      <span className="text-emerald-600 text-xs">Discount ({appliedPromo.discount}%)</span>
-                      <span className="text-xs font-bold text-emerald-600">-${discountAmount.toFixed(2)}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between mb-4 pt-3 border-t border-gray-100">
-                    <span className="text-base font-bold">Total</span>
-                    <span className="text-lg font-bold">${finalTotal.toFixed(2)}</span>
-                  </div>
-                  <button 
-                    onClick={onCheckout}
-                    className="w-full py-3 bg-black text-white font-bold rounded-xl hover:bg-emerald-600 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-black/10 text-sm"
-                  >
-                    Proceed to Checkout <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
+                {/* 7. SECURE CHECKOUT Button */}
+                <button 
+                  onClick={onCheckout}
+                  className="w-full py-4 bg-black text-white font-bold rounded-xl hover:bg-emerald-600 transition-all text-xs uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-black/10 group"
+                >
+                  SECURE CHECKOUT <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                </button>
               </div>
             )}
           </motion.div>
@@ -742,7 +787,8 @@ const CartDrawer = ({
   );
 };
 
-const AuthModal = ({ isOpen, onClose, onNavigate }: { isOpen: boolean, onClose: () => void, onNavigate: (view: any) => void }) => {
+const AuthModal = ({ isOpen, onClose, message }: { isOpen: boolean, onClose: () => void, message?: string }) => {
+  const navigate = useNavigate();
   const { login, register, signInWithGoogle, user } = useAuth();
   const [isSuccess, setIsSuccess] = useState(false);
   const [mode, setMode] = useState<'login' | 'register' | 'reset'>('login');
@@ -852,6 +898,13 @@ const AuthModal = ({ isOpen, onClose, onNavigate }: { isOpen: boolean, onClose: 
                 <h2 className="text-3xl font-bold mb-2 tracking-tight text-center">
                   {mode === 'login' ? 'Welcome Back' : mode === 'register' ? 'Create Account' : 'Reset Password'}
                 </h2>
+                
+                {message && (
+                  <div className="mb-6 p-4 bg-black text-white text-xs font-semibold rounded-2xl text-center flex items-center justify-center gap-2">
+                    {message}
+                  </div>
+                )}
+
                 <p className="text-gray-500 mb-8 text-center text-sm">
                   {mode === 'login' 
                     ? 'Sign in to manage your research compounds.' 
@@ -959,7 +1012,7 @@ const AuthModal = ({ isOpen, onClose, onNavigate }: { isOpen: boolean, onClose: 
                       </div>
                       <div className="text-xs">
                         <label htmlFor="age-verification" className="font-medium text-gray-700 cursor-pointer">
-                          I am 21 years or older and agree to the <button type="button" onClick={() => { onNavigate('terms'); onClose(); }} className="text-black underline hover:text-emerald-600">terms and conditions</button>
+                          I am 21 years or older and agree to the <button type="button" onClick={() => { navigate('/terms'); onClose(); }} className="text-black underline hover:text-emerald-600">terms and conditions</button>
                         </label>
                       </div>
                     </div>
@@ -1056,7 +1109,8 @@ const AuthModal = ({ isOpen, onClose, onNavigate }: { isOpen: boolean, onClose: 
   );
 };
 
-const TermsView = ({ onBack }: { onBack: () => void }) => {
+const TermsView = () => {
+  const navigate = useNavigate();
   return (
     <section className="py-24 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
       <motion.div
@@ -1065,7 +1119,7 @@ const TermsView = ({ onBack }: { onBack: () => void }) => {
         className="bg-white rounded-[3rem] border border-gray-100 p-12 shadow-sm"
       >
         <button 
-          onClick={onBack}
+          onClick={() => navigate('/')}
           className="flex items-center gap-2 text-sm font-bold text-gray-400 hover:text-black mb-12 transition-colors"
         >
           <ChevronLeft className="w-4 h-4" /> Back to Research
@@ -1155,7 +1209,8 @@ const TermsView = ({ onBack }: { onBack: () => void }) => {
   );
 };
 
-const ShippingPolicyView = ({ onBack }: { onBack: () => void }) => {
+const ShippingPolicyView = () => {
+  const navigate = useNavigate();
   return (
     <section className="py-24 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
       <motion.div
@@ -1164,7 +1219,7 @@ const ShippingPolicyView = ({ onBack }: { onBack: () => void }) => {
         className="bg-white rounded-[3rem] border border-gray-100 p-12 shadow-sm"
       >
         <button 
-          onClick={onBack}
+          onClick={() => navigate('/')}
           className="flex items-center gap-2 text-sm font-bold text-gray-400 hover:text-black mb-12 transition-colors"
         >
           <ChevronLeft className="w-4 h-4" /> Back to Research
@@ -1226,7 +1281,8 @@ const ShippingPolicyView = ({ onBack }: { onBack: () => void }) => {
   );
 };
 
-const RefundPolicyView = ({ onBack }: { onBack: () => void }) => {
+const RefundPolicyView = () => {
+  const navigate = useNavigate();
   return (
     <section className="py-24 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
       <motion.div
@@ -1235,7 +1291,7 @@ const RefundPolicyView = ({ onBack }: { onBack: () => void }) => {
         className="bg-white rounded-[3rem] border border-gray-100 p-12 shadow-sm"
       >
         <button 
-          onClick={onBack}
+          onClick={() => navigate('/')}
           className="flex items-center gap-2 text-sm font-bold text-gray-400 hover:text-black mb-12 transition-colors"
         >
           <ChevronLeft className="w-4 h-4" /> Back to Research
@@ -1291,7 +1347,8 @@ const RefundPolicyView = ({ onBack }: { onBack: () => void }) => {
   );
 };
 
-const AboutUsView = ({ onBack, onShopNow }: { onBack: () => void, onShopNow: () => void }) => {
+const AboutUsView = () => {
+  const navigate = useNavigate();
   return (
     <section className="py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <motion.div
@@ -1302,7 +1359,7 @@ const AboutUsView = ({ onBack, onShopNow }: { onBack: () => void, onShopNow: () 
         {/* Hero Section */}
         <div className="text-center space-y-8">
           <button 
-            onClick={onBack}
+            onClick={() => navigate('/')}
             className="flex items-center gap-2 text-sm font-bold text-gray-400 hover:text-black mb-8 transition-colors mx-auto"
           >
             <ChevronLeft className="w-4 h-4" /> Back to Home
@@ -1431,7 +1488,7 @@ const AboutUsView = ({ onBack, onShopNow }: { onBack: () => void, onShopNow: () 
             Browse our collection of premium research compounds and accelerate your scientific discovery today.
           </p>
           <button 
-            onClick={onShopNow}
+            onClick={() => navigate('/shop')}
             className="px-12 py-5 bg-black text-white font-bold rounded-2xl hover:bg-white hover:text-black transition-all shadow-xl shadow-black/10"
           >
             Shop Now
@@ -1442,7 +1499,8 @@ const AboutUsView = ({ onBack, onShopNow }: { onBack: () => void, onShopNow: () 
   );
 };
 
-const PrivacyPolicyView = ({ onBack }: { onBack: () => void }) => {
+const PrivacyPolicyView = () => {
+  const navigate = useNavigate();
   return (
     <section className="py-24 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
       <motion.div
@@ -1451,7 +1509,7 @@ const PrivacyPolicyView = ({ onBack }: { onBack: () => void }) => {
         className="bg-white rounded-[3rem] border border-gray-100 p-12 shadow-sm"
       >
         <button 
-          onClick={onBack}
+          onClick={() => navigate('/')}
           className="flex items-center gap-2 text-sm font-bold text-gray-400 hover:text-black mb-12 transition-colors"
         >
           <ChevronLeft className="w-4 h-4" /> Back to Research
@@ -1724,7 +1782,8 @@ const AffiliateApplicationModal = ({ isOpen, onClose }: { isOpen: boolean; onClo
   );
 };
 
-const AffiliateView = ({ onBack }: { onBack: () => void }) => {
+const AffiliateView = () => {
+  const navigate = useNavigate();
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -1737,7 +1796,7 @@ const AffiliateView = ({ onBack }: { onBack: () => void }) => {
         className="bg-white rounded-[3rem] border border-gray-100 p-12 shadow-sm"
       >
         <button 
-          onClick={onBack}
+          onClick={() => navigate('/')}
           className="flex items-center gap-2 text-sm font-bold text-gray-400 hover:text-black mb-12 transition-colors"
         >
           <ChevronLeft className="w-4 h-4" /> Back to Research
@@ -1853,25 +1912,25 @@ const AffiliateView = ({ onBack }: { onBack: () => void }) => {
                 tier: "FIELD RESEARCHER", 
                 referrals: "0–10 referrals", 
                 stipend: "15% stipend", 
-                perk: "Highly discounted supply access" 
+                perk: "1 free vial per month" 
               },
               { 
                 tier: "SENIOR CONTRIBUTOR", 
                 referrals: "11–25 referrals", 
                 stipend: "18% stipend", 
-                perk: "$50 free supply credit per month" 
+                perk: "2 free vials per month" 
               },
               { 
                 tier: "PRINCIPAL INVESTIGATOR", 
                 referrals: "25+ referrals", 
                 stipend: "22% stipend", 
-                perk: "$100 free supply credit per month" 
+                perk: "4 free vials per month" 
               },
               { 
                 tier: "ECLIPSE AMBASSADOR", 
                 referrals: "100+ referrals", 
-                stipend: "30% stipend", 
-                perk: "$500 free supply credit per month",
+                stipend: "25% stipend", 
+                perk: "Unlimited free supply",
                 extraPerks: [
                   "Dedicated account manager",
                   "Early access to all new compounds",
@@ -2017,7 +2076,76 @@ const AffiliateView = ({ onBack }: { onBack: () => void }) => {
   );
 };
 
-const AccountView = ({ onNavigate, onEditOrder }: { onNavigate: (view: any) => void, onEditOrder: (order: any) => void }) => {
+const Footer = () => {
+  return (
+    <footer className="bg-black text-white py-20 px-4 border-t border-white/5">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12">
+        <div className="space-y-6">
+          <Link to="/" className="flex items-center gap-3 group">
+            <img 
+              src="https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969635/logo_gc8g0q.png" 
+              alt="Eclipse Research" 
+              className="h-12 w-auto transition-transform group-hover:scale-105"
+              referrerPolicy="no-referrer"
+            />
+            <div>
+              <span className="block text-xl font-bold tracking-tighter leading-none">ECLIPSE</span>
+              <span className="block text-[8px] font-bold tracking-[0.3em] text-emerald-500 leading-none mt-1 uppercase">Research</span>
+            </div>
+          </Link>
+          <p className="text-gray-400 text-sm leading-relaxed max-w-xs">
+            Premium research compounds with industry-leading purity standards. HPLC tested and verified.
+          </p>
+        </div>
+        <div>
+          <h4 className="text-[10px] font-bold uppercase tracking-widest text-emerald-500 mb-6">Quick Links</h4>
+          <ul className="space-y-4">
+            <li><Link to="/shop" className="text-sm text-gray-400 hover:text-white transition-colors">Shop All</Link></li>
+            <li><Link to="/calculator" className="text-sm text-gray-400 hover:text-white transition-colors">Calculator</Link></li>
+            <li><Link to="/refer" className="text-sm text-gray-400 hover:text-white transition-colors">Refer a Friend</Link></li>
+            <li><Link to="/affiliate" className="text-sm text-gray-400 hover:text-white transition-colors">Affiliates</Link></li>
+          </ul>
+        </div>
+        <div>
+          <h4 className="text-[10px] font-bold uppercase tracking-widest text-emerald-500 mb-6">Support</h4>
+          <ul className="space-y-4">
+            <li><Link to="/about" className="text-sm text-gray-400 hover:text-white transition-colors">About Us</Link></li>
+            <li><Link to="/coas" className="text-sm text-gray-400 hover:text-white transition-colors">Request COA</Link></li>
+            <li><Link to="/shipping" className="text-sm text-gray-400 hover:text-white transition-colors">Shipping Policy</Link></li>
+            <li><Link to="/refund" className="text-sm text-gray-400 hover:text-white transition-colors">Refund Policy</Link></li>
+          </ul>
+        </div>
+        <div>
+          <h4 className="text-[10px] font-bold uppercase tracking-widest text-emerald-500 mb-6">Legal</h4>
+          <ul className="space-y-4">
+            <li><Link to="/terms" className="text-sm text-gray-400 hover:text-white transition-colors">Terms of Service</Link></li>
+            <li><Link to="/privacy" className="text-sm text-gray-400 hover:text-white transition-colors">Privacy Policy</Link></li>
+          </ul>
+          <div className="mt-8 flex gap-4">
+            <div className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center group cursor-pointer hover:bg-emerald-500 transition-colors">
+              <Mail className="w-4 h-4 text-gray-400 group-hover:text-white" />
+            </div>
+            <div className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center group cursor-pointer hover:bg-emerald-500 transition-colors">
+              <MessageSquare className="w-4 h-4 text-gray-400 group-hover:text-white" />
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="max-w-7xl mx-auto mt-20 pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-6">
+        <p className="text-[10px] text-gray-500 font-medium uppercase tracking-widest">
+          © 2024 Eclipse Research. All rights reserved.
+        </p>
+        <div className="flex gap-4">
+          <img src="https://img.shields.io/badge/HPLC-VERIFIED-emerald?style=flat-square" alt="HPLC Verified" className="h-5" />
+          <img src="https://img.shields.io/badge/SECURE-PAYMENT-white?style=flat-square&logo=visa" alt="Secure Payment" className="h-5 opacity-50 grayscale" />
+        </div>
+      </div>
+    </footer>
+  );
+};
+
+const AccountView = ({ onEditOrder }: { onEditOrder: (order: any) => void }) => {
+  const navigate = useNavigate();
   const { user, logout, isAdmin, isFreeShippingEnabled, toggleFreeShipping } = useAuth();
   const [activeTab, setActiveTab] = useState<'orders' | 'details' | 'addresses' | 'rewards'>('orders');
   const [orders, setOrders] = useState<any[]>([]);
@@ -2027,6 +2155,7 @@ const AccountView = ({ onNavigate, onEditOrder }: { onNavigate: (view: any) => v
   const [isAddingAddress, setIsAddingAddress] = useState(false);
   const [newAddress, setNewAddress] = useState({ street: '', unitNumber: '', city: '', state: '', zip: '' });
   const [isDeletingOrder, setIsDeletingOrder] = useState<string | null>(null);
+  const [referralOrders, setReferralOrders] = useState<any[]>([]);
 
   useEffect(() => {
     if (!user) return;
@@ -2035,6 +2164,7 @@ const AccountView = ({ onNavigate, onEditOrder }: { onNavigate: (view: any) => v
       collection(db, 'orders'), 
       or(
         where('userId', '==', user.uid),
+        where('email', '==', user.email),
         where('customerEmail', '==', user.email)
       ),
       orderBy('createdAt', 'desc')
@@ -2055,9 +2185,19 @@ const AccountView = ({ onNavigate, onEditOrder }: { onNavigate: (view: any) => v
       }
     });
 
+    const refQ = query(
+      collection(db, 'orders'),
+      where('referralCode', '==', user.uid),
+      orderBy('createdAt', 'desc')
+    );
+    const unsubscribeReferrals = onSnapshot(refQ, (snapshot) => {
+      setReferralOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
     return () => {
       unsubscribeOrders();
       unsubscribeProfile();
+      unsubscribeReferrals();
     };
   }, [user]);
 
@@ -2155,7 +2295,7 @@ const AccountView = ({ onNavigate, onEditOrder }: { onNavigate: (view: any) => v
               <div className="pt-4 mt-4 border-t border-gray-50">
                 {isAdmin && (
                   <button 
-                    onClick={() => onNavigate('admin')}
+                    onClick={() => navigate('/admin')}
                     className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-emerald-600 hover:bg-emerald-50 transition-all mb-2"
                   >
                     <ShieldCheck className="w-4 h-4" />
@@ -2163,7 +2303,7 @@ const AccountView = ({ onNavigate, onEditOrder }: { onNavigate: (view: any) => v
                   </button>
                 )}
                 <button 
-                  onClick={() => { logout(); onNavigate('home'); }}
+                  onClick={() => { logout(); navigate('/'); }}
                   className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-red-500 hover:bg-red-50 transition-all"
                 >
                   <LogOut className="w-4 h-4" />
@@ -2190,7 +2330,7 @@ const AccountView = ({ onNavigate, onEditOrder }: { onNavigate: (view: any) => v
                     <div className="bg-white rounded-3xl border border-dashed border-gray-200 p-12 text-center">
                       <Package className="w-12 h-12 text-gray-200 mx-auto mb-4" />
                       <p className="text-gray-500 font-medium">No orders yet.</p>
-                      <button onClick={() => onNavigate('shop')} className="mt-4 text-emerald-600 font-bold text-sm">Start Researching</button>
+                      <button onClick={() => navigate('/shop')} className="mt-4 text-emerald-600 font-bold text-sm">Start Researching</button>
                     </div>
                 ) : (
                   <div className="space-y-4">
@@ -2240,6 +2380,15 @@ const AccountView = ({ onNavigate, onEditOrder }: { onNavigate: (view: any) => v
                             </div>
                           ))}
                         </div>
+                        {(order.promoCode || order.discountCode) && (
+                          <div className="mb-4 flex items-center justify-between py-2 px-3 bg-gray-50 rounded-xl border border-gray-100">
+                            <div className="flex items-center gap-2">
+                              <span className="px-1.5 py-0.5 bg-black text-white text-[8px] font-black rounded uppercase tracking-widest leading-none">{order.promoCode || order.discountCode}</span>
+                              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Promo Applied</span>
+                            </div>
+                            <span className="text-xs font-bold text-emerald-600">-${(order.promoDiscount || 0).toFixed(2)}</span>
+                          </div>
+                        )}
                         <div className="pt-4 border-t border-gray-50 flex justify-between items-center">
                           <span className="font-bold text-gray-900">Total Amount</span>
                           <span className="text-xl font-bold text-emerald-600">${order.total.toFixed(2)}</span>
@@ -2488,16 +2637,16 @@ const AccountView = ({ onNavigate, onEditOrder }: { onNavigate: (view: any) => v
 
                 <div className="bg-white rounded-[2.5rem] border border-gray-100 p-10">
                   <div className="flex items-center justify-between mb-8">
-                    <h2 className="text-2xl font-bold text-gray-900">Referral History</h2>
+                    <h1 className="text-2xl font-bold text-gray-900">Referral History</h1>
                     <button 
-                      onClick={() => onNavigate('refer')}
+                      onClick={() => navigate('/refer')}
                       className="text-emerald-600 font-bold text-sm hover:underline"
                     >
                       Get Referral Link
                     </button>
                   </div>
                   
-                  {profile?.referrals && profile.referrals.length > 0 ? (
+                  {referralOrders.length > 0 ? (
                     <div className="overflow-x-auto">
                       <table className="w-full text-left">
                         <thead>
@@ -2508,25 +2657,30 @@ const AccountView = ({ onNavigate, onEditOrder }: { onNavigate: (view: any) => v
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
-                          {profile.referrals.map((ref: any, i: number) => (
-                            <tr key={i} className="text-sm">
-                              <td className="py-4 text-gray-900 font-medium">
-                                {ref.email.substring(0, 3)}***@{ref.email.split('@')[1]}
-                              </td>
-                              <td className="py-4 text-gray-500">
-                                {ref.date ? new Date(ref.date.seconds * 1000).toLocaleDateString() : 'N/A'}
-                              </td>
-                              <td className="py-4">
-                                <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                                  ref.status === 'credited' ? 'bg-emerald-50 text-emerald-600' :
-                                  ref.status === 'ineligible' ? 'bg-red-50 text-red-600' :
-                                  'bg-blue-50 text-blue-600'
-                                }`}>
-                                  {ref.status}
-                                </span>
-                              </td>
-                            </tr>
-                          ))}
+                          {referralOrders.map((order: any, i: number) => {
+                            const date = order.createdAt?.toDate ? order.createdAt.toDate() : new Date(order.createdAt);
+                            const status = order.referralCredited ? 'credited' : 
+                                         (order.status === 'cancelled' ? 'ineligible' : 'pending');
+                            return (
+                              <tr key={i} className="text-sm">
+                                <td className="py-4 text-gray-900 font-medium">
+                                  {(order.email || order.customerEmail) ? maskEmail(order.email || order.customerEmail) : 'Researcher'}
+                                </td>
+                                <td className="py-4 text-gray-500">
+                                  {date.toLocaleDateString()}
+                                </td>
+                                <td className="py-4">
+                                  <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                    status === 'credited' ? 'bg-emerald-50 text-emerald-600' :
+                                    status === 'ineligible' ? 'bg-red-50 text-red-600' :
+                                    'bg-blue-50 text-blue-600'
+                                  }`}>
+                                    {status}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
@@ -2600,9 +2754,11 @@ const AccountView = ({ onNavigate, onEditOrder }: { onNavigate: (view: any) => v
 };
 
 const AdminDashboard = () => {
+  const { isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState<'users' | 'orders' | 'coas' | 'inventory' | 'settings' | 'affiliates' | 'promos'>('inventory');
   const [users, setUsers] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [coaRequests, setCoaRequests] = useState<any[]>([]);
   const [affiliateApplications, setAffiliateApplications] = useState<any[]>([]);
   const [promoCodes, setPromoCodes] = useState<any[]>([]);
@@ -2615,6 +2771,7 @@ const AdminDashboard = () => {
   const [dosages, setDosages] = useState<{ label: string; image: string; price?: number; originalPrice?: number }[]>([]);
   const [mainPrice, setMainPrice] = useState<number>(0);
   const [mainOriginalPrice, setMainOriginalPrice] = useState<number | undefined>(undefined);
+  const [isDeletingUser, setIsDeletingUser] = useState<string | null>(null);
 
   useEffect(() => {
     if (editingProduct) {
@@ -2636,7 +2793,7 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     const usersQuery = collection(db, 'users');
-    const ordersQuery = query(collection(db, 'orders'), orderBy('createdAt', 'desc'));
+    const ordersQuery = query(collection(db, 'orders'));
     const coaQuery = collection(db, 'coa_requests');
     const affiliateQuery = collection(db, 'affiliate_applications');
     const productsQuery = collection(db, 'products');
@@ -2644,22 +2801,41 @@ const AdminDashboard = () => {
 
     const unsubscribeUsers = onSnapshot(usersQuery, (snapshot) => {
       setUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => {
+      console.error("Admin: Error fetching users:", error);
     });
 
     const unsubscribeOrders = onSnapshot(ordersQuery, (snapshot) => {
-      setOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      console.log(`Admin: Fetched ${snapshot.size} orders`);
+      setFetchError(null);
+      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      docs.sort((a: any, b: any) => {
+        const t1 = a.createdAt?.toMillis ? a.createdAt.toMillis() : (a.createdAt instanceof Date ? a.createdAt.getTime() : 0);
+        const t2 = b.createdAt?.toMillis ? b.createdAt.toMillis() : (b.createdAt instanceof Date ? b.createdAt.getTime() : 0);
+        return t2 - t1;
+      });
+      setOrders(docs);
+    }, (error) => {
+      console.error("Admin: Error fetching orders:", error);
+      setFetchError(error.message);
     });
 
     const unsubscribeCoas = onSnapshot(coaQuery, (snapshot) => {
       setCoaRequests(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => {
+      console.error("Admin: Error fetching COAs:", error);
     });
 
     const unsubscribeAffiliates = onSnapshot(affiliateQuery, (snapshot) => {
       setAffiliateApplications(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => {
+      console.error("Admin: Error fetching affiliates:", error);
     });
 
     const unsubscribePromos = onSnapshot(promoQuery, (snapshot) => {
       setPromoCodes(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => {
+      console.error("Admin: Error fetching promos:", error);
     });
 
     const unsubscribeProducts = onSnapshot(productsQuery, (snapshot) => {
@@ -2669,12 +2845,17 @@ const AdminDashboard = () => {
         setProductsList([]);
       }
       setLoading(false);
+    }, (error) => {
+      console.error("Admin: Error fetching products:", error);
+      setLoading(false);
     });
 
     const unsubscribeSettings = onSnapshot(doc(db, 'settings', 'site'), (snapshot) => {
       if (snapshot.exists()) {
         setSiteSettings(snapshot.data() as SiteSettings);
       }
+    }, (error) => {
+      console.error("Admin: Error fetching settings:", error);
     });
 
     return () => {
@@ -2713,22 +2894,45 @@ const AdminDashboard = () => {
   };
 
   const processReferralCredit = async (orderId: string, orderData: any) => {
-    if (!orderData.referralCode || orderData.referralCredited) return;
+    const referralId = orderData.referral || orderData.referralCode;
+    if (!referralId || orderData.referralCredited) return;
+
+    // Prevention: User cannot refer themselves
+    if (orderData.userId && orderData.userId === referralId) {
+      console.log('Referral Flow: Self-referral detected, skipping credit.');
+      return;
+    }
 
     try {
       console.log('Referral Flow: Processing simplified referral for order:', orderId);
-      const referrerId = orderData.referralCode;
+      const referrerId = referralId;
       const referrerRef = doc(db, 'users', referrerId);
+      const referrerSnap = await getDoc(referrerRef);
+      
+      if (!referrerSnap.exists()) return;
+      const referrerData = referrerSnap.data();
+
+      // Extra check: prevent if email matches
+      const orderEmail = orderData.email || orderData.customerEmail;
+      if (orderEmail && referrerData.email && orderEmail.toLowerCase() === referrerData.email.toLowerCase()) {
+        console.log('Referral Flow: Self-referral detected by email, skipping credit.');
+        return;
+      }
+
       const creditAmount = siteSettings?.referralCreditAmount || 10;
       
-      // Add credit to storeCredit
+      // Add credit to storeCredit and track it in referrals array
       await updateDoc(referrerRef, {
-        storeCredit: increment(creditAmount)
-      });
-
-      // Update order to mark as credited
-      await updateDoc(doc(db, 'orders', orderId), {
-        referralCredited: true
+        storeCredit: increment(creditAmount),
+        referrals: arrayUnion({
+          userId: orderData.userId || 'guest',
+          customerName: orderData.customerName || 'Explorer',
+          email: (orderData.email || orderData.customerEmail) || 'Guest',
+          orderId: orderId,
+          amount: creditAmount,
+          status: 'credited',
+          date: new Date() // Use JS Date, which Firestore will convert to a Timestamp
+        })
       });
 
       console.log(`Referral Flow: $${creditAmount} credit applied to user:`, referrerId);
@@ -2743,19 +2947,57 @@ const AdminDashboard = () => {
       ? trackingInputs[orderId] 
       : currentOrder?.trackingNumber || '';
 
+    if (!trackingNumber && currentOrder?.status !== 'shipped') {
+      alert('Please enter a tracking number.');
+      return;
+    }
+
     try {
       console.log('Admin: Updating tracking for order:', orderId);
       const orderRef = doc(db, 'orders', orderId);
-      
+      let referralProcessed = currentOrder?.referralCredited || false;
+
       // Only process referral if moving to 'shipped' for the first time
       if (currentOrder && currentOrder.status !== 'shipped') {
-        await processReferralCredit(orderId, currentOrder);
+        if (!referralProcessed && currentOrder.referralCode) {
+          await processReferralCredit(orderId, currentOrder);
+          referralProcessed = true;
+        }
+        
+        // Unlock referral feature for this user
+        if (currentOrder.userId) {
+          try {
+            await setDoc(doc(db, 'users', currentOrder.userId), {
+              referralUnlocked: true
+            }, { merge: true });
+            console.log('Admin: Unlocked referral for user:', currentOrder.userId);
+          } catch (err) {
+            console.error('Error unlocking referral for user by ID:', err);
+          }
+        } else if (currentOrder.email || currentOrder.customerEmail) {
+          // Fallback: If no userId, try to find user by email to unlock
+          try {
+            const userEmail = (currentOrder.email || currentOrder.customerEmail).toLowerCase();
+            const userQuery = query(collection(db, 'users'), where('email', '==', userEmail));
+            const userSnap = await getDocs(userQuery);
+            if (!userSnap.empty) {
+              const mainUserDoc = userSnap.docs[0];
+              await setDoc(doc(db, 'users', mainUserDoc.id), {
+                referralUnlocked: true
+              }, { merge: true });
+              console.log('Admin: Unlocked referral for user by email:', currentOrder.email || currentOrder.customerEmail);
+            }
+          } catch (err) {
+            console.error('Error unlocking referral for user by email:', err);
+          }
+        }
       }
 
       await updateDoc(orderRef, {
         status: 'shipped',
         trackingNumber: trackingNumber.trim(),
-        updatedAt: serverTimestamp()
+        updatedAt: serverTimestamp(),
+        referralCredited: referralProcessed
       });
 
       // Clear local input state so it reverts to showing the DB value
@@ -2764,9 +3006,10 @@ const AdminDashboard = () => {
         delete next[orderId];
         return next;
       });
+      console.log('Admin: Marked order as shipped:', orderId);
     } catch (error) {
       console.error('Error updating order:', error);
-      alert('Failed to update order.');
+      alert('Failed to update order status. Please check console for details.');
     }
   };
 
@@ -2791,6 +3034,18 @@ const AdminDashboard = () => {
     } catch (error) {
       console.error('Error updating Research Affiliate application:', error);
       alert('Failed to update application status.');
+    }
+  };
+
+  const updateStoreCredit = async (userId: string, newAmount: number) => {
+    try {
+      await updateDoc(doc(db, 'users', userId), {
+        storeCredit: newAmount,
+        updatedAt: serverTimestamp()
+      });
+    } catch (error) {
+      console.error('Error updating store credit:', error);
+      alert('Failed to update store credit.');
     }
   };
 
@@ -2835,6 +3090,42 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleDeleteUser = async (targetUid: string, userEmail: string) => {
+    console.log(`Starting deletion for user: ${userEmail} (${targetUid})`);
+    
+    // Safety check: Never allow deleting yourself
+    if (targetUid === auth.currentUser?.uid) {
+      alert("You cannot delete your own account.");
+      return;
+    }
+
+    if (!window.confirm(`Are you sure you want to permanently delete ${userEmail}?`)) {
+      return;
+    }
+
+    try {
+      setIsDeletingUser(targetUid);
+      
+      // 1. Delete from Firestore
+      console.log('Attempting Firestore document deletion...');
+      await deleteDoc(doc(db, 'users', targetUid));
+      console.log('User document successfully deleted from Firestore.');
+
+      // 2. Attempt Cloud Function for Firebase Auth deletion
+      console.log('Attempting Auth account deletion via Cloud Function...');
+      const deleteUserFn = httpsCallable(functions, 'deleteUser');
+      await deleteUserFn({ targetUid });
+      console.log('Auth account successfully deleted via Cloud Function.');
+      
+      alert(`User ${userEmail} has been completely removed.`);
+    } catch (error: any) {
+      console.error('Delete User Error:', error);
+      alert(`Delete Failed: ${error.message || 'Unknown error'}`);
+    } finally {
+      setIsDeletingUser(null);
+    }
+  };
+
   const seedProducts = async () => {
     if (!window.confirm('This will restore all default products to your inventory. Existing products with the same IDs will be updated. Continue?')) return;
     try {
@@ -2869,8 +3160,15 @@ const AdminDashboard = () => {
         inStock: newStock > 0
       };
 
+      // Recalculate top-level inStock status using the more inclusive check
+      const isActuallyInStock = (product.stock || 0) > 0 || newDosages.some(d => {
+        if (typeof d.stock === 'number') return d.stock > 0;
+        return d.inStock !== false;
+      });
+
       await updateDoc(doc(db, 'products', productId), {
         dosages: newDosages,
+        inStock: isActuallyInStock,
         updatedAt: serverTimestamp()
       });
     } catch (error) {
@@ -2937,6 +3235,7 @@ const AdminDashboard = () => {
         <div className="w-full lg:w-auto">
           <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-gray-900 mb-2">Admin Control Panel</h1>
           <p className="text-sm md:text-base text-gray-500">Manage research accounts and track laboratory orders.</p>
+          <p className="text-xs text-gray-400 mt-1">Logged in as: {auth.currentUser?.email} (Admin: {isAdmin ? 'Yes' : 'No'})</p>
         </div>
         <div className="w-full lg:w-auto overflow-x-auto pb-2 scrollbar-hide">
           <div className="flex bg-gray-100 p-1 rounded-2xl w-max min-w-full">
@@ -2950,7 +3249,7 @@ const AdminDashboard = () => {
               onClick={() => setActiveTab('orders')}
               className={`px-4 md:px-6 py-2 rounded-xl text-[10px] md:text-xs font-bold uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === 'orders' ? 'bg-white text-black shadow-sm' : 'text-gray-500 hover:text-black'}`}
             >
-              Orders
+              Orders {orders.length > 0 ? `(${orders.length})` : ''}
             </button>
             <button 
               onClick={() => setActiveTab('coas')}
@@ -3046,14 +3345,16 @@ const AdminDashboard = () => {
           {/* Desktop Table View */}
           <div className="hidden md:block overflow-x-auto scrollbar-hide">
             <table className="w-full text-left border-collapse min-w-[700px]">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">User</th>
-                  <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Email</th>
-                  <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Role</th>
-                  <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Joined</th>
-                </tr>
-              </thead>
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-100">
+                      <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">User</th>
+                      <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Email</th>
+                      <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Role</th>
+                      <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Joined</th>
+                      <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Store Credit</th>
+                      <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest text-right">Actions</th>
+                    </tr>
+                  </thead>
               <tbody className="divide-y divide-gray-50">
                 {users.map((u) => (
                   <tr key={u.id} className="hover:bg-gray-50/50 transition-colors">
@@ -3076,6 +3377,44 @@ const AdminDashboard = () => {
                     <td className="px-6 py-4 text-sm text-gray-400">
                       {u.createdAt?.toDate ? u.createdAt.toDate().toLocaleDateString() : 'N/A'}
                     </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-400 font-bold">$</span>
+                        <input 
+                          type="number"
+                          step="0.01"
+                          defaultValue={u.storeCredit || 0}
+                          onBlur={(e) => {
+                            const newVal = parseFloat(e.target.value);
+                            if (!isNaN(newVal) && newVal !== (u.storeCredit || 0)) {
+                              updateStoreCredit(u.id, newVal);
+                              e.target.value = newVal.toFixed(2);
+                            }
+                          }}
+                          className="w-20 px-2 py-1 bg-gray-50 border border-gray-100 rounded-lg text-xs font-bold focus:ring-2 focus:ring-emerald-500 outline-none"
+                        />
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      {u.id !== auth.currentUser?.uid && (
+                        <button 
+                          onClick={() => handleDeleteUser(u.id, u.email)}
+                          disabled={isDeletingUser === u.id}
+                          className={`p-2 rounded-lg transition-all ${
+                            isDeletingUser === u.id 
+                              ? 'text-gray-300 bg-gray-50' 
+                              : 'text-gray-400 hover:text-red-600 hover:bg-red-50'
+                          }`}
+                          title="Delete User"
+                        >
+                          {isDeletingUser === u.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-4 h-4" />
+                          )}
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -3086,21 +3425,58 @@ const AdminDashboard = () => {
           <div className="md:hidden divide-y divide-gray-50">
             {users.map((u) => (
               <div key={u.id} className="p-6 space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-black/5 rounded-full flex items-center justify-center text-sm font-bold">
-                    {u.firstName?.[0]}{u.lastName?.[0]}
-                  </div>
-                  <div>
-                    <p className="font-bold text-gray-900">{u.displayName || `${u.firstName} ${u.lastName}`}</p>
-                    <p className="text-xs text-gray-500">{u.email}</p>
-                  </div>
-                </div>
                 <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-black/5 rounded-full flex items-center justify-center text-sm font-bold">
+                      {u.firstName?.[0]}{u.lastName?.[0]}
+                    </div>
+                    <div>
+                      <p className="font-bold text-gray-900">{u.displayName || `${u.firstName} ${u.lastName}`}</p>
+                      <p className="text-xs text-gray-500">{u.email}</p>
+                    </div>
+                  </div>
+                  {u.id !== auth.currentUser?.uid && (
+                    <button 
+                      onClick={() => handleDeleteUser(u.id, u.email)}
+                      disabled={isDeletingUser === u.id}
+                      className={`p-2.5 rounded-xl border ${
+                        isDeletingUser === u.id 
+                          ? 'text-gray-300 border-gray-50' 
+                          : 'text-red-600 border-red-50 bg-red-50/50 hover:bg-red-50'
+                      }`}
+                    >
+                      {isDeletingUser === u.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-4 h-4" />
+                      )}
+                    </button>
+                  )}
+                </div>
+                <div className="flex items-center justify-between border-t border-gray-50 pt-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Credit ($):</span>
+                    <input 
+                      type="number"
+                      step="0.01"
+                      defaultValue={u.storeCredit || 0}
+                      onBlur={(e) => {
+                        const newVal = parseFloat(e.target.value);
+                        if (!isNaN(newVal) && newVal !== (u.storeCredit || 0)) {
+                          updateStoreCredit(u.id, newVal);
+                          e.target.value = newVal.toFixed(2);
+                        }
+                      }}
+                      className="w-20 px-2 py-1 bg-gray-50 border border-gray-100 rounded-lg text-[10px] font-bold focus:ring-2 focus:ring-emerald-500 outline-none"
+                    />
+                  </div>
                   <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                     u.role === 'admin' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'
                   }`}>
                     {u.role || 'user'}
                   </span>
+                </div>
+                <div className="flex items-center justify-end">
                   <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
                     Joined: {u.createdAt?.toDate ? u.createdAt.toDate().toLocaleDateString() : 'N/A'}
                   </span>
@@ -3168,7 +3544,7 @@ const AdminDashboard = () => {
                                   inStock: newStock > 0
                                 });
                               }}
-                              className={`w-20 px-3 py-1.5 rounded-lg border text-sm font-bold outline-none focus:ring-2 focus:ring-black transition-all ${isLowStock ? 'bg-amber-50 border-amber-200 text-amber-700' : isOutOfStock ? 'bg-red-50 border-red-200 text-red-700' : 'bg-gray-50 border-gray-100'}`}
+                              className={`w-20 px-3 py-1.5 rounded-lg border text-sm font-bold outline-none focus:ring-2 focus:ring-black transition-all ${(p.stock || 0) <= (p.lowStockThreshold || 5) && (p.stock || 0) > 0 ? 'bg-amber-50 border-amber-200 text-amber-700' : (p.stock || 0) <= 0 ? 'bg-red-50 border-red-200 text-red-700' : 'bg-gray-50 border-gray-100'}`}
                             />
                           </div>
                         </td>
@@ -3188,9 +3564,9 @@ const AdminDashboard = () => {
                         <td className="px-6 py-4">
                           {p.isArchived ? (
                             <span className="px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-gray-100 text-gray-500">Archived</span>
-                          ) : isOutOfStock ? (
+                          ) : !isProductAvailable(p) ? (
                             <span className="px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-red-100 text-red-700">Restocking Soon</span>
-                          ) : isLowStock ? (
+                          ) : (p.stock || 0) <= (p.lowStockThreshold || 5) && (p.stock || 0) > 0 ? (
                             <span className="px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-700">Low Stock</span>
                           ) : (
                             <span className="px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-700">Healthy</span>
@@ -3398,7 +3774,15 @@ const AdminDashboard = () => {
           </div>
         </div>
       ) : activeTab === 'orders' ? (
-        <div className="bg-white rounded-[2rem] border border-gray-100 overflow-hidden shadow-sm">
+        <div className="space-y-6">
+          {fetchError && (
+            <div className="p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-600 text-sm">
+              <AlertCircle className="w-5 h-5 flex-shrink-0" />
+              <p className="font-bold">Error loading orders: {fetchError}</p>
+            </div>
+          )}
+          
+          <div className="bg-white rounded-[2rem] border border-gray-100 overflow-hidden shadow-sm">
           {/* Desktop Table View */}
           <div className="hidden md:block overflow-x-auto scrollbar-hide">
             <table className="w-full text-left border-collapse min-w-[1200px]">
@@ -3411,7 +3795,9 @@ const AdminDashboard = () => {
                   <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Shipping Address</th>
                   <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Total</th>
                   <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Status</th>
-                  <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Referral</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest text-center">Referral</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest text-center">Promo</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Transaction ID</th>
                   <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Tracking</th>
                   <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Actions</th>
                 </tr>
@@ -3436,29 +3822,29 @@ const AdminDashboard = () => {
                         {o.customerName || `${o.shippingInfo?.firstName} ${o.shippingInfo?.lastName}`}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-500">
-                        {o.customerEmail || o.shippingInfo?.email}
+                        {o.email || o.customerEmail || o.shippingInfo?.email}
                       </td>
                       <td className="px-6 py-4 text-[10px] text-gray-500 max-w-[200px] leading-relaxed">
-                        {o.shippingAddress || `${o.shippingInfo?.address}${o.shippingInfo?.unitNumber ? `, ${o.shippingInfo.unitNumber}` : ''}, ${o.shippingInfo?.city}, ${o.shippingInfo?.state} ${o.shippingInfo?.zip}`}
+                        {o.shippingAddress || (o.shippingInfo ? `${o.shippingInfo.address}${o.shippingInfo.unitNumber ? `, ${o.shippingInfo.unitNumber}` : ''}, ${o.shippingInfo.city}, ${o.shippingInfo.state} ${o.shippingInfo.zip}` : 'N/A')}
                       </td>
                       <td className="px-6 py-4 text-sm font-bold text-gray-900">
-                        ${(o.total || 0).toFixed(2)}
+                        ${(parseFloat(String(o.total)) || 0).toFixed(2)}
                       </td>
                       <td className="px-6 py-4">
                         <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                          o.status === 'shipped' || o.status === 'delivered' ? 'bg-emerald-100 text-emerald-700' : 
-                          o.status === 'awaiting tracking' ? 'bg-blue-100 text-blue-700' :
-                          o.status === 'pending' ? 'bg-amber-100 text-amber-700' : 
+                          o.status?.toLowerCase() === 'shipped' || o.status?.toLowerCase() === 'delivered' ? 'bg-emerald-100 text-emerald-700' : 
+                          o.status?.toLowerCase() === 'awaiting tracking' ? 'bg-blue-100 text-blue-700' :
+                          o.status?.toLowerCase() === 'pending' ? 'bg-amber-100 text-amber-700' : 
                           'bg-red-100 text-red-700'
                         }`}>
                           {o.status}
                         </span>
                       </td>
-                      <td className="px-6 py-4">
-                        {o.referralCode ? (
-                          <div className="flex flex-col gap-1">
+                      <td className="px-6 py-4 text-center">
+                        {(o.referral || o.referralCode) ? (
+                          <div className="flex flex-col items-center gap-1">
                             <span className="text-[10px] text-gray-500 truncate max-w-[120px]">
-                              {users.find(u => u.id === o.referralCode)?.email || 'Unknown User'}
+                              {users.find(u => u.id === (o.referral || o.referralCode))?.email || 'Unknown User'}
                             </span>
                             {o.referralCredited ? (
                               <span className="inline-flex items-center px-2 py-0.5 rounded text-[8px] font-bold bg-emerald-100 text-emerald-700 uppercase tracking-wider w-fit">
@@ -3473,6 +3859,25 @@ const AdminDashboard = () => {
                         ) : (
                           <span className="text-gray-300">-</span>
                         )}
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        {(o.promoCode || o.discountCode) ? (
+                          <div className="flex flex-col items-center">
+                            <span className="px-2 py-1 bg-black text-white text-[10px] font-black rounded-lg uppercase tracking-widest">
+                              {o.promoCode || o.discountCode}
+                            </span>
+                            {o.promoDiscount > 0 && (
+                              <span className="text-[9px] text-emerald-600 font-bold mt-1">
+                                -${(parseFloat(String(o.promoDiscount)) || 0).toFixed(2)}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-gray-300">-</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-[10px] font-mono text-gray-500">
+                        {o.transactionId || '-'}
                       </td>
                       <td className="px-6 py-4" onClick={(e) => e.stopPropagation()} onContextMenu={(e) => e.stopPropagation()}>
                         <div className="flex items-center gap-2 min-w-[200px]">
@@ -3575,13 +3980,38 @@ const AdminDashboard = () => {
                                         </div>
                                       </div>
                                       <div className="text-left sm:text-right">
-                                        <p className="font-bold text-gray-900 text-sm">${(item.price * item.quantity).toFixed(2)}</p>
-                                        <p className="text-[10px] text-gray-400">${item.price.toFixed(2)} each</p>
+                                        <p className="font-bold text-gray-900 text-sm">${(parseFloat(String(item.price)) * (item.quantity || 1)).toFixed(2)}</p>
+                                        <p className="text-[10px] text-gray-400">${(parseFloat(String(item.price)) || 0).toFixed(2)} each</p>
                                       </div>
                                     </div>
                                   ))}
                                 </div>
                                 
+                                <div className="mt-8 pt-8 border-t border-gray-100 flex flex-wrap gap-12">
+                                  <div>
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Total Paid</p>
+                                    <p className="text-xl font-black text-gray-900">${(parseFloat(String(o.total)) || 0).toFixed(2)}</p>
+                                  </div>
+                                  {(o.promoCode || o.discountCode) && (
+                                    <div>
+                                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Promo Used</p>
+                                      <div className="flex items-center gap-2">
+                                        <span className="px-2 py-1 bg-black text-white text-[10px] font-black rounded-lg uppercase tracking-widest">{o.promoCode || o.discountCode}</span>
+                                        <span className="text-sm font-bold text-emerald-600">-${o.promoDiscount?.toFixed(2) || '0.00'}</span>
+                                      </div>
+                                    </div>
+                                  )}
+                                  {(o.referral || o.referralCode) && (
+                                    <div>
+                                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Referral</p>
+                                      <p className="text-sm font-bold text-gray-900">{users.find(u => u.id === (o.referral || o.referralCode))?.email || 'Unknown User'}</p>
+                                      <span className={`inline-block px-1.5 py-0.5 rounded text-[7px] font-black uppercase tracking-wider mt-0.5 ${o.referralCredited ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                        {o.referralCredited ? 'Credited' : 'Pending'}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+
                                 {o.bankfulResponse && (
                                   <div className="mt-8 pt-8 border-t border-gray-100">
                                     <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4">Bankful Transaction Details</h4>
@@ -3625,12 +4055,18 @@ const AdminDashboard = () => {
                       {o.createdAt?.toDate ? o.createdAt.toDate().toLocaleString() : 'N/A'}
                     </p>
                   </div>
-                  <div className="text-right">
-                    <p className="font-bold text-gray-900">${(o.total || 0).toFixed(2)}</p>
-                    <span className={`inline-block px-2 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-wider mt-1 ${
-                      o.status === 'shipped' || o.status === 'delivered' ? 'bg-emerald-100 text-emerald-700' : 
-                      o.status === 'awaiting tracking' ? 'bg-blue-100 text-blue-700' :
-                      o.status === 'pending' ? 'bg-amber-100 text-amber-700' : 
+                  <div className="text-right flex flex-col items-end gap-1">
+                    <p className="font-bold text-gray-900">${(parseFloat(String(o.total)) || 0).toFixed(2)}</p>
+                    {o.transactionId && <p className="text-[8px] font-mono text-gray-400">TX: {o.transactionId}</p>}
+                    {o.promoCode && (
+                      <span className="px-1.5 py-0.5 bg-black text-white text-[7px] font-black rounded uppercase tracking-widest leading-none">
+                        PROMO: {o.promoCode}
+                      </span>
+                    )}
+                    <span className={`inline-block px-2 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-wider ${
+                      o.status?.toLowerCase() === 'shipped' || o.status?.toLowerCase() === 'delivered' ? 'bg-emerald-100 text-emerald-700' : 
+                      o.status?.toLowerCase() === 'awaiting tracking' ? 'bg-blue-100 text-blue-700' :
+                      o.status?.toLowerCase() === 'pending' ? 'bg-amber-100 text-amber-700' : 
                       'bg-red-100 text-red-700'
                     }`}>
                       {o.status}
@@ -3639,6 +4075,26 @@ const AdminDashboard = () => {
                 </div>
 
                 <div className="space-y-3 pt-2">
+                  {o.promoCode && (
+                    <div className="flex items-center justify-between p-2 bg-gray-50 rounded-xl border border-gray-100">
+                      <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Promo Used</span>
+                      <div className="text-right">
+                        <span className="text-[10px] font-black text-black uppercase tracking-widest">{o.promoCode}</span>
+                        {o.promoDiscount > 0 && <p className="text-[9px] text-emerald-600 font-bold">-${(parseFloat(String(o.promoDiscount)) || 0).toFixed(2)}</p>}
+                      </div>
+                    </div>
+                  )}
+                  {(o.referral || o.referralCode) && (
+                    <div className="flex items-center justify-between p-2 bg-gray-50 rounded-xl border border-gray-100">
+                      <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Referral</span>
+                      <div className="text-right">
+                        <p className="text-[10px] font-bold text-gray-900">{users.find(u => u.id === (o.referral || o.referralCode))?.email || 'Unknown User'}</p>
+                        <span className={`inline-block px-1.5 py-0.5 rounded text-[7px] font-black uppercase tracking-wider mt-0.5 ${o.referralCredited ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                          {o.referralCredited ? 'Credited' : 'Pending'}
+                        </span>
+                      </div>
+                    </div>
+                  )}
                   <div className="space-y-1">
                     <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">Update Tracking</label>
                     <div className="flex gap-2">
@@ -3697,12 +4153,14 @@ const AdminDashboard = () => {
                         <div className="space-y-2">
                           {(o.items || []).map((item: any, idx: number) => (
                             <div key={idx} className="flex items-center gap-3 p-2 bg-white rounded-xl border border-gray-100">
-                              <img src={item.image} alt="" className="w-8 h-8 rounded-lg object-cover" />
+                              <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center border border-gray-100 p-1">
+                                <img src={item.image} alt="" className="w-full h-full object-cover rounded-md" />
+                              </div>
                               <div className="flex-1 min-w-0">
                                 <p className="text-[10px] font-bold text-gray-900 truncate">{item.name}</p>
                                 <p className="text-[8px] text-gray-400 uppercase tracking-wider">{item.dosage} · Qty: {item.quantity}</p>
                               </div>
-                              <p className="text-[10px] font-bold text-gray-900">${(item.price * item.quantity).toFixed(2)}</p>
+                              <p className="text-[10px] font-bold text-gray-900">${(parseFloat(String(item.price)) * (item.quantity || 1)).toFixed(2)}</p>
                             </div>
                           ))}
                         </div>
@@ -3714,6 +4172,7 @@ const AdminDashboard = () => {
             ))}
           </div>
         </div>
+      </div>
       ) : activeTab === 'affiliates' ? (
         <div className="bg-white rounded-[2rem] border border-gray-100 overflow-hidden shadow-sm">
           {/* Desktop Table View */}
@@ -4252,23 +4711,37 @@ const AdminDashboard = () => {
                 if (q2) quantityImages['2'] = q2;
                 if (q3) quantityImages['3'] = q3;
 
+                const stock = parseInt(formData.get('stock') as string) || 0;
+                const price = parseFloat(formData.get('price') as string) || 0;
+                const lowStockThreshold = parseInt(formData.get('lowStockThreshold') as string) || 5;
+
+                // Calculate if ANY dosage is in stock using the more inclusive logic
+                const isAnyDosageInStock = dosages.length > 0 ? dosages.some(d => {
+                  if (typeof d.stock === 'number') return d.stock > 0;
+                  return d.inStock !== false;
+                }) : false;
+
                 const productDataRaw: any = {
-                  name: formData.get('name') as string,
-                  price: parseFloat(formData.get('price') as string),
-                  category: formData.get('category') as string,
-                  dosage: formData.get('dosage') as string,
+                  name: (formData.get('name') as string) || '',
+                  price: price,
+                  category: (formData.get('category') as string) || '',
+                  dosage: (formData.get('dosage') as string) || '',
                   dosages: dosages,
-                  image: formData.get('image') as string,
-                  description: formData.get('description') as string,
-                  stock: parseInt(formData.get('stock') as string) || 0,
-                  lowStockThreshold: parseInt(formData.get('lowStockThreshold') as string) || 5,
-                  inStock: (parseInt(formData.get('stock') as string) || 0) > 0,
+                  image: (formData.get('image') as string) || '',
+                  description: (formData.get('description') as string) || '',
+                  stock: stock,
+                  lowStockThreshold: lowStockThreshold,
+                  inStock: (stock > 0) || isAnyDosageInStock,
                   isArchived: formData.get('isArchived') === 'on',
                   quantityImages
                 };
 
-                if (formData.get('originalPrice')) {
-                  productDataRaw.originalPrice = parseFloat(formData.get('originalPrice') as string);
+                const originalPriceStr = formData.get('originalPrice') as string;
+                if (originalPriceStr) {
+                  const op = parseFloat(originalPriceStr);
+                  if (!isNaN(op)) {
+                    productDataRaw.originalPrice = op;
+                  }
                 }
 
                 const sanitizedData = sanitizeData(productDataRaw);
@@ -4276,6 +4749,8 @@ const AdminDashboard = () => {
                   ...sanitizedData,
                   updatedAt: serverTimestamp()
                 };
+
+                console.log('Saving product data:', productData);
 
                 try {
                   if (editingProduct) {
@@ -4288,8 +4763,8 @@ const AdminDashboard = () => {
                   }
                   setIsProductModalOpen(false);
                 } catch (error) {
-                  console.error('Error saving product:', error);
-                  alert('Failed to save product.');
+                  console.error('Error saving product details:', error);
+                  alert('Error saving product. Check console for details.');
                 }
               }} className="space-y-6">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
@@ -4571,19 +5046,24 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const [firstName, ...lastNameParts] = (u.displayName || 'Research User').split(' ');
         const lastName = lastNameParts.join(' ') || '';
 
+        const hardcodedAdminEmail = 'kyron.laskosky2@gmail.com';
+        const isHardcodedAdmin = u.email === hardcodedAdminEmail;
+
         try {
           await setDoc(userDocRef, {
             email: u.email,
             firstName,
             lastName,
             displayName: u.displayName || `${firstName} ${lastName}`,
-            role: 'user',
-            isAdmin: false,
+            photoURL: u.photoURL || null,
+            role: isHardcodedAdmin ? 'admin' : 'user',
+            isAdmin: isHardcodedAdmin ? true : false,
             createdAt: serverTimestamp(),
             lastLogin: serverTimestamp(),
             rewardPoints: 0,
+            storeCredit: 0,
             addresses: [],
-            isFreeShippingEnabled: false
+            isFreeShippingEnabled: isHardcodedAdmin
           });
           console.log("User document created successfully");
         } catch (err) {
@@ -4591,10 +5071,22 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
       } else {
         console.log("Updating existing user document...");
+        const hardcodedAdminEmail = 'kyron.laskosky2@gmail.com';
+        const isHardcodedAdmin = u.email === hardcodedAdminEmail;
+        
         try {
-          await updateDoc(userDocRef, {
+          const updateData: any = {
             lastLogin: serverTimestamp(),
-          });
+          };
+          if (isHardcodedAdmin) {
+            updateData.role = 'admin';
+            updateData.isAdmin = true;
+          }
+          // Sync photoURL if it's missing in Firestore but available in auth
+          if (u.photoURL && !userDoc.data().photoURL) {
+            updateData.photoURL = u.photoURL;
+          }
+          await updateDoc(userDocRef, updateData);
           console.log("User document updated successfully");
         } catch (err) {
           handleFirestoreError(err, OperationType.UPDATE, `users/${u.uid}`);
@@ -4694,29 +5186,28 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       lastName,
       phone: phone || null,
       displayName: `${firstName} ${lastName}`,
+      photoURL: null,
       role: 'user',
       isAdmin: false,
       createdAt: serverTimestamp(),
-      lastLogin: serverTimestamp()
+      lastLogin: serverTimestamp(),
+      rewardPoints: 0,
+      storeCredit: 0,
+      addresses: [],
+      isFreeShippingEnabled: false
     });
 
     // Send registration data to Google Apps Script Webhook
     try {
-      await fetch('https://script.google.com/macros/s/AKfycbwzHOo4H9esiw4UuvewkQj-tLY6zNS_zI1TMdX64yRq993A--8x9mgC72r7g_BrcfZUhw/exec', {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          firstName,
-          lastName,
-          email,
-          password: pass,
-          phone: phone || '',
-          action: 'registration',
-          timestamp: new Date().toISOString()
-        }),
+      const submitWebhookFn = httpsCallable(functions, 'submitWebhook');
+      await submitWebhookFn({
+        firstName,
+        lastName,
+        email,
+        password: pass,
+        phone: phone || '',
+        action: 'registration',
+        timestamp: new Date().toISOString()
       });
     } catch (webhookError) {
       console.error('Webhook notification failed:', webhookError);
@@ -4757,118 +5248,114 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   );
 };
 
-const Hero = ({ onShopNow, onViewCOAs }: { onShopNow: () => void, onViewCOAs: () => void }) => {
+const Hero = () => {
   const videoRef = React.useRef<HTMLVideoElement>(null);
+  const navigate = useNavigate();
 
   React.useEffect(() => {
     if (videoRef.current) {
-      videoRef.current.defaultMuted = true;
-      videoRef.current.muted = true;
       videoRef.current.play().catch(error => {
-        console.log("Autoplay was prevented:", error);
+        console.log("Video autoplay failed:", error);
       });
     }
   }, []);
 
   return (
     <>
-      {/* Mobile Bar Sitting on Top */}
       <div className="h-0 bg-black md:hidden" />
       
-      <section className="relative h-screen flex items-center overflow-hidden bg-black">
-        {/* Background Video Layer */}
-      <div className="absolute inset-0 z-0">
-        <video 
-          ref={videoRef}
-          autoPlay 
-          muted 
-          loop 
-          playsInline 
-          className="w-full h-full object-cover"
-        >
-          <source src="https://res.cloudinary.com/ditxwmhnj/video/upload/v1773973748/Generated_Video_March_19_2026_-_10_28PM_wpetru.mp4" type="video/mp4" />
-        </video>
-        
-        {/* Slight fade overlay for better text contrast */}
-        <div className="absolute inset-0 bg-black/30" />
-        
-        {/* Minimal gradient for text readability only */}
-        <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/20 to-transparent" />
-      </div>
-
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full translate-y-[20px] md:translate-y-[20px]">
-        <motion.div
-          initial={{ opacity: 0, x: -50 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.8 }}
-          className="max-w-2xl md:-mt-12"
-        >
-          <h1 className="text-4xl sm:text-6xl md:text-6xl font-bold text-white tracking-tight mt-0 md:mt-20 mb-6 md:mb-8 leading-[0.9] uppercase md:translate-y-[20px]">
-            Purity <br />
-            <span className="text-emerald-500">Peptides</span> <br />
-            Without <br />
-            Compromise
-          </h1>
-          <p className="text-gray-400 text-sm md:text-xl mb-8 md:mb-4 max-w-lg leading-relaxed -translate-y-4 md:-translate-y-[10px]">
-            Synthesizing high-purity research compounds for the global scientific community. 
-            HPLC tested, 1-3 business days shipping, and laboratory verified.
-          </p>
-
-          <div className="flex flex-wrap items-start gap-4 md:gap-6 -mt-[30px] md:mt-8 md:-translate-y-[20px]">
-            <motion.button 
-              onClick={onShopNow}
-              whileHover={{ 
-                scale: [1, 1.05, 1],
-                boxShadow: [
-                  "0 0 0 0px rgba(16, 185, 129, 0)",
-                  "0 0 0 10px rgba(16, 185, 129, 0.2)",
-                  "0 0 0 0px rgba(16, 185, 129, 0)"
-                ]
-              }}
-              transition={{ 
-                duration: 2,
-                repeat: Infinity,
-                ease: "easeInOut"
-              }}
-              className="px-6 py-3 md:px-10 md:py-5 bg-white text-black text-sm md:text-base font-bold rounded-2xl hover:bg-emerald-500 hover:text-white transition-all active:scale-95 flex items-center gap-2 md:gap-3 relative"
-            >
-              <div className="flex items-center gap-2 md:gap-3">
-                Explore Catalog <ChevronRight className="w-4 h-4 md:w-5 md:h-5" />
-              </div>
-              <span className="absolute -top-3 right-4 md:right-8 bg-emerald-500 text-white text-[8px] md:text-[11px] font-black px-2 md:px-4 py-0.5 md:py-1 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.5)] animate-bounce uppercase tracking-tighter whitespace-nowrap z-20">
-                Sale
-              </span>
-            </motion.button>
-            
-            <button 
-              onClick={onViewCOAs}
-              className="px-6 py-3 md:px-10 md:py-5 border border-white/20 text-white text-sm md:text-base font-bold rounded-2xl hover:bg-white/10 transition-all ml-0 md:ml-0"
-            >
-              Request COA's
-            </button>
-          </div>
-
-          {/* Unified Trust Bubble */}
-          <motion.div 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-            className="flex items-center gap-x-4 md:gap-x-8 px-5 py-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-xl mt-6 md:-mt-[15px] lg:-mt-[15px] w-fit"
+      <section className="relative min-h-screen md:h-screen flex items-center overflow-hidden bg-black py-20 md:py-0">
+        <div className="absolute inset-0 z-0">
+          <video 
+            ref={videoRef}
+            autoPlay 
+            muted 
+            loop 
+            playsInline 
+            preload="auto"
+            className="w-full h-full object-cover opacity-85"
+            onCanPlayThrough={() => {
+              videoRef.current?.play().catch(() => {});
+            }}
           >
-            <span className="text-[8px] md:text-[10px] font-bold text-white uppercase tracking-widest">99% Purity</span>
-            <div className="w-[1px] h-3 bg-white/10" />
-            <span className="text-[8px] md:text-[10px] font-bold text-white uppercase tracking-widest">COA Available</span>
-            <div className="w-[1px] h-3 bg-white/10" />
-            <span className="text-[8px] md:text-[10px] font-bold text-white uppercase tracking-widest">$250+ free shipping</span>
-          </motion.div>
-        </motion.div>
-      </div>
+            <source src="https://res.cloudinary.com/ditxwmhnj/video/upload/v1773973748/Generated_Video_March_19_2026_-_10_28PM_wpetru.mp4" type="video/mp4" />
+          </video>
+          <div className="absolute inset-0 bg-black/20" />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/20 to-transparent" />
+        </div>
 
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 translate-y-[30px] flex flex-col items-center gap-4 text-white/30">
-        <span className="text-[10px] font-bold uppercase tracking-[0.4em]">Scroll to Discover</span>
-        <div className="w-[1px] h-12 bg-gradient-to-b from-white/30 to-transparent" />
-      </div>
-    </section>
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full translate-y-0 md:translate-y-[20px]">
+          <motion.div
+            initial={{ opacity: 0, x: -50 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.8 }}
+            className="max-w-2xl mt-12 md:-mt-12"
+          >
+            <h1 className="text-[32px] sm:text-5xl md:text-6xl font-black text-white tracking-tight mt-0 md:mt-20 mb-4 md:mb-5 leading-[0.85] uppercase">
+              Purity <br />
+              <span className="text-emerald-500">Peptides</span> <br />
+              Without <br />
+              Compromise
+            </h1>
+            <p className="text-gray-400 text-sm md:text-xl mb-6 md:mb-8 max-w-lg leading-relaxed">
+              Synthesizing high-purity research compounds for the global scientific community. 
+              HPLC tested, 1-3 business days shipping, and laboratory verified.
+            </p>
+
+            <div className="flex flex-wrap items-start gap-4 md:gap-6 mt-0 md:mt-4 md:-translate-y-[20px]">
+              <motion.button 
+                onClick={() => navigate('/shop')}
+                whileHover={{ 
+                  scale: [1, 1.05, 1],
+                  boxShadow: [
+                    "0 0 0 0px rgba(16, 185, 129, 0)",
+                    "0 0 0 10px rgba(16, 185, 129, 0.2)",
+                    "0 0 0 0px rgba(16, 185, 129, 0)"
+                  ]
+                }}
+                transition={{ 
+                  duration: 2,
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
+                className="px-6 py-3 md:px-10 md:py-5 bg-white text-black text-sm md:text-base font-bold rounded-2xl hover:bg-emerald-500 hover:text-white transition-all active:scale-95 flex items-center gap-2 md:gap-3 relative"
+              >
+                <div className="flex items-center gap-2 md:gap-3">
+                  Explore Catalog <ChevronRight className="w-4 h-4 md:w-5 md:h-5" />
+                </div>
+                <span className="absolute -top-3 right-4 md:right-8 bg-emerald-500 text-white text-[8px] md:text-[11px] font-black px-2 md:px-4 py-0.5 md:py-1 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.5)] animate-bounce uppercase tracking-tighter whitespace-nowrap z-20">
+                  NEW
+                </span>
+              </motion.button>
+              
+              <button 
+                onClick={() => navigate('/coas')}
+                className="px-6 py-3 md:px-10 md:py-5 border border-white/20 text-white text-sm md:text-base font-bold rounded-2xl hover:bg-white/10 transition-all ml-0 md:ml-0"
+              >
+                Request COA's
+              </button>
+            </div>
+
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+              className="flex items-center gap-x-4 md:gap-x-8 px-5 py-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-xl mt-6 md:-mt-[15px] lg:-mt-[15px] w-fit"
+            >
+              <span className="text-[8px] md:text-[10px] font-bold text-white uppercase tracking-widest">99% Purity</span>
+              <div className="w-[1px] h-3 bg-white/10" />
+              <span className="text-[8px] md:text-[10px] font-bold text-white uppercase tracking-widest">COA Available</span>
+              <div className="w-[1px] h-3 bg-white/10" />
+              <span className="text-[8px] md:text-[10px] font-bold text-white uppercase tracking-widest">$250+ free shipping</span>
+            </motion.div>
+          </motion.div>
+        </div>
+
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 translate-y-[30px] flex flex-col items-center gap-4 text-white/30">
+          <span className="text-[10px] font-bold uppercase tracking-[0.4em]">Scroll to Discover</span>
+          <div className="w-[1px] h-12 bg-gradient-to-b from-white/30 to-transparent" />
+        </div>
+      </section>
     </>
   );
 };
@@ -4948,14 +5435,14 @@ const ProductRating: React.FC<{ productId: string, size?: 'sm' | 'md' }> = ({ pr
   const seed = getSeed(productId);
   // Rating between 4.6 and 5.0
   const rating = (4.6 + (seed % 5) / 10).toFixed(1);
-  // Reviews between 40 and 80
-  const reviews = 40 + (seed % 41);
+  // Reviews between 3 and 47 for more variety and lower counts
+  const reviews = 5 + (seed % 15) + (seed % 3);
 
   const starSize = size === 'sm' ? 'w-3 h-3' : 'w-4 h-4';
-  const textSize = size === 'sm' ? 'text-[11px]' : 'text-sm';
+  const textSize = size === 'sm' ? 'text-[10px] md:text-[11px]' : 'text-xs md:text-sm';
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-x-2 gap-y-1.5 flex-wrap">
       <div className="flex items-center">
         {[...Array(5)].map((_, i) => {
           const fillPercentage = Math.min(Math.max(Number(rating) - i, 0), 1) * 100;
@@ -4974,9 +5461,9 @@ const ProductRating: React.FC<{ productId: string, size?: 'sm' | 'md' }> = ({ pr
           );
         })}
       </div>
-      <div className="flex items-center gap-1.5">
-        <span className={`${textSize} font-bold text-gray-900`}>{rating}</span>
-        <span className={`${textSize} text-gray-400 font-medium`}>({reviews} reviews)</span>
+      <div className="flex items-center gap-1 flex-wrap leading-normal">
+        <span className={`${textSize} font-bold text-gray-900 whitespace-nowrap`}>{rating}</span>
+        <span className={`${textSize} text-gray-400 font-medium whitespace-nowrap`}>({reviews} reviews)</span>
       </div>
     </div>
   );
@@ -5022,10 +5509,10 @@ const ProductCard: React.FC<{
           </div>
         </div>
         <div className="p-3 md:p-8 flex flex-col flex-1">
-          <div className="mb-1 md:mb-2 scale-75 md:scale-100 origin-left">
+          <div className="mb-1 md:mb-2 origin-left">
             <ProductRating productId={product.id} />
           </div>
-          <h3 className="font-bold text-sm md:text-lg text-gray-900 mb-0.5 md:mb-1 truncate">{product.name}</h3>
+          <h3 className="font-bold text-sm md:text-lg text-gray-900 mb-0.5 md:mb-1 line-clamp-2 whitespace-normal">{product.name}</h3>
           {product.dosage && (
             <p className="text-emerald-600 text-[8px] md:text-[10px] font-bold uppercase tracking-wider mb-2 md:mb-4">{product.dosage}</p>
           )}
@@ -5046,10 +5533,10 @@ const ProductCard: React.FC<{
     <motion.div 
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="group flex flex-col bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-xl transition-all cursor-pointer h-[380px] md:h-[460px]"
+      className="group flex flex-col bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-xl transition-all cursor-pointer min-h-[310px] md:min-h-[500px]"
       onClick={() => onSelect(product)}
     >
-      <div className="aspect-[4/5] h-[160px] md:h-[240px] overflow-hidden relative flex-shrink-0 bg-gray-50">
+      <div className="aspect-[4/5] h-[140px] md:h-[260px] overflow-hidden relative flex-shrink-0 bg-gray-50">
         <img 
           src={product.image} 
           alt={product.name} 
@@ -5057,35 +5544,35 @@ const ProductCard: React.FC<{
           referrerPolicy="no-referrer"
         />
         {isOutOfStock && (
-          <div className="absolute top-4 left-4 px-3 py-1.5 bg-red-500 text-white text-[9px] font-bold uppercase tracking-widest rounded-full shadow-lg z-10">
+          <div className="absolute top-2 left-2 md:top-4 md:left-4 px-2 py-1 md:px-3 md:py-1.5 bg-red-500 text-white text-[7px] md:text-[9px] font-bold uppercase tracking-widest rounded-full shadow-lg z-10">
             Restocking Soon
           </div>
         )}
         {product.originalPrice && product.originalPrice > product.price && (
-          <div className={`absolute ${isOutOfStock ? 'top-12' : 'top-4'} left-4 px-3 py-1.5 bg-emerald-500 text-white text-[9px] font-bold uppercase tracking-widest rounded-full shadow-lg z-10`}>
+          <div className={`absolute ${isOutOfStock ? 'top-8' : 'top-2'} left-2 md:top-4 md:left-4 px-2 py-1 md:px-3 md:py-1.5 bg-emerald-500 text-white text-[7px] md:text-[9px] font-bold uppercase tracking-widest rounded-full shadow-lg z-10`}>
             {Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}% OFF
           </div>
         )}
       </div>
-      <div className="p-4 md:p-6 flex flex-col flex-1 min-h-0">
-        <div className="mb-2 flex-shrink-0">
+      <div className="p-2.5 md:p-6 flex flex-col flex-1 min-h-0">
+        <div className="mb-1.5 flex-shrink-0">
           <ProductRating productId={product.id} size="sm" />
         </div>
-        <div className="flex-1 overflow-hidden">
-          <h3 className="font-bold text-xs md:text-lg text-black mb-1 group-hover:text-emerald-600 transition-colors line-clamp-2">{product.name}</h3>
-          <div className="flex flex-wrap items-center gap-1.5 mb-2">
-            <p className="text-gray-600 text-[8px] md:text-[10px] font-bold uppercase tracking-wider">99%+ Purity</p>
+        <div className="flex-1">
+          <h3 className="font-bold text-[10px] md:text-lg text-black mb-0.5 md:mb-1 group-hover:text-emerald-600 transition-colors line-clamp-2 md:line-clamp-3 whitespace-normal min-h-0 md:min-h-[3em]">{product.name}</h3>
+          <div className="flex flex-wrap items-center gap-1 mb-1.5">
+            <p className="text-gray-500 text-[7px] md:text-[10px] font-bold uppercase tracking-wider">99%+ Purity</p>
             {product.dosage && (
               <>
-                <span className="w-1 h-1 bg-gray-200 rounded-full" />
-                <p className="text-gray-600 text-[8px] md:text-[10px] font-bold uppercase tracking-wider truncate max-w-[100px]">{product.dosage}</p>
+                <span className="w-0.5 h-0.5 bg-gray-200 rounded-full" />
+                <p className="text-gray-500 text-[7px] md:text-[10px] font-bold uppercase tracking-wider">{product.dosage}</p>
               </>
             )}
           </div>
-          <div className="flex items-center gap-2 mb-2">
-            <p className="text-sm md:text-2xl font-black text-black">${product.price.toFixed(2)}</p>
+          <div className="flex items-center gap-1.5 mb-2">
+            <p className="text-xs md:text-2xl font-black text-black">${product.price.toFixed(2)}</p>
             {product.originalPrice && product.originalPrice > product.price && (
-              <span className="text-[#888888] line-through text-[10px] md:text-sm font-medium">${product.originalPrice.toFixed(2)}</span>
+              <span className="text-[#888888] line-through text-[8px] md:text-sm font-medium">${product.originalPrice.toFixed(2)}</span>
             )}
           </div>
         </div>
@@ -5096,13 +5583,13 @@ const ProductCard: React.FC<{
             if (!isOutOfStock) onAddToCart(product);
           }}
           disabled={isOutOfStock}
-          className={`w-full py-3 md:py-4 mt-auto rounded-xl md:rounded-2xl font-black uppercase tracking-widest text-[8px] md:text-[11px] transition-all flex items-center justify-center gap-2 ${
+          className={`w-full py-2.5 md:py-4 mt-1 rounded-lg md:rounded-2xl font-black uppercase tracking-widest text-[7px] md:text-[11px] transition-all flex items-center justify-center gap-1.5 ${
             isOutOfStock 
               ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
               : 'bg-emerald-600 text-white hover:bg-emerald-500 active:scale-95'
           }`}
         >
-          {isOutOfStock ? 'Restocking' : <><Plus className="w-2.5 h-2.5 md:w-3.5 md:h-3.5" /> Add to Cart</>}
+          {isOutOfStock ? 'Restocking' : <><Plus className="w-2 md:w-3.5 h-2 md:h-3.5" /> Add to Cart</>}
         </button>
       </div>
     </motion.div>
@@ -5159,14 +5646,12 @@ const ShopView: React.FC<{
   onSelectProduct 
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [maxPrice, setMaxPrice] = useState(300);
 
   const filteredProducts = products.filter(p => {
     if (p.isArchived) return false;
     const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          p.category.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesPrice = p.price <= maxPrice;
-    return matchesSearch && matchesPrice;
+    return matchesSearch;
   }).sort((a, b) => {
     // Sort by availability: in stock comes before out of stock
     const aStock = isProductAvailable(a);
@@ -5182,10 +5667,10 @@ const ShopView: React.FC<{
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="bg-[#ededed] min-h-screen"
+      className="bg-[#121212] min-h-screen"
     >
       {/* Shop Header */}
-      <section className="relative bg-[#ededed] py-32 overflow-hidden">
+      <section className="relative bg-[#121212] py-48 md:py-64 overflow-hidden">
         <div className="absolute inset-0 z-0">
           <img 
             src="https://res.cloudinary.com/ditxwmhnj/image/upload/v1774582891/Screenshot_2026-03-26_at_11.41.24_PM_izjweq.png" 
@@ -5238,35 +5723,11 @@ const ShopView: React.FC<{
       </div>
       
       {/* Product Section */}
-      <section id="product-section" className="py-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col lg:flex-row gap-8 lg:gap-12">
-          {/* Sidebar Filter */}
-          <aside className="w-full lg:w-64 flex-shrink-0 bg-white p-6 rounded-2xl border border-gray-100 h-fit sticky top-32 shadow-sm">
-            <div className="space-y-8">
-              <div>
-                <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400 mb-6 font-primary">Filter by Price</h3>
-                <div className="space-y-4">
-                  <input 
-                    type="range" 
-                    min="0" 
-                    max="300" 
-                    step="1"
-                    value={maxPrice}
-                    onChange={(e) => setMaxPrice(Number(e.target.value))}
-                    className="w-full h-1.5 bg-gray-100 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-                  />
-                  <div className="flex justify-between items-center font-primary">
-                    <span className="text-sm font-medium text-gray-400">$0</span>
-                    <span className="text-sm font-bold text-gray-900">Up to ${maxPrice.toFixed(2)}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </aside>
-
+      <section id="product-section" className="py-8 md:py-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div>
           {/* Product Grid */}
           <div className="flex-1">
-            <div className="relative w-full mb-8">
+            <div className="relative w-full mb-6 md:mb-8">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5 font-primary" />
               <input 
                 type="text" 
@@ -5276,7 +5737,7 @@ const ShopView: React.FC<{
                 className="w-full bg-white border border-gray-100 rounded-xl py-3 pl-12 pr-4 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all shadow-sm font-primary"
               />
             </div>
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-3 gap-y-8 md:gap-x-6 md:gap-y-10">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 gap-x-2 gap-y-4 md:gap-x-6 md:gap-y-10">
               {filteredProducts.length > 0 ? (
                 filteredProducts.map((product) => (
                   <ProductCard 
@@ -5353,7 +5814,7 @@ const PremiumResearchSection = ({ onLearnMore }: { onLearnMore: () => void }) =>
 
           {/* Right Image */}
           <div className="flex-1 relative">
-            <div className="relative w-full aspect-square max-w-lg mx-auto">
+            <div className="relative w-full aspect-square max-w-lg mx-auto max-h-[60vh] md:max-h-none">
               {/* Background Glow */}
               <div className="absolute inset-0 bg-emerald-500/10 blur-[120px] rounded-full" />
               
@@ -5407,20 +5868,109 @@ const ResearchDisclaimer = () => (
   </section>
 );
 
-const ReferralView = ({ onNavigate, onOpenAuth }: { onNavigate: (view: any) => void, onOpenAuth: () => void }) => {
+const ReferralView = ({ onOpenAuth }: { onOpenAuth: () => void }) => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [profile, setProfile] = useState<any>(null);
   const [copied, setCopied] = useState(false);
+  const [isUnlocked, setIsUnlocked] = useState(false);
+  const [loadingOrders, setLoadingOrders] = useState(true);
+  const [referralOrders, setReferralOrders] = useState<any[]>([]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setLoadingOrders(false);
+      return;
+    }
     const unsubscribe = onSnapshot(doc(db, 'users', user.uid), (snapshot) => {
       if (snapshot.exists()) {
-        setProfile(snapshot.data());
+        const data = snapshot.data();
+        setProfile(data);
+        // Admin bypass or check if explicitly unlocked
+        const isAdmin = user.email === 'kyron.laskosky2@gmail.com' || data.role === 'admin' || data.isAdmin === true;
+        if (isAdmin || data.referralUnlocked) {
+          setIsUnlocked(true);
+          setLoadingOrders(false);
+        }
+      } else {
+        // Handle guest or legacy user without profile doc
+        setLoadingOrders(false);
       }
     });
     return () => unsubscribe();
   }, [user]);
+
+  // Fetch real-time referral history from orders
+  useEffect(() => {
+    if (!user || !isUnlocked) return;
+
+    const q = query(
+      collection(db, 'orders'),
+      where('referralCode', '==', user.uid),
+      orderBy('createdAt', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setReferralOrders(snapshot.docs.map(doc => ({ 
+        id: doc.id, 
+        ...doc.data() 
+      })));
+    }, (error) => {
+      console.error("Error fetching referral orders:", error);
+    });
+
+    return () => unsubscribe();
+  }, [user, isUnlocked]);
+
+  useEffect(() => {
+    // If not unlocked via profile and user exists, check orders
+    if (!user || isUnlocked) {
+      if (!user) setLoadingOrders(false);
+      return;
+    }
+
+    const isAdmin = user.email === 'kyron.laskosky2@gmail.com' || profile?.role === 'admin' || profile?.isAdmin === true;
+    if (isAdmin) {
+      setIsUnlocked(true);
+      setLoadingOrders(false);
+      return;
+    }
+
+    // Secondary check: Scan orders for shipped/delivered status or tracking number
+    const ordersQuery = query(
+      collection(db, 'orders'),
+      or(
+        where('userId', '==', user.uid),
+        where('email', '==', user.email),
+        where('customerEmail', '==', user.email)
+      )
+    );
+
+    const unsubscribe = onSnapshot(ordersQuery, (snapshot) => {
+      const hasShippedOrder = snapshot.docs.some(docSnap => {
+        const orderData = docSnap.data();
+        const isShipped = ['shipped', 'delivered', 'fulfilled'].includes(orderData.status);
+        const hasTracking = orderData.trackingNumber && orderData.trackingNumber.trim().length > 0;
+        return isShipped || hasTracking;
+      });
+
+      if (hasShippedOrder) {
+        setIsUnlocked(true);
+        // Persist for next time in user document
+        setDoc(doc(db, 'users', user.uid), { referralUnlocked: true }, { merge: true })
+          .catch(err => console.error('Error persisting referral unlock:', err));
+      } else {
+        setIsUnlocked(false);
+      }
+      setLoadingOrders(false);
+    }, (err) => {
+      console.error('Referral Orders Query Error:', err);
+      // Fallback: rely on the profile snapshot in the first useEffect
+      setLoadingOrders(false);
+    });
+
+    return () => unsubscribe();
+  }, [user, isUnlocked, profile]);
 
   const referralLink = user ? `https://www.eclipseresearch.shop/?ref=${user.uid}` : '';
 
@@ -5428,12 +5978,6 @@ const ReferralView = ({ onNavigate, onOpenAuth }: { onNavigate: (view: any) => v
     navigator.clipboard.writeText(referralLink);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-  };
-
-  const maskEmail = (email: string) => {
-    if (!email) return '';
-    const [name, domain] = email.split('@');
-    return `${name.substring(0, 3)}***@${domain}`;
   };
 
   if (!user) {
@@ -5458,6 +6002,50 @@ const ReferralView = ({ onNavigate, onOpenAuth }: { onNavigate: (view: any) => v
               Log In to Continue
             </button>
           </div>
+        </section>
+      </div>
+    );
+  }
+
+  if (loadingOrders) {
+    return (
+      <div className="bg-black min-h-screen flex items-center justify-center">
+        <Loader2 className="w-10 h-10 text-emerald-500 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!isUnlocked) {
+    return (
+      <div className="bg-black min-h-screen">
+        <section className="pt-32 pb-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-[60vh] flex flex-col items-center justify-center text-center">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-12 max-w-xl mx-auto"
+          >
+             <div className="w-24 h-24 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-8 border border-white/10">
+               <Lock className="w-10 h-10 text-emerald-500" />
+             </div>
+             <h1 className="text-4xl font-bold text-white mb-4 uppercase tracking-tight">Referral Program Locked</h1>
+             <p className="text-gray-400 text-lg mb-8 leading-relaxed">
+               Our referral program is exclusive to our community of researchers. You must complete at least one order before you can access your referral link and start earning credit.
+             </p>
+             <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-6 mb-8">
+               <p className="text-emerald-500 font-bold">
+                 Status: Order Required
+               </p>
+               <p className="text-emerald-500/60 text-sm mt-1">
+                 Your referral link will unlock as soon as your first order is processed and tracked.
+               </p>
+             </div>
+             <button 
+               onClick={() => navigate('/shop')}
+               className="px-10 py-5 bg-white text-black font-bold rounded-2xl hover:bg-emerald-500 hover:text-white transition-all active:scale-95"
+             >
+               Shop to Unlock
+             </button>
+          </motion.div>
         </section>
       </div>
     );
@@ -5500,7 +6088,7 @@ const ReferralView = ({ onNavigate, onOpenAuth }: { onNavigate: (view: any) => v
             <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-[2.5rem] p-10">
               <h2 className="text-2xl font-bold text-white mb-8">Referral History</h2>
               <div className="space-y-4">
-                {profile?.referrals && profile.referrals.length > 0 ? (
+                {referralOrders.length > 0 ? (
                   <div className="overflow-x-auto">
                     <table className="w-full text-left">
                       <thead>
@@ -5511,21 +6099,26 @@ const ReferralView = ({ onNavigate, onOpenAuth }: { onNavigate: (view: any) => v
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/5">
-                        {profile.referrals.map((ref: any, i: number) => (
-                          <tr key={i} className="text-sm">
-                            <td className="py-4 text-white font-medium">{maskEmail(ref.email)}</td>
-                            <td className="py-4 text-gray-400">{ref.date ? new Date(ref.date.seconds * 1000).toLocaleDateString() : 'N/A'}</td>
-                            <td className="py-4">
-                              <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                                ref.status === 'credited' ? 'bg-emerald-500/10 text-emerald-500' :
-                                ref.status === 'ineligible' ? 'bg-red-500/10 text-red-500' :
-                                'bg-blue-500/10 text-blue-500'
-                              }`}>
-                                {ref.status}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
+                        {referralOrders.map((order: any, i: number) => {
+                          const date = order.createdAt?.toDate ? order.createdAt.toDate() : new Date(order.createdAt);
+                          const status = order.referralCredited ? 'credited' : 
+                                       (order.status === 'cancelled' ? 'ineligible' : 'pending');
+                          return (
+                            <tr key={i} className="text-sm">
+                              <td className="py-4 text-white font-medium">{(order.email || order.customerEmail) ? maskEmail(order.email || order.customerEmail) : 'Researcher'}</td>
+                              <td className="py-4 text-gray-400">{date.toLocaleDateString()}</td>
+                              <td className="py-4">
+                                <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                  status === 'credited' ? 'bg-emerald-500/10 text-emerald-500' :
+                                  status === 'ineligible' ? 'bg-red-500/10 text-red-500' :
+                                  'bg-blue-500/10 text-blue-500'
+                                }`}>
+                                  {status}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -5556,7 +6149,7 @@ const ReferralView = ({ onNavigate, onOpenAuth }: { onNavigate: (view: any) => v
                 Your store credit will be automatically applied to your next purchase during checkout.
               </p>
               <button 
-                onClick={() => onNavigate('shop')}
+                onClick={() => navigate('/shop')}
                 className="w-full py-5 bg-white text-black font-bold rounded-2xl hover:bg-black hover:text-white transition-all active:scale-95"
               >
                 Shop Now
@@ -5768,7 +6361,8 @@ const CheckoutView = ({
   onRemoveFromCart,
   onAddToCart,
   onClearCart,
-  products
+  products,
+  reduceInventory
 }: { 
   cart: CartItem[], 
   onBack: () => void, 
@@ -5781,7 +6375,8 @@ const CheckoutView = ({
   onRemoveFromCart: (id: string) => void,
   onAddToCart: (product: Product, quantity?: number) => void,
   onClearCart: () => void,
-  products: Product[]
+  products: Product[],
+  reduceInventory: (items: CartItem[]) => Promise<void>
 }) => {
   const { user, isFreeShippingEnabled, isAdmin } = useAuth();
   const [step, setStep] = useState(1);
@@ -5858,11 +6453,12 @@ const CheckoutView = ({
           const emailToCheck = user.email || shippingInfo.email;
           if (emailToCheck) {
             try {
+              // Simplified check: only check by email first to avoid complex indexes for now
               const ordersQuery = query(
                 collection(db, 'orders'),
                 and(
                   or(
-                    where('userId', '==', user.uid),
+                    where('email', '==', emailToCheck),
                     where('customerEmail', '==', emailToCheck)
                   ),
                   where('promoCode', '==', code)
@@ -5876,8 +6472,7 @@ const CheckoutView = ({
               }
             } catch (err) {
               console.error('Error checking promo usage:', err);
-              // If we can't check usage (e.g. permission error for guests), we might want to allow it or fail safely
-              // For now, let's just log it and continue if it's a permission error, or handle it
+              // If check fails (e.g. index missing), we let it pass for now so it's not "broken"
             }
           }
         }
@@ -5889,8 +6484,8 @@ const CheckoutView = ({
         setPromoCode('');
       }
     } catch (error) {
-      handleFirestoreError(error, OperationType.GET, 'promo_codes');
-      setPromoError('Error applying promo code');
+      console.error('Apply Promo Error:', error);
+      setPromoError('Unexpected error applying promo code');
     } finally {
       setIsApplying(false);
     }
@@ -5965,34 +6560,60 @@ const CheckoutView = ({
 
     if (paymentMethod === 'card') {
       try {
-        const referralCode = localStorage.getItem('referralCode');
+        const rawReferralCode = localStorage.getItem('referralCode');
+        const referralCode = (rawReferralCode && user && rawReferralCode === user.uid) ? null : rawReferralCode;
         const sanitizedShippingInfo = sanitizeData(shippingInfo);
         
         // Get Firebase ID token
         const idToken = await user?.getIdToken();
         
-        const response = await fetch('https://us-central1-gen-lang-client-0437247227.cloudfunctions.net/createBankfulSession', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${idToken}`
-          },
-          body: JSON.stringify({
-            cart,
-            total,
-            customerEmail: sanitizedShippingInfo.email,
-            orderId,
-            shippingInfo: sanitizedShippingInfo,
-            referralCode: referralCode || null
-          })
+        // Call Firebase Function
+        const createBankfulSession = httpsCallable(functions, 'createBankfulSession');
+        console.log("total value:", total, "type:", typeof total);
+        const sessionResult = await createBankfulSession({
+          cart,
+          total,
+          customerEmail: sanitizedShippingInfo.email,
+          orderId,
+          shippingInfo: sanitizedShippingInfo,
+          referralCode: referralCode || null,
+          promoCode: appliedPromo?.code || null,
+          promoDiscount: promoDiscount
         });
 
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
+        const responseData = sessionResult.data as any;
+        // The return is wrapped in { data: ... } on the server, and the client unwrap to .data
+        // So responseData here is { data: { ...BankfulResponse... } }
+        const bankfulData = responseData.data || responseData;
+        const redirectUrl = bankfulData.hostedPageUrl || bankfulData.hosted_page_url || bankfulData.redirectUrl || bankfulData.redirect_url;
+        
+        if ((bankfulData.status === 'success' || !bankfulData.status) && redirectUrl) {
+          // After successful session creation, save order details to Firestore as a safeguard
+          try {
+            const orderRef = doc(db, 'orders', orderId);
+            await setDoc(orderRef, {
+              orderId: orderId,
+              userId: user?.uid || null,
+              customerName: `${sanitizedShippingInfo.firstName} ${sanitizedShippingInfo.lastName}`,
+              email: sanitizedShippingInfo.email,
+              shippingAddress: `${sanitizedShippingInfo.address}${sanitizedShippingInfo.unitNumber ? `, ${sanitizedShippingInfo.unitNumber}` : ''}, ${sanitizedShippingInfo.city}, ${sanitizedShippingInfo.state} ${sanitizedShippingInfo.zip}`,
+              items: cart,
+              total: total,
+              status: 'PENDING',
+              paymentMethod: 'card',
+              referral: referralCode || null,
+              promoCode: appliedPromo?.code || null,
+              promoDiscount: promoDiscount,
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp()
+            }, { merge: true });
 
-        const data = await response.json() as { redirect_url: string };
-        if (data.redirect_url) {
+            // Reduce inventory
+            await reduceInventory(cart);
+          } catch (saveErr) {
+            console.error('Error ensuring order details:', saveErr);
+          }
+
           // Clear cart before redirecting to ensure it's empty on return
           const cartId = user ? user.uid : getGuestId();
           try {
@@ -6002,10 +6623,11 @@ const CheckoutView = ({
             console.error('Error clearing cart before redirect:', err);
           }
           
-          window.location.href = data.redirect_url;
+          window.location.href = redirectUrl;
           return;
         } else {
-          throw new Error('Failed to get redirect URL');
+          console.error("Bankful session response invalid:", bankfulData);
+          throw new Error(bankfulData.errorMessage || bankfulData.error || "Failed to create payment session");
         }
       } catch (error: any) {
         setIsPlacingOrder(false);
@@ -6016,7 +6638,8 @@ const CheckoutView = ({
       }
     }
 
-    const refCode = localStorage.getItem('referralCode');
+    const rawRefCode = localStorage.getItem('referralCode');
+    const refCode = (rawRefCode && user && rawRefCode === user.uid) ? null : rawRefCode;
     console.log('Referral Flow: Found referralCode in localStorage:', refCode);
 
     const sanitizedShippingInfo = sanitizeData(shippingInfo);
@@ -6355,147 +6978,149 @@ const CheckoutView = ({
               )}
             </div>
 
-            <div className="space-y-4 md:space-y-6 mb-4 md:mb-8 max-h-[200px] md:max-h-[400px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-100">
+            <div className="space-y-2 md:space-y-3 mb-4 md:mb-6 max-h-[250px] md:max-h-[450px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-100">
               {cart.map((item) => (
-                <div key={item.id} className="flex gap-2 md:gap-4">
-                  <div className="w-10 h-10 md:w-20 md:h-20 bg-gray-50 rounded-lg md:rounded-2xl overflow-hidden flex-shrink-0 border border-gray-100">
+                <div key={item.id} className="flex gap-2 md:gap-3">
+                  <div className="w-10 h-10 md:w-14 md:h-14 bg-gray-50 rounded-lg md:rounded-xl overflow-hidden flex-shrink-0 border border-gray-100">
                     <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
                   </div>
-                  <div className="flex-1">
-                    <h3 className="font-bold text-[10px] md:text-sm text-gray-900 mb-0.5 md:mb-1 truncate max-w-[80px] md:max-w-none">{item.name}</h3>
-                    <div className="flex items-center gap-1 md:gap-3 mb-1 md:mb-2">
-                      <div className="flex items-center bg-gray-50 rounded md:rounded-lg border border-gray-100">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-bold text-[10px] md:text-xs text-gray-900 mb-0.5 truncate pr-2">{item.name}</h3>
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center bg-gray-50 rounded md:rounded-lg border border-gray-100 scale-90 md:scale-100 origin-left">
                         <button 
                           onClick={() => onUpdateQuantity(item.id, -1)}
                           className="p-0.5 md:p-1 hover:text-emerald-600 transition-colors"
                         >
-                          <Minus className="w-2 h-2 md:w-3 md:h-3" />
+                          <Minus className="w-2 h-2" />
                         </button>
-                        <span className="text-[8px] md:text-xs font-bold w-4 md:w-6 text-center">{item.quantity}</span>
+                        <span className="text-[8px] md:text-[10px] font-bold w-4 text-center">{item.quantity}</span>
                         <button 
                           onClick={() => onUpdateQuantity(item.id, 1)}
                           className="p-0.5 md:p-1 hover:text-emerald-600 transition-colors"
                         >
-                          <Plus className="w-2 h-2 md:w-3 md:h-3" />
+                          <Plus className="w-2 h-2" />
                         </button>
                       </div>
+                      <p className="text-emerald-600 font-bold text-[10px] md:text-xs">${(item.price * item.quantity).toFixed(2)}</p>
                     </div>
-                    <p className="text-emerald-600 font-bold text-[10px] md:text-sm">${(item.price * item.quantity).toFixed(2)}</p>
                   </div>
                 </div>
               ))}
             </div>
 
             {/* Bacteriostatic Water Recommendation */}
-            {!cart.some(item => item.name.toLowerCase().includes('bacteriostatic water')) && (
-              <div className="mb-4 md:mb-8 p-2 md:p-4 bg-emerald-50 rounded-xl md:rounded-2xl border border-emerald-100">
-                <div className="flex gap-2 md:gap-4">
-                  <div className="w-8 h-8 md:w-16 md:h-16 bg-white rounded-lg md:rounded-xl overflow-hidden flex-shrink-0 border border-emerald-100">
-                    <img 
-                      src={products.find(p => p.name.toLowerCase().includes('bacteriostatic water'))?.image || "https://picsum.photos/seed/water/200/200"} 
-                      alt="Bacteriostatic Water" 
-                      className="w-full h-full object-cover" 
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-[6px] md:text-[10px] font-bold text-emerald-600 uppercase tracking-widest mb-0.5 md:mb-1">Recommended</p>
-                    <h4 className="text-[8px] md:text-xs font-bold text-gray-900 mb-1 md:mb-2 truncate max-w-[60px] md:max-w-none">Bac Water</h4>
-                    <button 
-                      onClick={() => {
-                        const bacProduct = products.find(p => p.name.toLowerCase().includes('bacteriostatic water'));
-                        if (bacProduct) onAddToCart(bacProduct, 1);
-                      }}
-                      className="mt-1 px-2 py-1 bg-emerald-600 text-white text-[6px] md:text-[10px] font-bold uppercase tracking-widest rounded-full hover:bg-emerald-700 transition-all flex items-center gap-1"
-                    >
-                      <Plus className="w-2 h-2" /> Add — $15
-                    </button>
+            {(() => {
+              const bacProduct = products.find(p => p.name.toLowerCase().includes('bacteriostatic water'));
+              if (!bacProduct || cart.some(item => item.name.toLowerCase().includes('bacteriostatic water'))) return null;
+
+              return (
+                <div className="mb-3 md:mb-4 p-2 md:p-3 bg-emerald-50 rounded-lg md:rounded-xl border border-emerald-100">
+                  <div className="flex gap-2">
+                    <div className="w-8 h-8 md:w-10 md:h-10 bg-white rounded-md overflow-hidden flex-shrink-0 border border-emerald-100">
+                      <img 
+                        src={bacProduct.image || "https://picsum.photos/seed/water/200/200"} 
+                        alt="Bacteriostatic Water" 
+                        className="w-full h-full object-cover" 
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[6px] md:text-[8px] font-bold text-emerald-600 uppercase tracking-widest mb-0.5">Recommended Add-on</p>
+                      <h4 className="text-[8px] md:text-[10px] font-bold text-gray-900 mb-1 truncate">{bacProduct.name}</h4>
+                      <button 
+                        onClick={() => onAddToCart(bacProduct, 1)}
+                        className="px-2 py-1 bg-emerald-600 text-white text-[7px] md:text-[9px] font-bold uppercase tracking-wider rounded-md hover:bg-emerald-700 transition-all flex items-center gap-1"
+                      >
+                        Add — ${bacProduct.price.toFixed(2)}
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
-            <div className="space-y-2 md:space-y-4 pt-4 md:pt-8 border-t border-gray-100">
-              <div className="flex justify-between text-gray-500 text-[10px] md:text-sm">
+            <div className="space-y-1.5 md:space-y-2 pt-3 md:pt-4 border-t border-gray-100">
+              <div className="flex justify-between text-gray-500 text-[9px] md:text-xs">
                 <span>Subtotal</span>
                 <span className="font-bold text-gray-900">${subtotal.toFixed(2)}</span>
               </div>
               {quantityDiscountPercent > 0 && (
-                <div className="flex justify-between text-emerald-600 text-[10px] md:text-sm">
-                  <div className="flex items-center gap-1 md:gap-2">
-                    <Tag className="w-2 h-2 md:w-3 md:h-3" />
-                    <span>Quantity Discount ({quantityDiscountPercent}%)</span>
+                <div className="flex justify-between text-emerald-600 text-[9px] md:text-xs">
+                  <div className="flex items-center gap-1">
+                    <Tag className="w-2 h-2" />
+                    <span>Bulk Discount ({quantityDiscountPercent}%)</span>
                   </div>
                   <span className="font-bold">-${quantityDiscountAmount.toFixed(2)}</span>
                 </div>
               )}
-              <div className="flex justify-between text-gray-500 text-[10px] md:text-sm">
+              <div className="flex justify-between text-gray-500 text-[9px] md:text-xs">
                 <span>Shipping</span>
                 <span className="font-bold text-emerald-600">
                   {shipping <= 0 ? 'FREE' : `$${shipping.toFixed(2)}`}
                 </span>
               </div>
               {appliedPromo && (
-                <div className="flex justify-between text-emerald-600 text-[10px] md:text-sm">
-                  <div className="flex items-center gap-1 md:gap-2">
-                    <Tag className="w-2 h-2 md:w-3 md:h-3" />
+                <div className="flex justify-between text-emerald-600 text-[9px] md:text-xs">
+                  <div className="flex items-center gap-1">
+                    <Tag className="w-2 h-2" />
                     <span>Promo ({appliedPromo.discount}%)</span>
                   </div>
                   <span className="font-bold">-${promoDiscount.toFixed(2)}</span>
                 </div>
               )}
               {cryptoDiscount > 0 && (
-                <div className="flex justify-between text-emerald-600 text-[10px] md:text-sm">
+                <div className="flex justify-between text-emerald-600 text-[9px] md:text-xs">
                   <span>Crypto (5%)</span>
                   <span className="font-bold">-${cryptoDiscount.toFixed(2)}</span>
                 </div>
               )}
-              <div className="pt-2 md:pt-4 border-t border-gray-100 flex justify-between items-end">
+              <div className="pt-2 border-t border-gray-100 flex justify-between items-end">
                 <div>
-                  <p className="text-[8px] md:text-xs font-bold text-gray-400 uppercase tracking-widest mb-0.5 md:mb-1">Total</p>
-                  <p className="text-sm md:text-3xl font-bold text-gray-900">${total.toFixed(2)}</p>
+                  <p className="text-[7px] md:text-[8px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Total</p>
+                  <p className="text-base md:text-2xl font-bold text-gray-900">${total.toFixed(2)}</p>
                 </div>
               </div>
 
-              <div className="pt-3 md:pt-6 space-y-2 md:space-y-4">
-                <label className="flex items-start gap-2 md:gap-3 cursor-pointer group">
-                  <div className="flex items-center h-4 md:h-5">
+              <div className="pt-2 md:pt-4 space-y-2 md:space-y-3">
+                <label className="flex items-start gap-2 cursor-pointer group">
+                  <div className="flex items-center h-4">
                     <input
                       type="checkbox"
                       checked={acknowledgements.age}
                       onChange={(e) => setAcknowledgements({ ...acknowledgements, age: e.target.checked })}
-                      className="h-3 w-3 md:h-4 md:w-4 rounded border-gray-300 text-black focus:ring-black cursor-pointer"
+                      className="h-3 w-3 rounded border-gray-300 text-black focus:ring-black cursor-pointer"
                     />
                   </div>
-                  <span className="text-[8px] md:text-[11px] text-gray-500 font-medium leading-tight group-hover:text-gray-700 transition-colors">
+                  <span className="text-[8px] md:text-[10px] text-gray-500 font-medium leading-tight group-hover:text-gray-700 transition-colors">
                     I confirm I am 21 years of age or older.
                   </span>
                 </label>
 
-                <label className="flex items-start gap-2 md:gap-3 cursor-pointer group">
-                  <div className="flex items-center h-4 md:h-5">
+                <label className="flex items-start gap-2 cursor-pointer group">
+                  <div className="flex items-center h-4">
                     <input
                       type="checkbox"
                       checked={acknowledgements.research}
                       onChange={(e) => setAcknowledgements({ ...acknowledgements, research: e.target.checked })}
-                      className="h-3 w-3 md:h-4 md:w-4 rounded border-gray-300 text-black focus:ring-black cursor-pointer"
+                      className="h-3 w-3 rounded border-gray-300 text-black focus:ring-black cursor-pointer"
                     />
                   </div>
-                  <span className="text-[8px] md:text-[11px] text-gray-500 font-medium leading-tight group-hover:text-gray-700 transition-colors">
-                    I understand these compounds are sold strictly for laboratory research purposes and are not intended for human consumption.
+                  <span className="text-[8px] md:text-[10px] text-gray-500 font-medium leading-tight group-hover:text-gray-700 transition-colors">
+                    I understand these compounds are strictly for research purposes.
                   </span>
                 </label>
 
-                <label className="flex items-start gap-2 md:gap-3 cursor-pointer group">
-                  <div className="flex items-center h-4 md:h-5">
+                <label className="flex items-start gap-2 cursor-pointer group">
+                  <div className="flex items-center h-4">
                     <input
                       type="checkbox"
                       checked={acknowledgements.terms}
                       onChange={(e) => setAcknowledgements({ ...acknowledgements, terms: e.target.checked })}
-                      className="h-3 w-3 md:h-4 md:w-4 rounded border-gray-300 text-black focus:ring-black cursor-pointer"
+                      className="h-3 w-3 rounded border-gray-300 text-black focus:ring-black cursor-pointer"
                     />
                   </div>
-                  <span className="text-[8px] md:text-[11px] text-gray-500 font-medium leading-tight group-hover:text-gray-700 transition-colors">
-                    I have read and agree to the Terms & Conditions.
+                  <span className="text-[8px] md:text-[10px] text-gray-500 font-medium leading-tight group-hover:text-gray-700 transition-colors">
+                    I agree to the Terms & Conditions.
                   </span>
                 </label>
               </div>
@@ -6517,7 +7142,7 @@ const CheckoutView = ({
                 )}
               </button>
               
-              <p className="text-[10px] text-gray-400 text-center mt-6 leading-relaxed">
+              <p className="text-[8px] text-gray-400 text-center mt-6 leading-relaxed">
                 By completing your purchase, you agree to our Terms and Conditions and Privacy Policy. 
                 All compounds are for laboratory research use only.
               </p>
@@ -6529,7 +7154,8 @@ const CheckoutView = ({
   );
 };
 
-const ProductDetailView = ({ product, products, onAddToCart, onBack, onSelectProduct, settings, timeLeft }: { product: Product, products: Product[], onAddToCart: (product: Product, quantity: number) => void, onBack: () => void, onSelectProduct: (product: Product) => void, settings: SiteSettings | null, timeLeft: { hours: number, minutes: number, seconds: number } | null }) => {
+const ProductDetailView = ({ product, products, onAddToCart, onSelectProduct, settings, timeLeft }: { product: Product, products: Product[], onAddToCart: (product: Product, quantity: number) => void, onSelectProduct: (product: Product) => void, settings: SiteSettings | null, timeLeft: { hours: number, minutes: number, seconds: number } | null }) => {
+  const navigate = useNavigate();
   const [quantity, setQuantity] = useState(1);
   const [selectedDosageIdx, setSelectedDosageIdx] = useState<number | null>(null);
   
@@ -6576,7 +7202,7 @@ const ProductDetailView = ({ product, products, onAddToCart, onBack, onSelectPro
         </div>
       </div>
 
-      <button onClick={onBack} className="flex items-center gap-2 text-gray-500 hover:text-black mb-6 md:mb-4 transition-colors group text-sm md:text-base">
+      <button onClick={() => navigate('/shop')} className="flex items-center gap-2 text-gray-500 hover:text-black mb-6 md:mb-4 transition-colors group text-sm md:text-base">
         <ChevronLeft className="w-4 h-4 md:w-5 md:h-5 group-hover:-translate-x-1 transition-transform" /> Back to Shop
       </button>
 
@@ -6585,7 +7211,7 @@ const ProductDetailView = ({ product, products, onAddToCart, onBack, onSelectPro
         <motion.div 
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
-          className="aspect-[4/5] md:aspect-auto md:h-full rounded-[2.5rem] overflow-hidden bg-white border border-gray-100 shadow-sm relative md:sticky md:top-0"
+          className="aspect-[4/5] max-h-[60vh] md:max-h-none md:aspect-auto md:h-full rounded-[2.5rem] overflow-hidden bg-white border border-gray-100 shadow-sm relative md:sticky md:top-0 mx-auto w-full max-w-sm md:max-w-none"
         >
           <img src={displayImage} alt={product.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
           {!isCurrentlyInStock && (
@@ -6725,11 +7351,11 @@ const ProductDetailView = ({ product, products, onAddToCart, onBack, onSelectPro
                     )}
                     
                     <div className="w-12 h-12 md:w-14 md:h-14 mt-1 md:mt-0.5 mb-2 md:mb-2 relative overflow-hidden rounded-lg md:rounded-xl">
-                      <img src={quantityImages[num]} alt={`${num} Bottle`} className="w-full h-full object-cover scale-150 md:scale-125 transition-transform" />
+                      <img src={quantityImages[num]} alt={`${num} Vial`} className="w-full h-full object-cover scale-150 md:scale-125 transition-transform" />
                     </div>
                     
                     <div className="text-center">
-                      <p className="text-[10px] md:text-xs font-bold text-gray-900 mb-0.5">{num} {num === 1 ? 'Bottle' : 'Bottles'}</p>
+                      <p className="text-[10px] md:text-xs font-bold text-gray-900 mb-0.5">{num} {num === 1 ? 'Vial' : 'Vials'}</p>
                       <p className="text-sm md:text-base font-black text-black">${cardPrice.toFixed(2)}<span className="text-[8px] md:text-[9px] text-gray-400 font-bold uppercase ml-1">/ea</span></p>
                       <p className="text-[8px] md:text-[9px] font-bold text-gray-400 uppercase tracking-wider">Total: ${(cardPrice * num).toFixed(2)}</p>
                     </div>
@@ -6762,7 +7388,7 @@ const ProductDetailView = ({ product, products, onAddToCart, onBack, onSelectPro
                   </button>
                 </div>
                 <div className="text-right">
-                  <p className="text-[9px] md:text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Price Per Bottle</p>
+                  <p className="text-[9px] md:text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Price Per Vial</p>
                   <div className="flex flex-col items-end">
                     <p className="text-lg md:text-xl font-bold text-black">${currentPrice.toFixed(2)}</p>
                     {baseOriginalPrice && baseOriginalPrice > basePrice && (
@@ -7173,7 +7799,8 @@ const CalculatorView = () => {
   );
 };
 
-const OrderSuccessView = ({ onBackToHome }: { onBackToHome: () => void }) => {
+const OrderSuccessView = () => {
+  const navigate = useNavigate();
   return (
     <section className="min-h-[80vh] flex items-center justify-center px-4 py-20 bg-white">
       <motion.div 
@@ -7183,11 +7810,11 @@ const OrderSuccessView = ({ onBackToHome }: { onBackToHome: () => void }) => {
       >
         <div className="flex justify-center mb-12">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-black rounded-xl flex items-center justify-center rotate-3 group-hover:rotate-6 transition-transform">
+            <div className="w-12 h-12 bg-black rounded-xl flex items-center justify-center rotate-3 group-hover:rotate-6 transition-transform shadow-lg shadow-black/20">
               <FlaskConical className="w-6 h-6 text-emerald-400" />
             </div>
-            <div className="text-left">
-              <span className="block text-xl font-black tracking-tighter leading-none">ECLIPSE</span>
+            <div className="text-left cursor-pointer" onClick={() => navigate('/')}>
+              <span className="block text-2xl font-black tracking-tighter leading-none">ECLIPSE</span>
               <span className="block text-[10px] font-bold tracking-[0.3em] text-emerald-500 leading-none mt-1">RESEARCH</span>
             </div>
           </div>
@@ -7233,7 +7860,7 @@ const OrderSuccessView = ({ onBackToHome }: { onBackToHome: () => void }) => {
         </div>
 
         <button 
-          onClick={onBackToHome}
+          onClick={() => navigate('/')}
           className="inline-flex items-center gap-3 px-12 py-5 bg-black text-white font-bold rounded-2xl hover:bg-emerald-600 transition-all active:scale-95 shadow-xl shadow-black/10 group"
         >
           Continue Shopping
@@ -7244,9 +7871,128 @@ const OrderSuccessView = ({ onBackToHome }: { onBackToHome: () => void }) => {
   );
 };
 
+// --- Page Components ---
+
+const ProductPage = ({ products, onAddToCart, settings, timeLeft }: { 
+  products: Product[], 
+  onAddToCart: (p: Product, qty: number, dosage?: string) => void,
+  settings: SiteSettings | null,
+  timeLeft: any
+}) => {
+  const navigate = useNavigate();
+  const { id } = useParams();
+  const product = products.find(p => p.id === id);
+
+  if (!product) return <Navigate to="/shop" />;
+
+  return (
+    <ProductDetailView 
+      product={product} 
+      products={products}
+      onAddToCart={onAddToCart} 
+      onSelectProduct={(p) => {
+        navigate(`/product/${p.id}`);
+        window.scrollTo(0, 0);
+      }}
+      settings={settings}
+      timeLeft={timeLeft}
+    />
+  );
+};
+
+const CartPage = ({ 
+  cart, 
+  updateQuantity, 
+  removeFromCart, 
+  handleCheckout, 
+  addToCart,
+  appliedPromo,
+  setAppliedPromo
+}: { 
+  cart: CartItem[], 
+  updateQuantity: (id: string, delta: number, dosage?: string) => void,
+  removeFromCart: (id: string, dosage?: string) => void,
+  handleCheckout: () => void,
+  addToCart: (p: Product, qty: number, dosage?: string) => void,
+  appliedPromo: any,
+  setAppliedPromo: (promo: any) => void
+}) => {
+  const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+  return (
+    <div className="pt-32 pb-20 px-4 max-w-7xl mx-auto">
+      <h1 className="text-4xl font-black mb-8 uppercase tracking-tighter">Your Shopping Cart</h1>
+      
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 text-white">
+        <div className="lg:col-span-2 space-y-4">
+          {cart.length > 0 ? (
+            cart.map((item, idx) => (
+              <div key={`${item.id}-${item.dosage}-${idx}`} className="flex gap-4 bg-white/5 border border-white/10 rounded-2xl p-4">
+                <img src={item.image} alt={item.name} className="w-24 h-24 object-cover rounded-xl" referrerPolicy="no-referrer" />
+                <div className="flex-1">
+                  <h3 className="font-bold text-lg">{item.name}</h3>
+                  {item.dosage && <p className="text-emerald-500 text-sm font-bold uppercase tracking-wider">{item.dosage}</p>}
+                  <div className="flex items-center gap-4 mt-2">
+                    <div className="flex items-center gap-2 bg-black border border-white/10 rounded-lg px-2 py-1">
+                      <button onClick={() => updateQuantity(item.id, -1, item.dosage)}><Minus className="w-3 h-3" /></button>
+                      <span className="text-sm font-bold min-w-[20px] text-center">{item.quantity}</span>
+                      <button onClick={() => updateQuantity(item.id, 1, item.dosage)}><Plus className="w-3 h-3" /></button>
+                    </div>
+                    <button onClick={() => removeFromCart(item.id, item.dosage)} className="text-red-500 text-xs font-bold uppercase tracking-widest hover:underline px-2 py-1">Remove</button>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="font-bold text-emerald-500">${(item.price * item.quantity).toFixed(2)}</p>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="py-20 text-center bg-white/5 border border-white/10 rounded-3xl">
+              <ShoppingCart className="w-12 h-12 mx-auto text-gray-500 mb-4" />
+              <p className="text-gray-400 font-bold mb-4">Your cart is currently empty.</p>
+              <Link to="/shop" className="inline-flex items-center gap-2 px-8 py-3 bg-emerald-500 text-white font-bold rounded-xl">
+                Continue Shopping
+              </Link>
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-6">
+          <div className="bg-white/5 border border-white/10 rounded-3xl p-6">
+            <h3 className="text-lg font-bold mb-6">Order Summary</h3>
+            <div className="space-y-4 mb-6">
+              <div className="flex justify-between text-gray-400 font-medium">
+                <span>Subtotal</span>
+                <span className="text-white">${subtotal.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-gray-400 font-medium">
+                <span>Shipping</span>
+                <span className="text-white">Calculated at checkout</span>
+              </div>
+              <div className="pt-4 border-t border-white/10 flex justify-between font-black text-xl">
+                <span>Total</span>
+                <span className="text-emerald-500">${subtotal.toFixed(2)}</span>
+              </div>
+            </div>
+            <button 
+              onClick={handleCheckout}
+              disabled={cart.length === 0}
+              className="w-full py-4 bg-emerald-500 text-white font-black rounded-2xl hover:bg-emerald-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed uppercase tracking-widest shadow-xl shadow-emerald-500/20"
+            >
+              Secure Checkout
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const AppContent = () => {
-  const [view, setView] = useState<'home' | 'shop' | 'about' | 'coas' | 'admin' | 'account' | 'checkout' | 'product' | 'terms' | 'shipping' | 'refund' | 'privacy' | 'calculator' | 'affiliate' | 'order-success' | 'refer'>('home');
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { user, loading, isAdmin, setIsAdmin, setIsFreeShippingEnabled } = useAuth();
+  
   const [cart, setCart] = useState<CartItem[]>(() => {
     const saved = localStorage.getItem('eclipse_cart');
     try {
@@ -7257,6 +8003,7 @@ const AppContent = () => {
   });
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [authMessage, setAuthMessage] = useState<string | null>(null);
   const [editingOrder, setEditingOrder] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [appliedPromo, setAppliedPromo] = useState<{ code: string, discount: number } | null>(null);
@@ -7264,7 +8011,6 @@ const AppContent = () => {
   const [isDbEmpty, setIsDbEmpty] = useState(false);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [isCartLoaded, setIsCartLoaded] = useState(false);
-  const { user, isAdmin } = useAuth();
   const [settings, setSettings] = useState<SiteSettings | null>(null);
   const [timeLeft, setTimeLeft] = useState<{ days: number, hours: number, minutes: number, seconds: number } | null>(null);
 
@@ -7489,7 +8235,7 @@ const AppContent = () => {
     // Klaviyo Active on Site tracking
     const _learnq = (window as any)._learnq || [];
     _learnq.push(['track', 'Active on Site']);
-  }, [view]);
+  }, [location.pathname]);
 
   useEffect(() => {
     if (cart.length === 0) {
@@ -7499,19 +8245,8 @@ const AppContent = () => {
     }
     
     const cartValue = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const cartData = {
-      '$value': cartValue,
-      'ItemNames': cart.map(item => item.name),
-      'CheckoutURL': 'https://eclipseresearch.shop/checkout',
-      'Items': cart.map(item => ({
-        ProductName: item.name,
-        ItemPrice: item.price,
-        Quantity: item.quantity,
-        SKU: item.id
-      }))
-    };
 
-    // Save to localStorage for persistence
+    // Save to localStorage immediately for persistence
     localStorage.setItem('eclipse_cart', JSON.stringify(cart));
     localStorage.setItem('klaviyo_cart', JSON.stringify({
       items: cart.map(item => ({
@@ -7524,27 +8259,75 @@ const AppContent = () => {
       checkoutUrl: 'https://eclipseresearch.shop/checkout'
     }));
 
-    // Fire Klaviyo event with full current cart contents
-    const _learnq = (window as any)._learnq || [];
-    
-    // Attempt to identify from user profile or saved email if available
-    const email = user?.email || userProfile?.email;
-    if (email) {
-      _learnq.push(['identify', { '$email': email }]);
-    }
+    // Debounce Klaviyo tracking by 2 seconds
+    const timeoutId = setTimeout(() => {
+      const cartData = {
+        '$value': cartValue,
+        'ItemNames': cart.map(item => item.name),
+        'CheckoutURL': 'https://eclipseresearch.shop/checkout',
+        'Items': cart.map(item => ({
+          ProductName: item.name,
+          ItemPrice: item.price,
+          Quantity: item.quantity,
+          ImageURL: item.image
+        }))
+      };
 
-    _learnq.push(['track', 'Added to Cart', cartData]);
-  }, [cart]);
+      // Fire Klaviyo event with current cart contents
+      const _learnq = (window as any)._learnq || [];
+      
+      // Attempt to identify from user profile or saved email if available
+      const email = user?.email || userProfile?.email;
+      if (email) {
+        _learnq.push(['identify', { '$email': email }]);
+      }
+
+      _learnq.push(['track', 'Added to Cart', cartData]);
+    }, 2000);
+
+    return () => clearTimeout(timeoutId);
+  }, [cart, user?.email, userProfile?.email]);
+
+  const reduceInventory = async (items: CartItem[]) => {
+    for (const item of items) {
+      try {
+        const productRef = doc(db, 'products', item.id);
+        const productSnap = await getDoc(productRef);
+        
+        if (productSnap.exists()) {
+          const productData = productSnap.data() as Product;
+          
+          if (item.dosage && productData.dosages) {
+            const dosages = [...productData.dosages];
+            const idx = dosages.findIndex(d => d.label === item.dosage);
+            if (idx !== -1) {
+              const currentStock = dosages[idx].stock || 0;
+              const newStock = Math.max(0, currentStock - item.quantity);
+              dosages[idx].stock = newStock;
+              dosages[idx].inStock = newStock > 0;
+              await updateDoc(productRef, { dosages });
+            }
+          } else {
+            const currentStock = productData.stock || 0;
+            const newStock = Math.max(0, currentStock - item.quantity);
+            await updateDoc(productRef, { 
+              stock: newStock,
+              inStock: newStock > 0
+            });
+          }
+        }
+      } catch (err) {
+        console.error(`Error reducing inventory for product ${item.id}:`, err);
+      }
+    }
+  };
 
   const addToCart = (product: Product, quantity: number = 1) => {
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id && item.dosage === product.dosage);
       const newQuantity = existing ? existing.quantity + quantity : quantity;
       
-      // Calculate discounted price based on total quantity of this product
-      let unitPrice = product.price;
-      if (newQuantity >= 3) unitPrice = product.price * 0.85;
-      else if (newQuantity >= 2) unitPrice = product.price * 0.90;
+      const unitPrice = product.price;
 
       if (existing) {
         return prev.map(item => (item.id === product.id && item.dosage === product.dosage) ? { ...item, quantity: newQuantity, price: unitPrice } : item);
@@ -7560,11 +8343,8 @@ const AppContent = () => {
         const newQty = item.quantity + delta;
         if (newQty <= 0) return null;
         
-        // Recalculate price based on new quantity
         const baseProduct = productsList.find(p => p.id === id);
-        let unitPrice = baseProduct ? baseProduct.price : item.price;
-        if (newQty >= 3) unitPrice = (baseProduct?.price || item.price) * 0.85;
-        else if (newQty >= 2) unitPrice = (baseProduct?.price || item.price) * 0.90;
+        const unitPrice = baseProduct ? baseProduct.price : item.price;
         
         return { ...item, quantity: newQty, price: unitPrice };
       }
@@ -7577,12 +8357,14 @@ const AppContent = () => {
   };
 
   const handleCheckout = () => {
+    setIsCartOpen(false);
     if (!user) {
+      setAuthMessage('Please sign in or create an account to continue to checkout.');
       setIsAuthOpen(true);
       return;
     }
-    setIsCartOpen(false);
-    setView('checkout');
+    navigate('/checkout');
+    window.scrollTo(0, 0);
   };
 
   useEffect(() => {
@@ -7597,7 +8379,7 @@ const AppContent = () => {
     }
 
     if (path === '/refer') {
-      setView('refer');
+      navigate('/refer');
     }
 
     if (paymentStatus === 'success') {
@@ -7615,196 +8397,106 @@ const AppContent = () => {
 
     if (paymentStatus === 'cancel') {
       alert('Payment was cancelled. You can try again or choose another payment method.');
-      setView('checkout');
+      navigate('/checkout');
       // Clear URL params
       window.history.replaceState({}, '', '/');
     }
   }, []);
 
-  const isDarkPage = ['home', 'shop', 'refer'].includes(view);
-  const isBannerActive = settings?.countdownActive && timeLeft && ['home', 'shop', 'product', 'checkout'].includes(view);
+  const isDarkPage = ['/', '/shop', '/refer'].includes(location.pathname);
+  const isBannerActive = settings?.countdownActive && timeLeft;
 
   return (
     <div className="min-h-screen bg-[#F9F9F9] font-sans selection:bg-emerald-100 selection:text-emerald-900 overflow-x-hidden">
       <div className="fixed top-0 w-full z-50 bg-transparent pointer-events-none">
         <div className="pointer-events-auto">
-          <CountdownBanner currentView={view} settings={settings} timeLeft={timeLeft} />
+          <CountdownBanner settings={settings} timeLeft={timeLeft} />
           <Navbar 
             cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)} 
             onOpenCart={() => setIsCartOpen(true)}
             onOpenAuth={() => setIsAuthOpen(true)}
-            onNavigate={setView}
-            currentView={view}
           />
         </div>
       </div>
       
       <main className={`${!isDarkPage ? (isBannerActive ? 'pt-[132px]' : 'pt-24') : ''} overflow-x-hidden`}>
-        <AnimatePresence mode="wait">
-          {view === 'home' && (
+        <Routes>
+          <Route path="/" element={
             <motion.div
               key="home"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              <Hero onShopNow={() => setView('shop')} onViewCOAs={() => setView('coas')} />
+              <Hero />
               <PeptideCarousel 
                 products={productsList} 
-                onSelectProduct={(p) => {
-                  setSelectedProduct(p);
-                  setView('product');
-                  window.scrollTo(0, 0);
-                }} 
+                onSelectProduct={(p) => navigate(`/product/${p.id}`)} 
               />
               <FeaturedProducts 
                 products={productsList}
                 onAddToCart={addToCart} 
-                onSelectProduct={(p) => {
-                  setSelectedProduct(p);
-                  setView('product');
-                  window.scrollTo(0, 0);
-                }} 
+                onSelectProduct={(p) => navigate(`/product/${p.id}`)} 
               />
-              <PremiumResearchSection onLearnMore={() => setView('about')} />
+              <PremiumResearchSection onLearnMore={() => navigate('/about')} />
               <ResearchDisclaimer />
             </motion.div>
-          )}
+          } />
 
-          {view === 'about' && (
-            <AboutUsView onBack={() => setView('home')} onShopNow={() => setView('shop')} />
-          )}
-
-          {view === 'calculator' && (
-            <motion.div
-              key="calculator"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-            >
-              <CalculatorView />
-            </motion.div>
-          )}
-
-          {view === 'coas' && (
-            <motion.div
-              key="coas"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-            >
-              <COARequestView />
-            </motion.div>
-          )}
-
-          {view === 'refer' && (
-            <motion.div
-              key="refer"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-            >
-              <ReferralView onNavigate={setView} onOpenAuth={() => setIsAuthOpen(true)} />
-            </motion.div>
-          )}
-
-          {view === 'admin' && isAdmin && (
-            <motion.div
-              key="admin"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-            >
-              <AdminDashboard />
-            </motion.div>
-          )}
-
-          {view === 'account' && user && (
-            <motion.div
-              key="account"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-            >
-              <AccountView 
-                onNavigate={setView} 
-                onEditOrder={(order) => {
-                  setEditingOrder(order);
-                  setCart(order.items);
-                  setView('checkout');
-                  window.scrollTo(0, 0);
-                }}
-              />
-            </motion.div>
-          )}
-
-          {view === 'product' && selectedProduct && (
-            <motion.div
-              key="product"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-            >
-              <ProductDetailView 
-                product={selectedProduct} 
-                products={productsList}
-                onAddToCart={addToCart} 
-                onBack={() => setView('shop')} 
-                onSelectProduct={(p) => {
-                  setSelectedProduct(p);
-                  window.scrollTo(0, 0);
-                }}
-                settings={settings}
-                timeLeft={timeLeft}
-              />
-            </motion.div>
-          )}
-
-          {view === 'shop' && (
-            <ShopView 
-              products={productsList}
-              onAddToCart={addToCart} 
-              onSelectProduct={(p) => {
-                setSelectedProduct(p);
-                setView('product');
-                window.scrollTo(0, 0);
-              }} 
+          <Route path="/shop" element={<ShopView products={productsList} onAddToCart={addToCart} onSelectProduct={(p) => navigate(`/product/${p.id}`)} />} />
+          <Route path="/product/:id" element={<ProductPage products={productsList} onAddToCart={addToCart} settings={settings} timeLeft={timeLeft} />} />
+          <Route path="/cart" element={
+            <CartPage 
+              cart={cart} 
+              updateQuantity={updateQuantity} 
+              removeFromCart={removeFromCart} 
+              handleCheckout={handleCheckout} 
+              addToCart={addToCart}
+              appliedPromo={appliedPromo}
+              setAppliedPromo={setAppliedPromo}
             />
-          )}
-
-          {view === 'terms' && (
-            <TermsView onBack={() => setView('home')} />
-          )}
-
-          {view === 'shipping' && (
-            <ShippingPolicyView onBack={() => setView('home')} />
-          )}
-
-          {view === 'refund' && (
-            <RefundPolicyView onBack={() => setView('home')} />
-          )}
-
-          {view === 'privacy' && (
-            <PrivacyPolicyView onBack={() => setView('home')} />
-          )}
-
-          {view === 'affiliate' && (
-            <AffiliateView onBack={() => setView('home')} />
-          )}
-
-          {view === 'order-success' && (
-            <OrderSuccessView onBackToHome={() => setView('home')} />
-          )}
-
-          {view === 'checkout' && (
-            <motion.div
-              key="checkout"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-            >
+          } />
+          <Route path="/account" element={user ? <AccountView onEditOrder={setEditingOrder} /> : <Navigate to="/" />} />
+          <Route path="/checkout" element={
+            user ? (
               <CheckoutView 
                 cart={cart} 
+                onBack={() => navigate('/cart')} 
+                onComplete={async (info) => {
+                  // For non-card payments (like crypto), we need to save the order here
+                  if (info.paymentMethod !== 'card') {
+                    try {
+                      const orderRef = doc(db, 'orders', info.orderId);
+                      await setDoc(orderRef, {
+                        orderId: info.orderId,
+                        userId: user?.uid || null,
+                        customerName: `${info.shippingInfo.firstName} ${info.shippingInfo.lastName}`,
+                        email: info.shippingInfo.email,
+                        shippingAddress: `${info.shippingInfo.address}${info.shippingInfo.unitNumber ? `, ${info.shippingInfo.unitNumber}` : ''}, ${info.shippingInfo.city}, ${info.shippingInfo.state} ${info.shippingInfo.zip}`,
+                        items: cart,
+                        total: info.total,
+                        status: 'PENDING',
+                        paymentMethod: info.paymentMethod,
+                        referral: info.referralCode || null,
+                        promoCode: info.promoCode || null,
+                        promoDiscount: info.promoDiscount || 0,
+                        createdAt: serverTimestamp(),
+                        updatedAt: serverTimestamp()
+                      });
+                      
+                      // Reduce inventory
+                      await reduceInventory(cart);
+                      
+                      // Clear cart
+                      const cartId = user ? user.uid : getGuestId();
+                      await deleteDoc(doc(db, 'carts', cartId));
+                      setCart([]);
+                    } catch (err) {
+                      console.error('Error saving non-card order:', err);
+                    }
+                  }
+                  navigate('/order-success');
+                }}
                 initialOrder={editingOrder}
                 userProfile={userProfile}
                 appliedPromo={appliedPromo}
@@ -7814,130 +8506,28 @@ const AppContent = () => {
                 onAddToCart={addToCart}
                 onClearCart={() => setCart([])}
                 products={productsList}
-                onBack={() => {
-                  if (editingOrder) {
-                    setEditingOrder(null);
-                    setCart([]);
-                    setView('account');
-                  } else {
-                    setView('shop');
-                  }
-                }} 
-                onComplete={async (data) => {
-                  const { shippingInfo, shippingMethod, paymentMethod, total, promoCode, promoDiscount, orderId: passedOrderId, referralCode } = data;
-                  try {
-                    if (editingOrder) {
-                      await updateDoc(doc(db, 'orders', editingOrder.id), {
-                        items: cart,
-                        total,
-                        shippingInfo,
-                        shippingMethod,
-                        paymentMethod,
-                        promoCode: promoCode || null,
-                        promoDiscount: promoDiscount || 0,
-                        updatedAt: serverTimestamp()
-                      });
-                      alert('Order updated successfully!');
-                      setEditingOrder(null);
-                      setCart([]);
-                      setAppliedPromo(null);
-                      setView('account');
-                    } else {
-                      const orderId = passedOrderId;
-
-                      // Decrement inventory
-                      for (const item of cart) {
-                        const productRef = doc(db, 'products', item.id);
-                        const productSnap = await getDoc(productRef);
-                        if (productSnap.exists()) {
-                          const pData = productSnap.data();
-                          
-                          // Check if this item is a specific dosage version
-                          if (pData.dosages && item.dosage && item.dosage !== pData.dosage) {
-                            const dosageIdx = pData.dosages.findIndex((d: any) => d.label === item.dosage);
-                            if (dosageIdx !== -1) {
-                              const newDosages = [...pData.dosages];
-                              const currentDosageStock = newDosages[dosageIdx].stock || 0;
-                              const newDosageStock = Math.max(0, currentDosageStock - item.quantity);
-                              newDosages[dosageIdx] = {
-                                ...newDosages[dosageIdx],
-                                stock: newDosageStock,
-                                inStock: newDosageStock > 0
-                              };
-                              await updateDoc(productRef, {
-                                dosages: newDosages
-                              });
-                            }
-                          } else {
-                            // Fallback to base product stock
-                            const currentStock = pData.stock || 0;
-                            const newStock = Math.max(0, currentStock - item.quantity);
-                            await updateDoc(productRef, {
-                              stock: newStock,
-                              inStock: newStock > 0
-                            });
-                          }
-                        }
-                      }
-
-                      console.log('Referral Flow: Attaching referralCode to order document:', referralCode);
-                      await setDoc(doc(db, 'orders', orderId), {
-                        userId: user?.uid || null,
-                        customerEmail: shippingInfo.email,
-                        customerName: `${shippingInfo.firstName} ${shippingInfo.lastName}`,
-                        items: cart,
-                        total,
-                        status: 'pending',
-                        shippingInfo,
-                        shippingMethod,
-                        paymentMethod,
-                        promoCode: promoCode || null,
-                        promoDiscount: promoDiscount || 0,
-                        referralCode: referralCode || null,
-                        createdAt: serverTimestamp()
-                      });
-
-                      // If there was a referral, add it to the referrer's referrals array as pending
-                      if (referralCode) {
-                        const referrerRef = doc(db, 'users', referralCode);
-                        const referrerSnap = await getDoc(referrerRef);
-                        if (referrerSnap.exists()) {
-                          const currentReferrals = referrerSnap.data().referrals || [];
-                          await updateDoc(referrerRef, {
-                            referrals: [...currentReferrals, {
-                              email: shippingInfo.email,
-                              orderId: orderId,
-                              status: 'pending',
-                              date: new Date()
-                            }]
-                          });
-                        }
-                      }
-
-                      localStorage.removeItem('referralCode');
-                      
-                      // Explicitly clear cart from Firestore
-                      const cartId = user ? user.uid : getGuestId();
-                      try {
-                        await deleteDoc(doc(db, 'carts', cartId));
-                      } catch (err) {
-                        console.error('Error clearing cart from Firestore:', err);
-                      }
-                      
-                      alert(`Order placed successfully! Your Order ID is: ${orderId}`);
-                      setCart([]);
-                      setAppliedPromo(null);
-                      setView('home');
-                    }
-                  } catch (error) {
-                    console.error(error);
-                    alert('Error processing order.');
-                  }
-                }} 
+                reduceInventory={reduceInventory}
               />
-            </motion.div>
-          )}
-        </AnimatePresence>
+            ) : (
+              <Navigate to="/" replace />
+            )
+          } />
+          <Route path="/about" element={<AboutUsView />} />
+          <Route path="/affiliate" element={<AffiliateView />} />
+          <Route path="/refer" element={<ReferralView onOpenAuth={() => {
+            setAuthMessage('Please sign in or create an account to start referring.');
+            setIsAuthOpen(true);
+          }} />} />
+          <Route path="/calculator" element={<CalculatorView />} />
+          <Route path="/coas" element={<COARequestView />} />
+          <Route path="/terms" element={<TermsView />} />
+          <Route path="/shipping" element={<ShippingPolicyView />} />
+          <Route path="/refund" element={<RefundPolicyView />} />
+          <Route path="/privacy" element={<PrivacyPolicyView />} />
+          <Route path="/order-success" element={<OrderSuccessView />} />
+          <Route path="/admin" element={isAdmin ? <AdminDashboard /> : <Navigate to="/" />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
 
         {/* Features Minimal */}
         <section className="py-24 border-t border-gray-800 bg-black">
@@ -7958,84 +8548,8 @@ const AppContent = () => {
         </section>
       </main>
 
-      <footer className="bg-white border-t border-gray-100 py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-20">
-            <div className="col-span-1">
-              <div className="flex items-center gap-2 mb-6">
-                <img src="https://res.cloudinary.com/ditxwmhnj/image/upload/v1773969647/blacklogo_dbbepi.png" alt="Eclipse Research" className="h-10 w-auto" referrerPolicy="no-referrer" />
-                <span className="text-lg font-bold tracking-tight">ECLIPSE RESEARCH</span>
-              </div>
-              <p className="text-gray-500 text-sm leading-relaxed mb-8">
-                Providing high-purity research compounds to the global scientific community. 
-                Our mission is to accelerate discovery through quality and transparency.
-              </p>
-            </div>
-
-            <div>
-              <h4 className="font-bold mb-6 uppercase text-[10px] tracking-[0.2em] text-gray-400">Navigation</h4>
-              <ul className="space-y-4 text-sm text-gray-600 font-medium">
-                <li><button onClick={() => setView('shop')} className="hover:text-black transition-colors">Shop All Compounds</button></li>
-                <li><button onClick={() => setView('about')} className="hover:text-black transition-colors">About Us</button></li>
-                <li><button onClick={() => setView('affiliate')} className="hover:text-black transition-colors">Become a Research Affiliate</button></li>
-                <li><button onClick={() => setView('calculator')} className="hover:text-black transition-colors">Reconstitution Calculator</button></li>
-                <li><button onClick={() => setView('coas')} className="hover:text-black transition-colors">Request COA's</button></li>
-                <li><button onClick={() => setView('account')} className="hover:text-black transition-colors">My Research Account</button></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-bold mb-6 uppercase text-[10px] tracking-[0.2em] text-gray-400">Legal</h4>
-              <ul className="space-y-4 text-sm text-gray-600 font-medium">
-                <li><button onClick={() => setView('terms')} className="hover:text-black transition-colors">Terms and Conditions</button></li>
-                <li><button onClick={() => setView('shipping')} className="hover:text-black transition-colors">Shipping Policy</button></li>
-                <li><button onClick={() => setView('refund')} className="hover:text-black transition-colors">Refund & Returns</button></li>
-                <li><button onClick={() => setView('privacy')} className="hover:text-black transition-colors">Privacy Policy</button></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-bold mb-6 uppercase text-[10px] tracking-[0.2em] text-gray-400">Contact</h4>
-              <ul className="space-y-4 text-sm text-gray-600 font-medium">
-                <li className="flex flex-col gap-1">
-                  <span className="text-[10px] text-gray-400 uppercase font-bold tracking-widest">Email Support</span>
-                  <a href="mailto:info@eclipseresearch.shop" className="text-emerald-600 hover:underline">info@eclipseresearch.shop</a>
-                </li>
-                <li className="flex flex-col gap-1">
-                  <span className="text-[10px] text-gray-400 uppercase font-bold tracking-widest">Support Hours</span>
-                  <span className="text-gray-900">Mon - Fri: 9AM - 5PM EST</span>
-                </li>
-                <li className="pt-2">
-                  <button onClick={() => setView('home')} className="px-4 py-2 bg-gray-50 border border-gray-100 rounded-xl text-xs font-bold hover:bg-gray-100 transition-all">
-                    Contact Support
-                  </button>
-                </li>
-              </ul>
-            </div>
-          </div>
-          
-          <div className="pt-10 border-t border-gray-100 flex flex-col md:flex-row justify-between items-center gap-8">
-            <div className="flex flex-col md:flex-row items-center gap-4 md:gap-8">
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">© 2026 Eclipse Research. All rights reserved.</p>
-              <div className="flex items-center gap-2 text-[10px] font-bold text-emerald-600 uppercase tracking-widest">
-                <ShieldCheck className="w-3 h-3" /> Secure Research Portal
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <div className="w-10 h-6 bg-gray-50 border border-gray-100 rounded-md flex items-center justify-center p-1">
-                <div className="w-full h-full bg-gray-200 rounded-sm opacity-50"></div>
-              </div>
-              <div className="w-10 h-6 bg-gray-50 border border-gray-100 rounded-md flex items-center justify-center p-1">
-                <div className="w-full h-full bg-gray-200 rounded-sm opacity-50"></div>
-              </div>
-              <div className="w-10 h-6 bg-gray-50 border border-gray-100 rounded-md flex items-center justify-center p-1">
-                <div className="w-full h-full bg-gray-200 rounded-sm opacity-50"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </footer>
-
+      <Footer />
+      
       <CartDrawer 
         isOpen={isCartOpen} 
         onClose={() => setIsCartOpen(false)} 
@@ -8047,7 +8561,14 @@ const AppContent = () => {
         appliedPromo={appliedPromo}
         onApplyPromo={setAppliedPromo}
       />
-      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} onNavigate={setView} />
+      <AuthModal 
+        isOpen={isAuthOpen} 
+        onClose={() => {
+          setIsAuthOpen(false);
+          setAuthMessage(null);
+        }} 
+        message={authMessage || undefined}
+      />
     </div>
   );
 };
@@ -8056,7 +8577,9 @@ export default function App() {
   return (
     <ErrorBoundary>
       <AuthProvider>
-        <AppContent />
+        <BrowserRouter>
+          <AppContent />
+        </BrowserRouter>
       </AuthProvider>
     </ErrorBoundary>
   );

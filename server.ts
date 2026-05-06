@@ -15,7 +15,6 @@ async function startServer() {
 
   app.use(express.json());
 
-  // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },

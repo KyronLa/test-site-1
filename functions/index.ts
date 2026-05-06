@@ -1,4 +1,5 @@
 import { onRequest, onCall, HttpsError } from "firebase-functions/v2/https";
+import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import * as crypto from "crypto";
 import * as admin from "firebase-admin";
 import { GoogleGenAI } from "@google/genai";
@@ -6,6 +7,7 @@ import express from "express";
 import fetch from "node-fetch";
 
 admin.initializeApp();
+const db = admin.firestore();
 
 // --- Sanitization Utility ---
 
@@ -111,16 +113,40 @@ export const createBankfulSession = onCall(async (request) => {
       throw new HttpsError("invalid-argument", "The total amount is invalid.");
     }
 
-    const sanitizedData = sanitizeData(rawData);
-    const { customerEmail, orderId, shippingInfo } = sanitizedData;
+    // Sanitize and extract data
+    const customerEmail = sanitizeString(rawData.customerEmail || "");
+    const orderId = sanitizeString(rawData.orderId || "000001");
+    const shippingInfo = rawData.shippingInfo ? sanitizeData(rawData.shippingInfo) : {};
+    const cart = rawData.cart ? sanitizeData(rawData.cart) : [];
+    const referralCode = sanitizeString(rawData.referralCode || "");
+    const promoCode = sanitizeString(rawData.promoCode || "");
+    const promoDiscountValue = parseFloat(String(rawData.promoDiscount)) || 0;
 
-    // Build payload
+    // Save pending order to Firestore - This ensures the order is visible in the admin panel
+    // even before the payment is completed, and allows the callback/webhook to find it.
+    await db.collection("orders").doc(orderId).set({
+      orderId: orderId,
+      userId: request.auth?.uid || "anonymous",
+      customerName: `${shippingInfo?.firstName || ""} ${shippingInfo?.lastName || ""}`.trim(),
+      email: customerEmail,
+      shippingAddress: `${shippingInfo?.address || ""}, ${shippingInfo?.city || ""}, ${shippingInfo?.state || ""} ${shippingInfo?.zip || ""}`,
+      items: cart,
+      total: totalValue,
+      status: "PENDING",
+      referral: referralCode || null,
+      promoCode: promoCode || null,
+      promoDiscount: promoDiscountValue,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    // Build payload - credentials hardcoded, NOT run through sanitizer
     const payload: Record<string, any> = {
       req_username: "info@eclipseresearch.shop",
-      transaction_type: "CAPTURE",
+      transaction_type: "SALE",
       amount: totalValue.toFixed(2),
       request_currency: "USD",
-      cust_email: customerEmail || "",
+      cust_email: customerEmail,
       cust_fname: shippingInfo?.firstName || "",
       cust_lname: shippingInfo?.lastName || "",
       cust_phone: shippingInfo?.phone || "9999212345",
@@ -129,7 +155,7 @@ export const createBankfulSession = onCall(async (request) => {
       bill_addr_state: shippingInfo?.state || "",
       bill_addr_zip: shippingInfo?.zip || "",
       bill_addr_country: "US",
-      xtl_order_id: orderId || "000001",
+      xtl_order_id: orderId,
       cart_name: "Hosted-Page",
       url_cancel: "https://eclipseresearch.shop/checkout",
       url_complete: "https://us-central1-gen-lang-client-0437247227.cloudfunctions.net/bankfulCallback",
@@ -139,17 +165,16 @@ export const createBankfulSession = onCall(async (request) => {
       return_redirect_url: "Y",
     };
 
-    // Generate Signature
+    // Generate Signature - per Bankful docs: sort keys alphabetically,
+    // exclude empty values, concatenate as key1value1key2value2...
     const salt = "Munyun1028!!";
 
-    const sortedKeys = Object.keys(payload).sort();
-    const filteredKeys = sortedKeys.filter((key) => {
-      const val = payload[key];
-      return val !== null && val !== undefined && val !== "";
-    });
-    const payloadString = filteredKeys.map((key) => `${key}${payload[key]}`).join("");
+    const payloadString = Object.keys(payload)
+      .sort()
+      .filter((k) => payload[k] !== undefined && payload[k] !== null && payload[k] !== "")
+      .map((k) => `${k}${payload[k]}`)
+      .join("");
 
-    console.log("SORTED FILTERED KEYS:", filteredKeys);
     console.log("SIGNATURE PAYLOAD STRING:", payloadString);
 
     const signature = crypto
@@ -176,11 +201,8 @@ export const createBankfulSession = onCall(async (request) => {
       responseData = { raw: responseText };
     }
 
-    console.log("===== BANKFUL API DEBUG START =====");
-    console.log("Status Code:", bankfulRes.status);
-    console.log("Raw Response Text:", responseText);
-    console.log("Parsed Response Data:", JSON.stringify(responseData, null, 2));
-    console.log("===== BANKFUL API DEBUG END =====");
+    console.log("BANKFUL STATUS:", bankfulRes.status);
+    console.log("BANKFUL RESPONSE:", responseText);
 
     if (!bankfulRes.ok || responseData.status === "error") {
       const errorMsg = responseData.errorMessage || responseData.error || "Bankful session creation failed";
@@ -201,6 +223,20 @@ export const bankfulCallback = onRequest(
   async (req: any, res: any) => {
     console.log("Bankful Callback Received:", JSON.stringify(req.body || req.query, null, 2));
     try {
+      // In redirect callbacks, parameters are often in the query string
+      const orderId = req.query?.xtl_order_id || req.body?.xtl_order_id;
+      const transactionId = req.query?.transaction_id || req.body?.transaction_id || req.query?.TRANS_ID || req.body?.TRANS_ID;
+      const responseCode = req.query?.response_code || req.body?.response_code;
+
+      if (orderId && responseCode === "100") {
+        console.log(`Updating order ${orderId} to PAID via callback. Transaction ID: ${transactionId}`);
+        await db.collection("orders").doc(orderId as string).update({
+          status: "paid",
+          transactionId: transactionId || "",
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+      }
+
       res.redirect("https://eclipseresearch.shop/order-success.html");
     } catch (error: any) {
       console.error("Callback Error:", error);
@@ -214,7 +250,22 @@ export const bankfulWebhook = onRequest(
   { invoker: "public" },
   async (req: any, res: any) => {
     console.log("Bankful Webhook Received:", JSON.stringify(req.body, null, 2));
-    res.status(200).send("OK");
+    try {
+      const { xtl_order_id, transaction_id, response_code } = req.body;
+
+      if (xtl_order_id && response_code === "100") {
+        console.log(`Updating order ${xtl_order_id} to PAID via webhook. Transaction ID: ${transaction_id}`);
+        await db.collection("orders").doc(xtl_order_id as string).update({
+          status: "paid",
+          transactionId: transaction_id || "",
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+      }
+      res.status(200).send("OK");
+    } catch (error) {
+      console.error("Webhook Update Error:", error);
+      res.status(500).send("Internal Server Error");
+    }
   }
 );
 
@@ -257,5 +308,52 @@ export const submitWebhook = onCall(async (request) => {
   } catch (error: any) {
     console.error("Webhook Error:", error);
     throw new HttpsError("internal", error.message || "Webhook failed");
+  }
+});
+
+// --- Sync Orders to Google Sheets ---
+export const onOrderCreatedSyncToSheets = onDocumentCreated("orders/{orderId}", async (event) => {
+  const snapshot = event.data;
+  if (!snapshot) {
+    console.log("No data associated with the event");
+    return;
+  }
+
+  const orderData = snapshot.data();
+  // REPLACE THIS URL with your newly deployed Apps Script Web App URL from Step 3
+  const GOOGLE_SHEETS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxXgrci3lb2Fkdqv5_rSU8dQRCqjORQzLb5iuIJWkoshW-474dpIzIQmtP3Fhl6yTrdTA/exec";
+
+  if (!GOOGLE_SHEETS_WEB_APP_URL || GOOGLE_SHEETS_WEB_APP_URL.includes("REPLACE_WITH")) {
+    console.log("Google Sheets Web App URL not configured. Skipping sync.");
+    return;
+  }
+
+  try {
+    const payload = {
+      orderId: orderData.orderId,
+      customerName: orderData.customerName,
+      email: orderData.email,
+      shippingAddress: orderData.shippingAddress,
+      items: orderData.items || [],
+      total: orderData.total,
+      status: orderData.status,
+      promoCode: orderData.promoCode,
+      referral: orderData.referral,
+      createdAt: orderData.createdAt ? (orderData.createdAt.toDate ? orderData.createdAt.toDate().toISOString() : orderData.createdAt) : new Date().toISOString()
+    };
+
+    const response = await fetch(GOOGLE_SHEETS_WEB_APP_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Google Sheets responded with ${response.status}`);
+    }
+
+    console.log(`Successfully synced order ${orderData.orderId} to Google Sheets`);
+  } catch (error) {
+    console.error(`Error syncing order ${orderData.orderId} to Google Sheets:`, error);
   }
 });

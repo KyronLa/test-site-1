@@ -68,6 +68,8 @@
         "total": { "type": "number" },
         "status": { "type": "string", "enum": ["pending", "awaiting tracking", "shipped", "delivered", "cancelled"] },
         "trackingNumber": { "type": "string", "description": "The shipping tracking number." },
+        "promoCode": { "type": "string", "description": "The promo code used at checkout." },
+        "promoDiscount": { "type": "number", "description": "The discount amount in USD." },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["userId", "items", "total", "status", "createdAt"]
