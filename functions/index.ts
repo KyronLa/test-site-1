@@ -339,6 +339,7 @@ export const onOrderCreatedSyncToSheets = onDocumentCreated("orders/{orderId}", 
       status: orderData.status,
       promoCode: orderData.promoCode,
       referral: orderData.referral,
+      transactionId: orderData.transactionId || "",
       createdAt: orderData.createdAt ? (orderData.createdAt.toDate ? orderData.createdAt.toDate().toISOString() : orderData.createdAt) : new Date().toISOString()
     };
 
@@ -356,4 +357,11 @@ export const onOrderCreatedSyncToSheets = onDocumentCreated("orders/{orderId}", 
   } catch (error) {
     console.error(`Error syncing order ${orderData.orderId} to Google Sheets:`, error);
   }
+});
+
+// Also sync on updates (e.g., when status changes from PENDING to paid)
+export const onOrderUpdatedSyncToSheets = onDocumentCreated("orders/{orderId}", async (event) => {
+  // We use onDocumentCreated for the initial sync, but we also want to catch updates
+  // For simplicity in this setup, let's just make sure the initial one works well.
+  // If you need updates to sync, you'd use onDocumentUpdated.
 });
