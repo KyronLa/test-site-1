@@ -312,25 +312,35 @@ export const submitWebhook = onCall(async (request) => {
 });
 
 // --- Sync Orders to Google Sheets ---
-const GOOGLE_SHEETS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxXgrci3lb2Fkdqv5_rSU8dQRCqjORQzLb5iuIJWkoshW-474dpIzIQmtP3Fhl6yTrdTA/exec";
+const GOOGLE_SHEETS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwhezZGI99U9ZbdbqHa4_uUwp72Wb_V9gqV1AybI1IgGHz_Ouie1NShxnsmsxCCdJGCIQ/exec";
 
-async function syncOrderToSheets(orderData: any) {
+async function syncOrderToSheets(orderData: any, docId: string) {
   if (!GOOGLE_SHEETS_WEB_APP_URL || GOOGLE_SHEETS_WEB_APP_URL.includes("REPLACE_WITH")) {
     console.log("Google Sheets Web App URL not configured. Skipping sync.");
     return;
   }
 
   try {
+    // Handle variations in field names across the app
+    const customerName = orderData.customerName || 
+                        (orderData.shippingInfo ? `${orderData.shippingInfo.firstName} ${orderData.shippingInfo.lastName}` : "Guest");
+    
+    const email = orderData.email || orderData.customerEmail || 
+                 (orderData.shippingInfo ? orderData.shippingInfo.email : "N/A");
+
+    const shippingAddress = orderData.shippingAddress || 
+                           (orderData.shippingInfo ? `${orderData.shippingInfo.address}${orderData.shippingInfo.unitNumber ? `, ${orderData.shippingInfo.unitNumber}` : ""}, ${orderData.shippingInfo.city}, ${orderData.shippingInfo.state} ${orderData.shippingInfo.zip}` : "N/A");
+
     const payload = {
-      orderId: orderData.orderId || "",
-      customerName: orderData.customerName || "",
-      email: orderData.email || "",
-      shippingAddress: orderData.shippingAddress || "",
+      orderId: orderData.orderId || docId,
+      customerName: customerName,
+      email: email,
+      shippingAddress: shippingAddress,
       items: orderData.items || [],
       total: orderData.total || 0,
-      status: orderData.status || "",
-      promoCode: orderData.promoCode || "",
-      referral: orderData.referral || "",
+      status: orderData.status || "pending",
+      promoCode: orderData.promoCode || orderData.discountCode || "",
+      referral: orderData.referral || orderData.referralCode || "",
       transactionId: orderData.transactionId || "",
       createdAt: orderData.createdAt ? (orderData.createdAt.toDate ? orderData.createdAt.toDate().toISOString() : orderData.createdAt) : new Date().toISOString()
     };
@@ -345,16 +355,16 @@ async function syncOrderToSheets(orderData: any) {
       throw new Error(`Google Sheets responded with ${response.status}`);
     }
 
-    console.log(`Successfully synced order ${orderData.orderId} to Google Sheets`);
+    console.log(`Successfully synced order ${docId} to Google Sheets`);
   } catch (error) {
-    console.error(`Error syncing order ${orderData.orderId} to Google Sheets:`, error);
+    console.error(`Error syncing order ${docId} to Google Sheets:`, error);
   }
 }
 
 export const onOrderCreatedSyncToSheets = onDocumentCreated("orders/{orderId}", async (event) => {
   const snapshot = event.data;
   if (!snapshot) return;
-  await syncOrderToSheets(snapshot.data());
+  await syncOrderToSheets(snapshot.data(), event.params.orderId);
 });
 
 export const onOrderUpdatedSyncToSheets = onDocumentUpdated("orders/{orderId}", async (event) => {
@@ -365,8 +375,8 @@ export const onOrderUpdatedSyncToSheets = onDocumentUpdated("orders/{orderId}", 
   const dataAfter = after.data();
   const dataBefore = before.data();
 
-  // Only sync if status or transactionId changed
+  // Only sync if status or transactionId changed to avoid loops
   if (dataAfter.status !== dataBefore.status || dataAfter.transactionId !== dataBefore.transactionId) {
-    await syncOrderToSheets(dataAfter);
+    await syncOrderToSheets(dataAfter, event.params.orderId);
   }
 });
