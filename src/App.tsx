@@ -1,6 +1,6 @@
 /**
  * Eclipse Research Shop - Main Application
- * Last Updated: 2026-05-06 - Order Flow & Admin Fixes
+ * Last Updated: 2026-05-07 - Order Flow, Sheets Sync & Admin Table Polishing
  */
 import React, { useState, useEffect, useRef, createContext, useContext, Component } from 'react';
 import { 
@@ -60,7 +60,8 @@ import {
   Check,
   Crown,
   ArrowRight,
-  Lock
+  Lock,
+  ExternalLink
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 const maskEmail = (email: string) => {
@@ -3013,6 +3014,66 @@ const AdminDashboard = () => {
     }
   };
 
+  const syncOrderManual = async (order: any) => {
+    const GOOGLE_SHEETS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxqHp17g0Ebd-T_qFvJE3yCf7XMA3FytSZx8bjgRHs3Qw6PvjTbtzYFSdCY2LGpsBIe5A/exec";
+    
+    try {
+      const customerName = order.customerName || (order.shippingInfo ? `${order.shippingInfo.firstName} ${order.shippingInfo.lastName}` : "Guest");
+      const email = order.email || order.customerEmail || (order.shippingInfo ? order.shippingInfo.email : "N/A");
+      const shippingAddress = order.shippingAddress || (order.shippingInfo ? `${order.shippingInfo.address}, ${order.shippingInfo.city}, ${order.shippingInfo.state} ${order.shippingInfo.zip}` : "N/A");
+      
+      const payload = {
+        orderId: order.orderId || order.id,
+        customerName,
+        email,
+        shippingAddress,
+        items: order.items || [],
+        total: order.total || 0,
+        status: order.status || "pending",
+        promoCode: order.promoCode || order.discountCode || "",
+        referral: order.referral || order.referralCode || "",
+        transactionId: order.transactionId || "",
+        createdAt: order.createdAt ? (order.createdAt.toDate ? order.createdAt.toDate().toISOString() : order.createdAt) : new Date().toISOString()
+      };
+
+      const response = await fetch(GOOGLE_SHEETS_WEB_APP_URL, {
+        method: "POST",
+        body: JSON.stringify(payload)
+      });
+
+      if (response.ok) {
+        alert("Synced successfully!");
+      } else {
+        alert("Sync failed. Check console.");
+      }
+    } catch (err) {
+      console.error("Manual sync error:", err);
+      alert("Error syncing: " + err);
+    }
+  };
+
+  const handleCreditReferral = async (order: any) => {
+    if (order.referralCredited) return;
+    const referralId = order.referral || order.referralCode;
+    if (!referralId) {
+      alert('This order has no referral associated with it.');
+      return;
+    }
+
+    if (!confirm('Manually credit the referral for this order?')) return;
+
+    try {
+      await processReferralCredit(order.id, order);
+      await updateDoc(doc(db, 'orders', order.id), {
+        referralCredited: true
+      });
+      alert('Referral credited successfully!');
+    } catch (err) {
+      console.error('Error manually crediting referral:', err);
+      alert('Failed to credit referral.');
+    }
+  };
+
   const updateCoaStatus = async (requestId: string, newStatus: string) => {
     try {
       await updateDoc(doc(db, 'coa_requests', requestId), {
@@ -3789,14 +3850,14 @@ const AdminDashboard = () => {
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
                   <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest w-10"></th>
-                  <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">ORDER ID</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Order ID</th>
                   <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Customer Name</th>
                   <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Email</th>
                   <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Shipping Address</th>
                   <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Total</th>
                   <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Status</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest text-center">Promo Code</th>
                   <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest text-center">Referral</th>
-                  <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest text-center">Promo</th>
                   <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Transaction ID</th>
                   <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Tracking</th>
                   <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Actions</th>
@@ -3841,45 +3902,53 @@ const AdminDashboard = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-center">
-                        {(o.referral || o.referralCode) ? (
-                          <div className="flex flex-col items-center gap-1">
-                            <span className="text-[10px] text-gray-500 truncate max-w-[120px]">
-                              {users.find(u => u.id === (o.referral || o.referralCode))?.email || 'Unknown User'}
-                            </span>
-                            {o.referralCredited ? (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[8px] font-bold bg-emerald-100 text-emerald-700 uppercase tracking-wider w-fit">
-                                Credited
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[8px] font-bold bg-amber-100 text-amber-700 uppercase tracking-wider w-fit">
-                                Pending
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-gray-300">-</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 text-center">
                         {(o.promoCode || o.discountCode) ? (
-                          <div className="flex flex-col items-center">
+                          <div className="flex flex-col items-center gap-1">
                             <span className="px-2 py-1 bg-black text-white text-[10px] font-black rounded-lg uppercase tracking-widest">
                               {o.promoCode || o.discountCode}
                             </span>
                             {o.promoDiscount > 0 && (
-                              <span className="text-[9px] text-emerald-600 font-bold mt-1">
+                              <span className="text-[9px] text-emerald-600 font-bold">
                                 -${(parseFloat(String(o.promoDiscount)) || 0).toFixed(2)}
                               </span>
                             )}
                           </div>
                         ) : (
-                          <span className="text-gray-300">-</span>
+                          <span className="text-gray-300">—</span>
                         )}
                       </td>
-                      <td className="px-6 py-4 text-[10px] font-mono text-gray-500">
-                        {o.transactionId || '-'}
+                      <td className="px-6 py-4 text-center">
+                        {(o.referral || o.referralCode) ? (
+                          <div className="flex flex-col items-center gap-1">
+                            <span className="text-[10px] text-gray-500 truncate max-w-[120px]">
+                              {users.find(u => u.id === (o.referral || o.referralCode))?.email || (o.referral || o.referralCode)}
+                            </span>
+                            {o.referralCredited ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[8px] font-bold bg-emerald-100 text-emerald-700 uppercase tracking-wider w-fit">
+                                <Check className="w-2 h-2 mr-0.5" /> Credited
+                              </span>
+                            ) : (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleCreditReferral(o);
+                                }}
+                                className="px-2 py-1 bg-gray-900 text-white text-[8px] font-bold rounded uppercase tracking-widest hover:bg-black transition-colors"
+                              >
+                                Credit User
+                              </button>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-gray-300">—</span>
+                        )}
                       </td>
-                      <td className="px-6 py-4" onClick={(e) => e.stopPropagation()} onContextMenu={(e) => e.stopPropagation()}>
+                      <td className="px-6 py-4">
+                        <span className="font-mono text-[10px] text-gray-400 break-all">
+                          {o.transactionId || '—'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center gap-2 min-w-[200px]">
                           <div className="relative flex-1">
                             <input 
@@ -3887,72 +3956,69 @@ const AdminDashboard = () => {
                               placeholder="Tracking #"
                               value={o.id in trackingInputs ? trackingInputs[o.id] : (o.trackingNumber || '')}
                               onChange={(e) => setTrackingInputs({ ...trackingInputs, [o.id]: e.target.value })}
-                              onClick={(e) => e.stopPropagation()}
-                              onFocus={(e) => e.stopPropagation()}
-                              className="text-[10px] w-full pl-3 pr-8 py-2 bg-gray-50 border border-gray-100 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none font-mono"
+                              className="text-[10px] w-full px-3 py-2 bg-gray-50 border border-gray-100 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none font-mono"
                             />
-                            {(trackingInputs[o.id] || o.trackingNumber) && (
-                              <button 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (trackingInputs[o.id] === '') {
-                                    setTrackingInputs(prev => {
-                                      const next = { ...prev };
-                                      delete next[o.id];
-                                      return next;
-                                    });
-                                  } else {
-                                    setTrackingInputs({ ...trackingInputs, [o.id]: '' });
-                                  }
-                                }}
-                                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 transition-colors"
-                              >
-                                <X className="w-3 h-3" />
-                              </button>
-                            )}
                           </div>
-                          <div className="flex items-center gap-1">
-                            <button 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                markOrderShipped(o.id);
-                              }}
-                              className={`p-2 rounded-lg transition-all flex-shrink-0 ${
-                                o.id in trackingInputs 
-                                  ? 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-lg shadow-emerald-100' 
-                                  : 'bg-gray-100 text-gray-400 hover:text-black'
-                              }`}
-                              title={o.status === 'shipped' ? 'Update Tracking' : 'Mark Shipped'}
-                            >
-                              {o.status === 'shipped' && !(o.id in trackingInputs) ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Truck className="w-3.5 h-3.5" />}
-                            </button>
-                            {o.trackingNumber && (
-                              <button 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  navigator.clipboard.writeText(o.trackingNumber);
-                                }}
-                                className="p-2 bg-gray-50 text-gray-400 hover:text-emerald-500 rounded-lg transition-all"
-                                title="Copy Tracking"
-                              >
-                                <Copy className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                          </div>
+                          <button 
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              const tracking = trackingInputs[o.id] !== undefined ? trackingInputs[o.id] : o.trackingNumber;
+                              if (!tracking) return;
+                              try {
+                                await setDoc(doc(db, 'orders', o.id), { 
+                                  trackingNumber: tracking.trim(),
+                                  status: tracking ? 'shipped' : o.status
+                                }, { merge: true });
+                                if (tracking) {
+                                  setTrackingInputs(prev => {
+                                    const next = { ...prev };
+                                    delete next[o.id];
+                                    return next;
+                                  });
+                                }
+                                alert('Tracking updated!');
+                              } catch (err) {
+                                console.error('Error updating tracking:', err);
+                                alert('Failed to update tracking.');
+                              }
+                            }}
+                            className="p-1.5 bg-black text-white rounded-lg hover:bg-gray-900 transition-colors"
+                          >
+                            <Save className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       </td>
                       <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
-                        <select 
-                          value={o.status}
-                          onChange={(e) => updateOrderStatus(o.id, e.target.value)}
-                          className="text-[10px] font-bold uppercase tracking-widest bg-gray-50 border border-gray-100 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                        >
-                          <option value="pending">Pending</option>
-                          <option value="awaiting tracking">Awaiting Tracking</option>
-                          <option value="shipped">Shipped</option>
-                          <option value="delivered">Delivered</option>
-                          <option value="cancelled">Cancelled</option>
-                        </select>
+                        <div className="flex items-center gap-2">
+                          <button 
+                            onClick={() => window.open(`mailto:${o.email || o.customerEmail}?subject=Order ${o.orderId} Update`, '_blank')}
+                            className="p-1.5 text-gray-400 hover:text-black transition-colors"
+                          >
+                            <Mail className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={async () => {
+                              if (confirm('Are you sure you want to delete this order? This cannot be undone.')) {
+                                try {
+                                  await deleteDoc(doc(db, 'orders', o.id));
+                                } catch (err) {
+                                  console.error('Error deleting order:', err);
+                                  alert('Failed to delete order. Check console.');
+                                }
+                              }
+                            }}
+                            className="p-1.5 text-gray-400 hover:text-red-600 transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => syncOrderManual(o)}
+                            className="p-1.5 text-gray-400 hover:text-emerald-600 transition-colors"
+                            title="Sync to Sheets"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                     <AnimatePresence>

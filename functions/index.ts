@@ -312,11 +312,12 @@ export const submitWebhook = onCall(async (request) => {
 });
 
 // --- Sync Orders to Google Sheets ---
-const GOOGLE_SHEETS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwhezZGI99U9ZbdbqHa4_uUwp72Wb_V9gqV1AybI1IgGHz_Ouie1NShxnsmsxCCdJGCIQ/exec";
+const GOOGLE_SHEETS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxqHp17g0Ebd-T_qFvJE3yCf7XMA3FytSZx8bjgRHs3Qw6PvjTbtzYFSdCY2LGpsBIe5A/exec";
 
 async function syncOrderToSheets(orderData: any, docId: string) {
+  console.log(`[SHEETS SYNC] Starting sync for order ${docId}...`);
   if (!GOOGLE_SHEETS_WEB_APP_URL || GOOGLE_SHEETS_WEB_APP_URL.includes("REPLACE_WITH")) {
-    console.log("Google Sheets Web App URL not configured. Skipping sync.");
+    console.log("[SHEETS SYNC] Google Sheets Web App URL not configured. Skipping sync.");
     return;
   }
 
@@ -345,38 +346,54 @@ async function syncOrderToSheets(orderData: any, docId: string) {
       createdAt: orderData.createdAt ? (orderData.createdAt.toDate ? orderData.createdAt.toDate().toISOString() : orderData.createdAt) : new Date().toISOString()
     };
 
+    console.log(`[SHEETS SYNC] Sending payload to ${GOOGLE_SHEETS_WEB_APP_URL}:`, JSON.stringify(payload));
+
     const response = await fetch(GOOGLE_SHEETS_WEB_APP_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
 
+    const responseText = await response.text();
+    console.log(`[SHEETS SYNC] Response status: ${response.status}. Body: ${responseText}`);
+
     if (!response.ok) {
-      throw new Error(`Google Sheets responded with ${response.status}`);
+      throw new Error(`Google Sheets responded with ${response.status}: ${responseText}`);
     }
 
-    console.log(`Successfully synced order ${docId} to Google Sheets`);
+    console.log(`[SHEETS SYNC] Successfully synced order ${docId} to Google Sheets`);
   } catch (error) {
-    console.error(`Error syncing order ${docId} to Google Sheets:`, error);
+    console.error(`[SHEETS SYNC] Error syncing order ${docId} to Google Sheets:`, error);
   }
 }
 
 export const onOrderCreatedSyncToSheets = onDocumentCreated("orders/{orderId}", async (event) => {
+  console.log(`[TRIGGER] orderCreated: ${event.params.orderId}`);
   const snapshot = event.data;
-  if (!snapshot) return;
+  if (!snapshot) {
+    console.error("[TRIGGER] snapshot is missing");
+    return;
+  }
   await syncOrderToSheets(snapshot.data(), event.params.orderId);
 });
 
 export const onOrderUpdatedSyncToSheets = onDocumentUpdated("orders/{orderId}", async (event) => {
+  console.log(`[TRIGGER] orderUpdated: ${event.params.orderId}`);
   const after = event.data?.after;
   const before = event.data?.before;
-  if (!after || !before) return;
+  if (!after || !before) {
+    console.error("[TRIGGER] snapshot data is missing");
+    return;
+  }
 
   const dataAfter = after.data();
   const dataBefore = before.data();
 
   // Only sync if status or transactionId changed to avoid loops
   if (dataAfter.status !== dataBefore.status || dataAfter.transactionId !== dataBefore.transactionId) {
+    console.log(`[TRIGGER] Relevant change detected for ${event.params.orderId} (Status: ${dataBefore.status} -> ${dataAfter.status})`);
     await syncOrderToSheets(dataAfter, event.params.orderId);
+  } else {
+    console.log(`[TRIGGER] No relevant changes for ${event.params.orderId}. skipping sync.`);
   }
 });
