@@ -75,42 +75,6 @@ const maskEmail = (email: string) => {
  * to ensure reliability in preview environments where Cloud Functions
  * triggers might not be active.
  */
-const syncOrderToSheetsManual = async (order: any) => {
-  const GOOGLE_SHEETS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxS7FLiSRrtJLHdI2mmGSTeHfS57Kdz1zxUHJJRtkIoTxhLqekEUKskAgd8pEfx5rH41g/exec";
-  
-  try {
-    // Format items as a readable string for the sheet
-    const itemsString = Array.isArray(order.items) 
-      ? order.items.map((item: any) => `${item.quantity}x ${item.name}`).join(', ')
-      : "N/A";
-
-    const payload = {
-      orderId: order.orderId || order.id || "N/A",
-      createdAt: order.createdAt instanceof Timestamp ? order.createdAt.toDate().toISOString() : 
-                 (order.createdAt?.toDate ? order.createdAt.toDate().toISOString() : (order.createdAt || new Date().toISOString())),
-      customerName: order.customerName || "Guest",
-      email: order.email || "N/A",
-      shippingAddress: order.shippingAddress || "N/A",
-      items: itemsString,
-      total: order.total || 0,
-      status: (order.status || "PENDING").toUpperCase(),
-      promoCode: order.promoCode || "",
-      referral: order.referral || "",
-      transactionId: order.transactionId || ""
-    };
-
-    console.log('[SHEETS SYNC] Synchronizing order (manual sync):', payload.orderId);
-    
-    await fetch(GOOGLE_SHEETS_WEB_APP_URL, {
-      method: "POST",
-      mode: "no-cors",
-      headers: { "Content-Type": "text/plain" }, // Avoid preflight OPTIONS request
-      body: JSON.stringify(payload)
-    });
-  } catch (err) {
-    console.error("[SHEETS SYNC] Error triggering sync:", err);
-  }
-};
 import { 
   signInWithRedirect,
   getRedirectResult,
@@ -2929,12 +2893,6 @@ const AdminDashboard = () => {
         status: newStatus,
         updatedAt: serverTimestamp()
       });
-
-      // Trigger Sheets Sync
-      const updatedOrderSnap = await getDoc(orderRef);
-      if (updatedOrderSnap.exists()) {
-        syncOrderToSheetsManual({ id: orderId, ...updatedOrderSnap.data() });
-      }
     } catch (error) {
       console.error('Error updating order:', error);
       alert('Failed to update order status.');
@@ -3047,12 +3005,6 @@ const AdminDashboard = () => {
         updatedAt: serverTimestamp(),
         referralCredited: referralProcessed
       });
-
-      // Trigger Sheets Sync
-      const updatedOrderSnap = await getDoc(orderRef);
-      if (updatedOrderSnap.exists()) {
-        syncOrderToSheetsManual({ id: orderId, ...updatedOrderSnap.data() });
-      }
 
       // Clear local input state so it reverts to showing the DB value
       setTrackingInputs(prev => {
@@ -6682,20 +6634,6 @@ const CheckoutView = ({
               updatedAt: serverTimestamp()
             }, { merge: true });
 
-            // Trigger Sheets Sync automatically
-            syncOrderToSheetsManual({
-              orderId,
-              customerName: `${sanitizedShippingInfo.firstName} ${sanitizedShippingInfo.lastName}`,
-              email: sanitizedShippingInfo.email,
-              shippingAddress: `${sanitizedShippingInfo.address}${sanitizedShippingInfo.unitNumber ? `, ${sanitizedShippingInfo.unitNumber}` : ''}, ${sanitizedShippingInfo.city}, ${sanitizedShippingInfo.state} ${sanitizedShippingInfo.zip}`,
-              items: cart,
-              total,
-              status: 'PENDING',
-              promoCode: appliedPromo?.code,
-              referral: referralCode,
-              createdAt: new Date().toISOString()
-            });
-
             // Reduce inventory
             await reduceInventory(cart);
           } catch (saveErr) {
@@ -8572,20 +8510,6 @@ const AppContent = () => {
                         updatedAt: serverTimestamp()
                       });
 
-                      // Trigger Sheets Sync automatically (Manual fallback)
-                      syncOrderToSheetsManual({
-                        orderId: info.orderId,
-                        customerName: `${info.shippingInfo.firstName} ${info.shippingInfo.lastName}`,
-                        email: info.shippingInfo.email,
-                        shippingAddress: `${info.shippingInfo.address}${info.shippingInfo.unitNumber ? `, ${info.shippingInfo.unitNumber}` : ''}, ${info.shippingInfo.city}, ${info.shippingInfo.state} ${info.shippingInfo.zip}`,
-                        items: cart,
-                        total: info.total,
-                        status: 'PENDING',
-                        promoCode: info.promoCode,
-                        referral: info.referralCode,
-                        createdAt: new Date().toISOString()
-                      });
-                      
                       // Reduce inventory
                       await reduceInventory(cart);
                       

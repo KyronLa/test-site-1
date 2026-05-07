@@ -337,9 +337,13 @@ async function syncOrderToSheets(orderData: any, docId: string) {
       ? orderData.items.map((item: any) => `${item.quantity || 1}x ${item.name || item.productName || 'Item'}`).join(', ')
       : "N/A";
 
+    const createdAt = orderData.createdAt ? (orderData.createdAt.toDate ? orderData.createdAt.toDate().toISOString() : orderData.createdAt) : new Date().toISOString();
+
+    // STRICT PAYLOAD ORDERING to match Google Sheet headers:
+    // A: Order ID, B: Date, C: Customer Name, D: Email, E: Shipping Address, F: Items, G: Total, H: Status, I: Promo Code, J: Referral, K: Transaction ID
     const payload = {
       orderId: orderData.orderId || docId,
-      createdAt: orderData.createdAt ? (orderData.createdAt.toDate ? orderData.createdAt.toDate().toISOString() : orderData.createdAt) : new Date().toISOString(),
+      date: createdAt,
       customerName: customerName,
       email: email,
       shippingAddress: shippingAddress,
@@ -349,7 +353,7 @@ async function syncOrderToSheets(orderData: any, docId: string) {
       promoCode: orderData.promoCode || orderData.discountCode || "",
       referral: orderData.referral || orderData.referralCode || "",
       transactionId: orderData.transactionId || "",
-      trackingNumber: orderData.trackingNumber || ""
+      createdAt: createdAt // Also keep original key at the end as requested just in case
     };
 
     console.log(`[SHEETS SYNC] Sending payload to ${GOOGLE_SHEETS_WEB_APP_URL}:`, JSON.stringify(payload));
