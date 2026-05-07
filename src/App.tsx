@@ -60,7 +60,8 @@ import {
   Check,
   Crown,
   ArrowRight,
-  Lock
+  Lock,
+  FileSpreadsheet
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 const maskEmail = (email: string) => {
@@ -2796,6 +2797,68 @@ const AdminDashboard = () => {
   const [isDeletingPromo, setIsDeletingPromo] = useState<string | null>(null);
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
   const [trackingInputs, setTrackingInputs] = useState<Record<string, string>>({});
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const syncAllUnsyncedOrders = async () => {
+    const unsynced = orders.filter(o => !o.syncedToSheets);
+    if (unsynced.length === 0) {
+      alert("All orders are already synced!");
+      return;
+    }
+
+    if (!confirm(`Found ${unsynced.length} unsynced orders. Sync them now?`)) return;
+
+    setIsSyncing(true);
+    let successCount = 0;
+    const GOOGLE_SHEETS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxS7FLiSRrtJLHdI2mmGSTeHfS57Kdz1zxUHJJRtkIoTxhLqekEUKskAgd8pEfx5rH41g/exec";
+
+    try {
+      for (const order of unsynced) {
+        try {
+          const itemsString = Array.isArray(order.items) 
+            ? order.items.map((item: any) => `${item.quantity || 1}x ${item.name || item.productName || 'Item'}`).join(', ')
+            : "N/A";
+
+          const createdAt = order.createdAt ? (order.createdAt.toDate ? order.createdAt.toDate().toISOString() : (order.createdAt instanceof Date ? order.createdAt.toISOString() : order.createdAt)) : new Date().toISOString();
+
+          const payload = {
+            orderId: order.orderId || order.id,
+            date: createdAt,
+            customerName: order.customerName || (order.shippingInfo ? `${order.shippingInfo.firstName} ${order.shippingInfo.lastName}` : "Guest"),
+            email: order.email || order.shippingInfo?.email || "N/A",
+            shippingAddress: order.shippingAddress || (order.shippingInfo ? `${order.shippingInfo.address}${order.shippingInfo.unitNumber ? `, ${order.shippingInfo.unitNumber}` : ""}, ${order.shippingInfo.city}, ${order.shippingInfo.state} ${order.shippingInfo.zip}` : "N/A"),
+            items: itemsString,
+            total: order.total || 0,
+            status: (order.status || "pending").toUpperCase(),
+            promoCode: order.promoCode || order.discountCode || "",
+            referral: order.referral || order.referralCode || "",
+            transactionId: order.transactionId || ""
+          };
+
+          await fetch(GOOGLE_SHEETS_WEB_APP_URL, {
+            method: "POST",
+            mode: "no-cors",
+            headers: { "Content-Type": "text/plain" },
+            body: JSON.stringify(payload)
+          });
+
+          await updateDoc(doc(db, 'orders', order.id), {
+            syncedToSheets: true,
+            syncedAt: serverTimestamp()
+          });
+          successCount++;
+        } catch (err) {
+          console.error(`Failed to sync order ${order.id}:`, err);
+        }
+      }
+      alert(`Successfully synced ${successCount} orders to Google Sheets!`);
+    } catch (err) {
+      console.error("Sync error:", err);
+      alert("An error occurred during sync.");
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   useEffect(() => {
     const usersQuery = collection(db, 'users');
@@ -3803,6 +3866,18 @@ const AdminDashboard = () => {
         </div>
       ) : activeTab === 'orders' ? (
         <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Order Management</h2>
+            <button
+              onClick={syncAllUnsyncedOrders}
+              disabled={isSyncing}
+              className={`flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-2xl font-bold text-sm shadow-lg shadow-emerald-200 hover:bg-emerald-700 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed`}
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              {isSyncing ? 'Syncing...' : 'Sync to Google Sheets'}
+            </button>
+          </div>
+
           {fetchError && (
             <div className="p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-600 text-sm">
               <AlertCircle className="w-5 h-5 flex-shrink-0" />

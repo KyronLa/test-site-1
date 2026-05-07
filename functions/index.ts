@@ -367,7 +367,14 @@ async function syncOrderToSheets(orderData: any, docId: string) {
     const responseText = await response.text();
     console.log(`[SHEETS SYNC] Response status: ${response.status}. Body: ${responseText}`);
 
-    if (!response.ok) {
+    if (response.ok || response.status === 200) {
+      // Mark as synced to prevent manual duplicate sync
+      await admin.firestore().collection('orders').doc(docId).update({
+        syncedToSheets: true,
+        syncedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+      console.log(`[SHEETS SYNC] Successfully updated Firestore for order ${docId}`);
+    } else {
       throw new Error(`Google Sheets responded with ${response.status}: ${responseText}`);
     }
 
