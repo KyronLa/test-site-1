@@ -343,6 +343,7 @@ async function syncOrderToSheets(orderData: any, docId: string) {
       promoCode: orderData.promoCode || orderData.discountCode || "",
       referral: orderData.referral || orderData.referralCode || "",
       transactionId: orderData.transactionId || "",
+      trackingNumber: orderData.trackingNumber || "",
       createdAt: orderData.createdAt ? (orderData.createdAt.toDate ? orderData.createdAt.toDate().toISOString() : orderData.createdAt) : new Date().toISOString()
     };
 
@@ -389,9 +390,11 @@ export const onOrderUpdatedSyncToSheets = onDocumentUpdated("orders/{orderId}", 
   const dataAfter = after.data();
   const dataBefore = before.data();
 
-  // Only sync if status or transactionId changed to avoid loops
-  if (dataAfter.status !== dataBefore.status || dataAfter.transactionId !== dataBefore.transactionId) {
-    console.log(`[TRIGGER] Relevant change detected for ${event.params.orderId} (Status: ${dataBefore.status} -> ${dataAfter.status})`);
+  // Only sync if status, transactionId, or trackingNumber changed to avoid loops
+  if (dataAfter.status !== dataBefore.status || 
+      dataAfter.transactionId !== dataBefore.transactionId || 
+      dataAfter.trackingNumber !== dataBefore.trackingNumber) {
+    console.log(`[TRIGGER] Relevant change detected for ${event.params.orderId}`);
     await syncOrderToSheets(dataAfter, event.params.orderId);
   } else {
     console.log(`[TRIGGER] No relevant changes for ${event.params.orderId}. skipping sync.`);

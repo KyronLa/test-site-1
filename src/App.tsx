@@ -60,8 +60,7 @@ import {
   Check,
   Crown,
   ArrowRight,
-  Lock,
-  ExternalLink
+  Lock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 const maskEmail = (email: string) => {
@@ -3014,44 +3013,6 @@ const AdminDashboard = () => {
     }
   };
 
-  const syncOrderManual = async (order: any) => {
-    const GOOGLE_SHEETS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxqHp17g0Ebd-T_qFvJE3yCf7XMA3FytSZx8bjgRHs3Qw6PvjTbtzYFSdCY2LGpsBIe5A/exec";
-    
-    try {
-      const customerName = order.customerName || (order.shippingInfo ? `${order.shippingInfo.firstName} ${order.shippingInfo.lastName}` : "Guest");
-      const email = order.email || order.customerEmail || (order.shippingInfo ? order.shippingInfo.email : "N/A");
-      const shippingAddress = order.shippingAddress || (order.shippingInfo ? `${order.shippingInfo.address}, ${order.shippingInfo.city}, ${order.shippingInfo.state} ${order.shippingInfo.zip}` : "N/A");
-      
-      const payload = {
-        orderId: order.orderId || order.id,
-        customerName,
-        email,
-        shippingAddress,
-        items: order.items || [],
-        total: order.total || 0,
-        status: order.status || "pending",
-        promoCode: order.promoCode || order.discountCode || "",
-        referral: order.referral || order.referralCode || "",
-        transactionId: order.transactionId || "",
-        createdAt: order.createdAt ? (order.createdAt.toDate ? order.createdAt.toDate().toISOString() : order.createdAt) : new Date().toISOString()
-      };
-
-      const response = await fetch(GOOGLE_SHEETS_WEB_APP_URL, {
-        method: "POST",
-        body: JSON.stringify(payload)
-      });
-
-      if (response.ok) {
-        alert("Synced successfully!");
-      } else {
-        alert("Sync failed. Check console.");
-      }
-    } catch (err) {
-      console.error("Manual sync error:", err);
-      alert("Error syncing: " + err);
-    }
-  };
-
   const handleCreditReferral = async (order: any) => {
     if (order.referralCredited) return;
     const referralId = order.referral || order.referralCode;
@@ -4010,13 +3971,6 @@ const AdminDashboard = () => {
                             className="p-1.5 text-gray-400 hover:text-red-600 transition-colors"
                           >
                             <Trash2 className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => syncOrderManual(o)}
-                            className="p-1.5 text-gray-400 hover:text-emerald-600 transition-colors"
-                            title="Sync to Sheets"
-                          >
-                            <ExternalLink className="w-4 h-4" />
                           </button>
                         </div>
                       </td>
