@@ -1,5 +1,5 @@
 import { onRequest, onCall, HttpsError } from "firebase-functions/v2/https";
-import { onDocumentCreated } from "firebase-functions/v2/firestore";
+import { onDocumentCreated, onDocumentUpdated } from "firebase-functions/v2/firestore";
 import * as crypto from "crypto";
 import * as admin from "firebase-admin";
 import { GoogleGenAI } from "@google/genai";
@@ -312,17 +312,9 @@ export const submitWebhook = onCall(async (request) => {
 });
 
 // --- Sync Orders to Google Sheets ---
-export const onOrderCreatedSyncToSheets = onDocumentCreated("orders/{orderId}", async (event) => {
-  const snapshot = event.data;
-  if (!snapshot) {
-    console.log("No data associated with the event");
-    return;
-  }
+const GOOGLE_SHEETS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxXgrci3lb2Fkdqv5_rSU8dQRCqjORQzLb5iuIJWkoshW-474dpIzIQmtP3Fhl6yTrdTA/exec";
 
-  const orderData = snapshot.data();
-  // REPLACE THIS URL with your newly deployed Apps Script Web App URL from Step 3
-  const GOOGLE_SHEETS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxXgrci3lb2Fkdqv5_rSU8dQRCqjORQzLb5iuIJWkoshW-474dpIzIQmtP3Fhl6yTrdTA/exec";
-
+async function syncOrderToSheets(orderData: any) {
   if (!GOOGLE_SHEETS_WEB_APP_URL || GOOGLE_SHEETS_WEB_APP_URL.includes("REPLACE_WITH")) {
     console.log("Google Sheets Web App URL not configured. Skipping sync.");
     return;
@@ -330,15 +322,15 @@ export const onOrderCreatedSyncToSheets = onDocumentCreated("orders/{orderId}", 
 
   try {
     const payload = {
-      orderId: orderData.orderId,
-      customerName: orderData.customerName,
-      email: orderData.email,
-      shippingAddress: orderData.shippingAddress,
+      orderId: orderData.orderId || "",
+      customerName: orderData.customerName || "",
+      email: orderData.email || "",
+      shippingAddress: orderData.shippingAddress || "",
       items: orderData.items || [],
-      total: orderData.total,
-      status: orderData.status,
-      promoCode: orderData.promoCode,
-      referral: orderData.referral,
+      total: orderData.total || 0,
+      status: orderData.status || "",
+      promoCode: orderData.promoCode || "",
+      referral: orderData.referral || "",
       transactionId: orderData.transactionId || "",
       createdAt: orderData.createdAt ? (orderData.createdAt.toDate ? orderData.createdAt.toDate().toISOString() : orderData.createdAt) : new Date().toISOString()
     };
@@ -357,11 +349,24 @@ export const onOrderCreatedSyncToSheets = onDocumentCreated("orders/{orderId}", 
   } catch (error) {
     console.error(`Error syncing order ${orderData.orderId} to Google Sheets:`, error);
   }
+}
+
+export const onOrderCreatedSyncToSheets = onDocumentCreated("orders/{orderId}", async (event) => {
+  const snapshot = event.data;
+  if (!snapshot) return;
+  await syncOrderToSheets(snapshot.data());
 });
 
-// Also sync on updates (e.g., when status changes from PENDING to paid)
-export const onOrderUpdatedSyncToSheets = onDocumentCreated("orders/{orderId}", async (event) => {
-  // We use onDocumentCreated for the initial sync, but we also want to catch updates
-  // For simplicity in this setup, let's just make sure the initial one works well.
-  // If you need updates to sync, you'd use onDocumentUpdated.
+export const onOrderUpdatedSyncToSheets = onDocumentUpdated("orders/{orderId}", async (event) => {
+  const after = event.data?.after;
+  const before = event.data?.before;
+  if (!after || !before) return;
+
+  const dataAfter = after.data();
+  const dataBefore = before.data();
+
+  // Only sync if status or transactionId changed
+  if (dataAfter.status !== dataBefore.status || dataAfter.transactionId !== dataBefore.transactionId) {
+    await syncOrderToSheets(dataAfter);
+  }
 });
