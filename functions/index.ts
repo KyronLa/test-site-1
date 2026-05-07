@@ -312,7 +312,7 @@ export const submitWebhook = onCall(async (request) => {
 });
 
 // --- Sync Orders to Google Sheets ---
-const GOOGLE_SHEETS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxqHp17g0Ebd-T_qFvJE3yCf7XMA3FytSZx8bjgRHs3Qw6PvjTbtzYFSdCY2LGpsBIe5A/exec";
+const GOOGLE_SHEETS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxS7FLiSRrtJLHdI2mmGSTeHfS57Kdz1zxUHJJRtkIoTxhLqekEUKskAgd8pEfx5rH41g/exec";
 
 async function syncOrderToSheets(orderData: any, docId: string) {
   console.log(`[SHEETS SYNC] Starting sync for order ${docId}...`);
@@ -332,19 +332,24 @@ async function syncOrderToSheets(orderData: any, docId: string) {
     const shippingAddress = orderData.shippingAddress || 
                            (orderData.shippingInfo ? `${orderData.shippingInfo.address}${orderData.shippingInfo.unitNumber ? `, ${orderData.shippingInfo.unitNumber}` : ""}, ${orderData.shippingInfo.city}, ${orderData.shippingInfo.state} ${orderData.shippingInfo.zip}` : "N/A");
 
+    // Format items as a readable string for the sheet
+    const itemsString = Array.isArray(orderData.items) 
+      ? orderData.items.map((item: any) => `${item.quantity || 1}x ${item.name || item.productName || 'Item'}`).join(', ')
+      : "N/A";
+
     const payload = {
       orderId: orderData.orderId || docId,
+      createdAt: orderData.createdAt ? (orderData.createdAt.toDate ? orderData.createdAt.toDate().toISOString() : orderData.createdAt) : new Date().toISOString(),
       customerName: customerName,
       email: email,
       shippingAddress: shippingAddress,
-      items: orderData.items || [],
+      items: itemsString,
       total: orderData.total || 0,
-      status: orderData.status || "pending",
+      status: (orderData.status || "pending").toUpperCase(),
       promoCode: orderData.promoCode || orderData.discountCode || "",
       referral: orderData.referral || orderData.referralCode || "",
       transactionId: orderData.transactionId || "",
-      trackingNumber: orderData.trackingNumber || "",
-      createdAt: orderData.createdAt ? (orderData.createdAt.toDate ? orderData.createdAt.toDate().toISOString() : orderData.createdAt) : new Date().toISOString()
+      trackingNumber: orderData.trackingNumber || ""
     };
 
     console.log(`[SHEETS SYNC] Sending payload to ${GOOGLE_SHEETS_WEB_APP_URL}:`, JSON.stringify(payload));
@@ -390,10 +395,11 @@ export const onOrderUpdatedSyncToSheets = onDocumentUpdated("orders/{orderId}", 
   const dataAfter = after.data();
   const dataBefore = before.data();
 
-  // Only sync if status, transactionId, or trackingNumber changed to avoid loops
+  // Sync if status, transactionId, trackingNumber, or promo/referral info changed
   if (dataAfter.status !== dataBefore.status || 
       dataAfter.transactionId !== dataBefore.transactionId || 
-      dataAfter.trackingNumber !== dataBefore.trackingNumber) {
+      dataAfter.trackingNumber !== dataBefore.trackingNumber ||
+      dataAfter.referralCredited !== dataBefore.referralCredited) {
     console.log(`[TRIGGER] Relevant change detected for ${event.params.orderId}`);
     await syncOrderToSheets(dataAfter, event.params.orderId);
   } else {
